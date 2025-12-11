@@ -20,8 +20,8 @@ from datetime import datetime
 # Config
 # ---------------------------
 
-SCREEN_WIDTH = 1024
-SCREEN_HEIGHT = 768
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
 GRID_COLS = 4
 GRID_ROWS = 3
 
