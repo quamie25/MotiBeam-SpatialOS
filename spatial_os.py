@@ -575,12 +575,112 @@ class MotiBeamOS:
                 print(f"[MARKETPLACE] Installing {px_names[actual_index]}...")
 
     def render_home_realm(self):
-        """Home - Smart home control (to be implemented)"""
-        pass
+        """Home - Smart home control"""
+        selected = self.realm_data['home_realm']['selected']
+        devices_state = self.realm_data['home_realm']['devices']
+
+        # Header
+        title_font = pygame.font.SysFont(None, 64, bold=True)
+        title = title_font.render('🏠 HOME CONTROL', True, (100, 255, 150))
+        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 50))
+
+        # Device configurations
+        devices = [
+            {'id': 'living_lights', 'emoji': '💡', 'name': 'Living Room', 'type': 'toggle'},
+            {'id': 'bedroom_lights', 'emoji': '🛏️', 'name': 'Bedroom', 'type': 'toggle'},
+            {'id': 'temp', 'emoji': '🌡️', 'name': 'Thermostat', 'type': 'adjust'},
+            {'id': 'security', 'emoji': '🛡️', 'name': 'Security', 'type': 'toggle'},
+            {'id': 'door', 'emoji': '🚪', 'name': 'Front Door', 'type': 'toggle'},
+            {'id': 'garage', 'emoji': '🚗', 'name': 'Garage', 'type': 'toggle'}
+        ]
+
+        card_width = 280
+        card_height = 220
+        gap = 40
+        start_x = 120
+        start_y = 160
+
+        for i, device in enumerate(devices):
+            row = i // 3
+            col = i % 3
+
+            x = start_x + col * (card_width + gap)
+            y = start_y + row * (card_height + gap)
+
+            card_rect = pygame.Rect(x, y, card_width, card_height)
+
+            # Highlight selected
+            if i == selected:
+                pygame.draw.rect(self.screen, (255, 255, 255), card_rect.inflate(6, 6), 3, border_radius=15)
+
+            # Color based on state
+            state = devices_state[device['id']]
+            if device['type'] == 'toggle':
+                bg_color = (50, 100, 50) if state else (50, 50, 60)
+            else:  # adjust (thermostat)
+                bg_color = (60, 80, 120)
+
+            pygame.draw.rect(self.screen, bg_color, card_rect, border_radius=15)
+
+            # Emoji
+            emoji_font = pygame.font.SysFont(None, 84)
+            emoji = emoji_font.render(device['emoji'], True, (255, 255, 255))
+            self.screen.blit(emoji, (x + card_width // 2 - emoji.get_width() // 2, y + 20))
+
+            # Name
+            name_font = pygame.font.SysFont(None, 32, bold=True)
+            name = name_font.render(device['name'], True, (255, 255, 255))
+            self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 110))
+
+            # State display
+            if device['type'] == 'toggle':
+                state_text = 'ON' if state else 'OFF'
+                state_color = (100, 255, 100) if state else (150, 150, 150)
+            else:  # adjust (temperature)
+                state_text = f"{state}°F"
+                state_color = (100, 200, 255)
+
+            state_font = pygame.font.SysFont(None, 42, bold=True)
+            state_surf = state_font.render(state_text, True, state_color)
+            self.screen.blit(state_surf, (x + card_width // 2 - state_surf.get_width() // 2, y + 155))
+
+        # Help
+        help_font = pygame.font.SysFont(None, 20)
+        help_text = help_font.render('Arrow Keys: Navigate | ENTER: Toggle/Adjust | ESC: Back', True, (150, 160, 180))
+        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 720))
 
     def handle_home_realm_input(self, key):
-        """Handle Home realm input (to be implemented)"""
-        pass
+        """Handle Home realm input"""
+        selected = self.realm_data['home_realm']['selected']
+        devices_state = self.realm_data['home_realm']['devices']
+
+        device_ids = ['living_lights', 'bedroom_lights', 'temp', 'security', 'door', 'garage']
+        device_names = ['Living Room Lights', 'Bedroom Lights', 'Thermostat', 'Security System', 'Front Door Lock', 'Garage Door']
+
+        if key == pygame.K_LEFT:
+            if selected % 3 > 0:
+                self.realm_data['home_realm']['selected'] = selected - 1
+        elif key == pygame.K_RIGHT:
+            if selected % 3 < 2 and selected < 5:
+                self.realm_data['home_realm']['selected'] = selected + 1
+        elif key == pygame.K_UP:
+            if selected >= 3:
+                self.realm_data['home_realm']['selected'] = selected - 3
+        elif key == pygame.K_DOWN:
+            if selected < 3:
+                self.realm_data['home_realm']['selected'] = selected + 3
+        elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
+            device_id = device_ids[selected]
+            if device_id == 'temp':
+                # Adjust temperature up by 1
+                current_temp = devices_state[device_id]
+                devices_state[device_id] = min(85, current_temp + 1)
+                print(f"[HOME] {device_names[selected]} adjusted to {devices_state[device_id]}°F")
+            else:
+                # Toggle device
+                devices_state[device_id] = not devices_state[device_id]
+                state_str = "ON" if devices_state[device_id] else "OFF"
+                print(f"[HOME] {device_names[selected]} turned {state_str}")
 
     def render_clinical(self):
         """Clinical - Health monitoring (to be implemented)"""
