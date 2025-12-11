@@ -915,12 +915,107 @@ class MotiBeamOS:
             print(f"[EDUCATION] Starting {subject_names[selected]} session...")
 
     def render_transport(self):
-        """Transport - Mobility (to be implemented)"""
-        pass
+        """Transport - Mobility and navigation"""
+        selected = self.realm_data['transport']['selected']
+
+        # Header
+        title_font = pygame.font.SysFont(None, 64, bold=True)
+        title = title_font.render('🚗 TRANSPORT', True, (100, 180, 255))
+        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 40))
+
+        # Current location section
+        loc_section = pygame.Rect(80, 115, 900, 80)
+        pygame.draw.rect(self.screen, (25, 30, 45), loc_section, border_radius=12)
+
+        loc_label_font = pygame.font.SysFont(None, 24)
+        loc_label = loc_label_font.render('Current Location:', True, (180, 190, 200))
+        self.screen.blit(loc_label, (100, 130))
+
+        loc_value_font = pygame.font.SysFont(None, 36, bold=True)
+        loc_value = loc_value_font.render('📍 123 Main Street, Cypress, TX 77433', True, (100, 200, 255))
+        self.screen.blit(loc_value, (100, 160))
+
+        # Destinations label
+        dest_label_font = pygame.font.SysFont(None, 32, bold=True)
+        dest_label = dest_label_font.render('Quick Destinations', True, (220, 230, 240))
+        self.screen.blit(dest_label, (80, 230))
+
+        # Destinations
+        destinations = [
+            {'emoji': '🏠', 'name': 'Home', 'address': '123 Main St', 'eta': '0 min'},
+            {'emoji': '💼', 'name': 'Work', 'address': '456 Business Blvd', 'eta': '15 min'},
+            {'emoji': '🏫', 'name': 'School', 'address': '789 Education Dr', 'eta': '8 min'},
+            {'emoji': '🏥', 'name': 'Hospital', 'address': 'Memorial Medical Ctr', 'eta': '12 min'},
+            {'emoji': '🛒', 'name': 'Grocery', 'address': 'Whole Foods Market', 'eta': '5 min'},
+            {'emoji': '⛽', 'name': 'Gas Station', 'address': 'Shell Station', 'eta': '3 min'}
+        ]
+
+        card_width = 280
+        card_height = 140
+        gap = 35
+        start_x = 120
+        start_y = 290
+
+        for i, dest in enumerate(destinations):
+            row = i // 3
+            col = i % 3
+
+            x = start_x + col * (card_width + gap)
+            y = start_y + row * (card_height + gap)
+
+            card_rect = pygame.Rect(x, y, card_width, card_height)
+
+            # Highlight selected
+            if i == selected:
+                pygame.draw.rect(self.screen, (255, 255, 255), card_rect.inflate(6, 6), 3, border_radius=12)
+
+            pygame.draw.rect(self.screen, (30, 40, 60), card_rect, border_radius=12)
+
+            # Emoji
+            emoji_font = pygame.font.SysFont(None, 56)
+            emoji = emoji_font.render(dest['emoji'], True, (255, 255, 255))
+            self.screen.blit(emoji, (x + 15, y + 15))
+
+            # Name
+            name_font = pygame.font.SysFont(None, 32, bold=True)
+            name = name_font.render(dest['name'], True, (255, 255, 255))
+            self.screen.blit(name, (x + 80, y + 20))
+
+            # Address
+            address_font = pygame.font.SysFont(None, 18)
+            address = address_font.render(dest['address'], True, (180, 190, 210))
+            self.screen.blit(address, (x + 15, y + 75))
+
+            # ETA
+            eta_font = pygame.font.SysFont(None, 26, bold=True)
+            eta = eta_font.render(f"🕐 {dest['eta']}", True, (100, 255, 150))
+            self.screen.blit(eta, (x + 15, y + 105))
+
+        # Help
+        help_font = pygame.font.SysFont(None, 20)
+        help_text = help_font.render('Arrow Keys: Navigate | ENTER: Navigate to Destination | ESC: Back', True, (150, 160, 180))
+        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 720))
 
     def handle_transport_input(self, key):
-        """Handle Transport input (to be implemented)"""
-        pass
+        """Handle Transport input"""
+        selected = self.realm_data['transport']['selected']
+
+        dest_names = ['Home', 'Work', 'School', 'Hospital', 'Grocery Store', 'Gas Station']
+
+        if key == pygame.K_LEFT:
+            if selected % 3 > 0:
+                self.realm_data['transport']['selected'] = selected - 1
+        elif key == pygame.K_RIGHT:
+            if selected % 3 < 2 and selected < 5:
+                self.realm_data['transport']['selected'] = selected + 1
+        elif key == pygame.K_UP:
+            if selected >= 3:
+                self.realm_data['transport']['selected'] = selected - 3
+        elif key == pygame.K_DOWN:
+            if selected < 3:
+                self.realm_data['transport']['selected'] = selected + 3
+        elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
+            print(f"[TRANSPORT] Calculating route to {dest_names[selected]}...")
 
     # ==================== MAIN LOOP ====================
 
