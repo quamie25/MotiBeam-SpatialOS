@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+import os
+import pygame
+import time
+import math
+
+# Force Pi desktop display
+os.environ.setdefault("SDL_VIDEODRIVER", "x11")
+os.environ.setdefault("DISPLAY", ":0")
+
+pygame.init()
+
+# Try fullscreen 1920x1080 → 1280x720 → 800x600 window
+def create_screen():
+    modes = [
+        (1920, 1080, pygame.FULLSCREEN),
+        (1280, 720, pygame.FULLSCREEN),
+        (800, 600, 0),
+    ]
+    for w, h, flags in modes:
+        try:
+            screen = pygame.display.set_mode((w, h), flags)
+            print(f"[DISPLAY] Using {w}x{h} ({'FULLSCREEN' if flags else 'WINDOWED'})")
+            return screen
+        except Exception as e:
+            print(f"[DISPLAY] Failed {w}x{h}: {e}")
+    # Last resort
+    return pygame.display.set_mode((800, 600))
+
+screen = create_screen()
+WIDTH, HEIGHT = screen.get_size()
+pygame.display.set_caption("MotiBeam Spatial OS – Kickstarter Demo")
+
+# Colors
+BG = (3, 8, 20)
+CYAN = (0, 255, 200)
+PURPLE = (180, 80, 255)
+WHITE = (240, 240, 255)
+MUTED = (150, 170, 190)
+ACCENT_RED = (255, 80, 80)
+ACCENT_YELLOW = (255, 210, 80)
+ACCENT_GREEN = (80, 255, 160)
+
+# Fonts (scaled by resolution)
+def make_font(size):
+    return pygame.font.Font(None, int(size * (HEIGHT / 1080.0)))
+
+FONT_TITLE = make_font(80)
+FONT_SUB = make_font(40)
+FONT_BODY = make_font(32)
+FONT_FOOT = make_font(26)
+
+# Realms to show (shortened from your console script)
+REALMS = [
+    {
+        "name": "EMERGENCY RESPONSE REALM",
+        "symbol": "🚑",
+        "accent": ACCENT_RED,
+        "subtitle": "911 Dispatch • Crisis Response • Medical Emergency Management",
+        "bullets": [
+            "📞 Critical 911 call: suspected cardiac event",
+            "🗺️  Spatial mapping of building & access points",
+            "🚑 Optimal unit dispatch & ETA optimization",
+            "🔮 Predictive rerouting around live traffic",
+        ],
+    },
+    {
+        "name": "SECURITY & SURVEILLANCE REALM",
+        "symbol": "🛡️",
+        "accent": ACCENT_YELLOW,
+        "subtitle": "Perimeter Defense • Access Control • Threat Detection",
+        "bullets": [
+            "🎥 40+ AI-analyzed camera feeds",
+            "📡 360° spatial perimeter monitoring",
+            "⚠️ Anomaly detection in loading dock ZONE-D",
+            "🔮 AR overlays for live subject tracking",
+        ],
+    },
+    {
+        "name": "ENTERPRISE WORKSPACE REALM",
+        "symbol": "🏢",
+        "accent": ACCENT_GREEN,
+        "subtitle": "Smart Office • AI Meetings • Spatial Productivity",
+        "bullets": [
+            "📊 Live KPIs projected onto physical walls",
+            "🤖 AI-orchestrated meetings & task routing",
+            "🧠 Wellness & burnout risk indicators",
+            "🌐 Hybrid collaboration with spatial overlays",
+        ],
+    },
+    {
+        "name": "AVIATION CONTROL REALM",
+        "symbol": "✈️",
+        "accent": PURPLE,
+        "subtitle": "Air Traffic • Collision Avoidance • AR Cockpit",
+        "bullets": [
+            "🛰️ Spatial mapping of air corridors",
+            "⚠️ Conflict detection & deconfliction paths",
+            "🔮 AR cockpit overlays for pilots",
+            "📉 Fuel & route optimization suggestions",
+        ],
+    },
+    {
+        "name": "MARITIME OPERATIONS REALM",
+        "symbol": "⚓",
+        "accent": CYAN,
+        "subtitle": "Vessel Navigation • Port Automation • Marine Safety",
+        "bullets": [
+            "🗺️ Dynamic ocean routing w/ storm avoidance",
+            "🚢 Port traffic & berth assignment overlays",
+            "📡 AIS + sensor fusion for vessel tracking",
+            "🛟 Safety alerts for crew & cargo zones",
+        ],
+    },
+]
+
+def draw_ambient_background(t):
+    # Soft animated circles
+    for i in range(6):
+        phase = t * 0.3 + i
+        radius = int(160 + 40 * math.sin(phase))
+        alpha = 40 + int(20 * (1 + math.sin(phase * 1.5)))
+        cx = int(WIDTH * (0.2 + 0.15 * i))
+        cy = int(HEIGHT * (0.3 + 0.05 * math.cos(phase * 0.7)))
+
+        surf = pygame.Surface((radius * 2, radius * 2), pygame.SRCALPHA)
+        pygame.draw.circle(
+            surf,
+            (0, 255, 200, alpha),
+            (radius, radius),
+            radius,
+            width=3,
+        )
+        screen.blit(surf, (cx - radius, cy - radius))
+
+def render_realm(realm, progress):
+    """
+    progress: 0.0 → 1.0 across its whole duration
+    We’ll fade in on first 15%, steady, fade out last 15%
+    """
+    screen.fill(BG)
+    t = pygame.time.get_ticks() / 1000.0
+    draw_ambient_background(t)
+
+    # Fade factor
+    if progress < 0.15:
+        alpha = progress / 0.15
+    elif progress > 0.85:
+        alpha = (1.0 - progress) / 0.15
+    else:
+        alpha = 1.0
+    alpha = max(0.0, min(1.0, alpha))
+
+    # Title
+    title_text = f"{realm['symbol']}  {realm['name']}"
+    title_surf = FONT_TITLE.render(title_text, True, realm["accent"])
+    title_rect = title_surf.get_rect(center=(WIDTH // 2, int(HEIGHT * 0.18)))
+    # Glow
+    glow_scale = 1.08
+    glow_surf = pygame.transform.smoothscale(
+        title_surf,
+        (int(title_rect.width * glow_scale), int(title_rect.height * glow_scale)),
+    )
+    glow_surf.set_alpha(int(80 * alpha))
+    screen.blit(glow_surf, glow_surf.get_rect(center=title_rect.center))
+    screen.blit(title_surf, title_rect)
+
+    # Subtitle
+    sub_surf = FONT_SUB.render(realm["subtitle"], True, WHITE)
+    sub_rect = sub_surf.get_rect(center=(WIDTH // 2, int(HEIGHT * 0.28)))
+    sub_surf.set_alpha(int(255 * alpha))
+    screen.blit(sub_surf, sub_rect)
+
+    # Bullets
+    y = int(HEIGHT * 0.38)
+    for bullet in realm["bullets"]:
+        bullet_surf = FONT_BODY.render(bullet, True, MUTED)
+        bullet_surf.set_alpha(int(255 * alpha))
+        bullet_rect = bullet_surf.get_rect(left=int(WIDTH * 0.14), top=y)
+        screen.blit(bullet_surf, bullet_rect)
+        y += int(HEIGHT * 0.07)
+
+    # Footer
+    footer_text = "MotiBeam Spatial OS • Auto-Loop Demo  •  ESC to exit"
+    foot_surf = FONT_FOOT.render(footer_text, True, (130, 150, 170))
+    foot_surf.set_alpha(int(255 * alpha))
+    foot_rect = foot_surf.get_rect(center=(WIDTH // 2, int(HEIGHT * 0.94)))
+    screen.blit(foot_surf, foot_rect)
+
+def main():
+    clock = pygame.time.Clock()
+    realm_index = 0
+    realm_duration = 10.0  # seconds per realm
+
+    running = True
+    start_time = time.time()
+
+    while running:
+        now = time.time()
+        elapsed = now - start_time
+        progress = (elapsed % realm_duration) / realm_duration
+        realm_index = int((elapsed // realm_duration) % len(REALMS))
+        realm = REALMS[realm_index]
+
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                running = False
+            elif event.type == pygame.KEYDOWN:
+                if event.key == pygame.K_ESCAPE:
+                    running = False
+
+        render_realm(realm, progress)
+
+        pygame.display.flip()
+        clock.tick(60)
+
+    pygame.quit()
+
+if __name__ == "__main__":
+    main()

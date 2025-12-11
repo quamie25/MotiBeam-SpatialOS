@@ -1,0 +1,646 @@
+#!/usr/bin/env python3
+"""
+MotiBeam Spatial OS - Realm Launcher HUD (Neutral v2)
+
+Controls:
+    Arrows / WASD  - Navigate grid
+    ENTER / SPACE  - Launch selected realm
+    M              - Cycle mode  (NORMAL → STUDY → SLEEP)
+    T              - Cycle theme (NEUTRAL → NEON → NIGHT)
+    F              - Toggle fullscreen
+    P              - Toggle privacy (hide personal details)
+    ESC / Q        - Quit
+
+Inside Realms:
+    Depends on realm (Clinical: arrows, 1/2/3, SPACE, ESC, etc.)
+"""
+
+import sys
+import os
+import math
+import logging
+from datetime import datetime
+
+import pygame
+import importlib
+
+# --------------------------------------------------------------------
+# Logging
+# --------------------------------------------------------------------
+logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
+logger = logging.getLogger(__name__)
+
+# --------------------------------------------------------------------
+# Realm configuration (module + class names ONLY)
+# --------------------------------------------------------------------
+REALMS_CONFIG = {
+    "home":       {"module_path": "scenes.home_realm",       "class_name": "HomeRealm"},
+    "clinical":   {"module_path": "scenes.clinical_realm",   "class_name": "ClinicalRealm"},
+    "education":  {"module_path": "scenes.education_realm",  "class_name": "EducationRealm"},
+    "transport":  {"module_path": "scenes.transport_realm",  "class_name": "TransportRealm"},
+    "emergency":  {"module_path": "scenes.emergency_realm",  "class_name": "EmergencyRealm"},
+    "security":   {"module_path": "scenes.security_realm",   "class_name": "SecurityRealm"},
+    "enterprise": {"module_path": "scenes.enterprise_realm", "class_name": "EnterpriseRealm"},
+    "aviation":   {"module_path": "scenes.aviation_realm",   "class_name": "AviationRealm"},
+    "maritime":   {"module_path": "scenes.maritime_realm",   "class_name": "MaritimeRealm"},
+}
+
+# For tiles / icons (no emoji dependency)
+REALM_DISPLAY_INFO = {
+    "home":       {"name": "Home",       "icon": "H",  "subtitle": "Family · Devices · Routines"},
+    "clinical":   {"name": "Clinical",   "icon": "C",  "subtitle": "Mind · Body · Spirit"},
+    "education":  {"name": "Education",  "icon": "ED", "subtitle": "Study · Focus · Exams"},
+    "transport":  {"name": "Transport",  "icon": "T",  "subtitle": "Auto · Routes · ETA"},
+    "emergency":  {"name": "Emergency",  "icon": "E",  "subtitle": "911 · Alerts · Escalation"},
+    "security":   {"name": "Security",   "icon": "S",  "subtitle": "Doors · Cameras · Guests"},
+    "enterprise": {"name": "Enterprise", "icon": "EN", "subtitle": "Desk · Teams · Ops"},
+    "aviation":   {"name": "Aviation",   "icon": "AV", "subtitle": "Flights · Gates · ETA"},
+    "maritime":   {"name": "Maritime",   "icon": "M",  "subtitle": "Vessels · Ports · Weather"},
+}
+
+
+class SpatialOSLauncher:
+    """Neutral, high-contrast launcher for MotiBeam Spatial OS."""
+
+    # ----------------------------------------------------------------
+    # Init
+    # ----------------------------------------------------------------
+    def __init__(self):
+        pygame.init()
+        pygame.font.init()
+
+        # Global state (simple dict, no external imports)
+        self.global_state = {
+            "mode": "NORMAL",      # NORMAL / STUDY / SLEEP
+            "theme": "NEUTRAL",    # NEUTRAL / NEON / NIGHT
+            "fullscreen": False,
+            "privacy": False,
+        }
+
+        # Ticker demo messages (can be replaced with live feed later)
+        self.feed_messages_full = [
+            "Clinical: Blood pressure review at 3:00 PM",
+            "Home: Grocery delivery window opens at 1:30 PM",
+            "Study: Review Chapter 3 for MBA at 7:00 PM",
+            "Wellness: Evening walk + hydration check at 8:30 PM",
+        ]
+        self.feed_messages_private = [
+            "Daily focus: Health · Family · Finance · Learning",
+            "Tip: Short walks and hydration improve focus.",
+            "Reminder: Breathe, stretch, and reset posture.",
+            "Goal: One small win per beam today.",
+        ]
+        self.feed_scroll_x = None
+        self.feed_text_width = 0
+        self.feed_speed = 80  # pixels per second
+
+        # Weather stub (later: plug real API here)
+        self.weather_info = {
+            "location": "Cypress, TX",
+            "temp": "78°",
+            "summary": "Partly Cloudy",
+            "range": "Today: 71°–83°",
+        }
+
+        # Display setup AFTER state is defined
+        self.display_info = pygame.display.Info()
+        self.screen = None
+        self.width = 0
+        self.height = 0
+        self.setup_display()
+
+        pygame.display.set_caption("MotiBeam Spatial OS")
+        self.clock = pygame.time.Clock()
+        self.running = True
+        self.anim_time = 0.0
+
+        # Grid layout (3x3)
+        self.grid_layout = [
+            ["home", "clinical", "education"],
+            ["transport", "emergency", "security"],
+            ["enterprise", "aviation", "maritime"],
+        ]
+        self.selected_row = 0
+        self.selected_col = 1  # Start on Clinical 🙂
+
+        # Realm cache
+        self.realm_instances = {}
+
+        # Fonts
+        self.font_title = pygame.font.SysFont("DejaVu Sans", 64, bold=True)
+        self.font_subtitle = pygame.font.SysFont("DejaVu Sans", 28)
+        self.font_small = pygame.font.SysFont("DejaVu Sans", 22)
+        self.font_ticker = pygame.font.SysFont("DejaVu Sans", 32, bold=True)
+        self.font_icon = pygame.font.SysFont("DejaVu Sans", 48, bold=True)
+        self.font_name = pygame.font.SysFont("DejaVu Sans", 28, bold=True)
+        self.font_subtile = pygame.font.SysFont("DejaVu Sans", 20)
+
+    # ----------------------------------------------------------------
+    # Display / Theme helpers
+    # ----------------------------------------------------------------
+    def setup_display(self):
+        """Setup window / fullscreen with neutral background."""
+        fullscreen = self.global_state.get("fullscreen", False)
+        if fullscreen:
+            flags = pygame.FULLSCREEN | pygame.NOFRAME
+            self.screen = pygame.display.set_mode(
+                (self.display_info.current_w, self.display_info.current_h), flags
+            )
+        else:
+            # Windowed but near full-screen (no OS desktop vibe)
+            w = int(self.display_info.current_w * 0.95)
+            h = int(self.display_info.current_h * 0.95)
+            self.screen = pygame.display.set_mode((w, h))
+
+        self.width, self.height = self.screen.get_size()
+
+        # Reset ticker scroll so it always starts from the right edge
+        self.feed_scroll_x = self.width
+
+    def get_theme_colors(self):
+        """Return palette for NEUTRAL / NEON / NIGHT."""
+        theme = self.global_state.get("theme", "NEUTRAL")
+
+        if theme == "NEON":
+            # Kept, but toned down
+            return {
+                "bg": (5, 25, 35),
+                "panel": (8, 30, 40, 230),
+                "tile": (6, 40, 55, 240),
+                "primary": (220, 255, 255),
+                "secondary": (160, 210, 210),
+                "accent": (0, 220, 200),
+                "ticker_bg": (0, 40, 50, 240),
+            }
+        elif theme == "NIGHT":
+            return {
+                "bg": (5, 7, 11),
+                "panel": (12, 16, 24, 230),
+                "tile": (18, 24, 34, 240),
+                "primary": (235, 235, 245),
+                "secondary": (160, 170, 190),
+                "accent": (180, 130, 80),
+                "ticker_bg": (10, 12, 18, 240),
+            }
+        else:  # NEUTRAL (default)
+            return {
+                "bg": (14, 18, 26),           # soft charcoal
+                "panel": (18, 24, 34, 230),   # slightly lighter card
+                "tile": (24, 32, 44, 240),    # tile cards
+                "primary": (240, 244, 250),   # main text
+                "secondary": (180, 190, 205),
+                "accent": (90, 200, 255),     # subtle cyan accent
+                "ticker_bg": (10, 14, 22, 240),
+            }
+
+    def get_mode_config(self):
+        """Brightness/animation settings per mode."""
+        mode = self.global_state.get("mode", "NORMAL")
+        if mode == "STUDY":
+            return {"text_scale": 1.0}
+        elif mode == "SLEEP":
+            return {"text_scale": 0.75}
+        else:
+            return {"text_scale": 1.0}
+
+    # ----------------------------------------------------------------
+    # Drawing: HUD
+    # ----------------------------------------------------------------
+    def draw(self, dt):
+        colors = self.get_theme_colors()
+        mode_cfg = self.get_mode_config()
+
+        # Background
+        self.screen.fill(colors["bg"])
+
+        # Central panel (soft rectangle behind grid)
+        panel_margin_x = int(self.width * 0.06)
+        panel_margin_y = int(self.height * 0.08)
+        panel_rect = pygame.Rect(
+            panel_margin_x,
+            panel_margin_y,
+            self.width - 2 * panel_margin_x,
+            self.height - 2 * panel_margin_y,
+        )
+        panel_surf = pygame.Surface(panel_rect.size, pygame.SRCALPHA)
+        pygame.draw.rect(
+            panel_surf,
+            colors["panel"],
+            panel_surf.get_rect(),
+            border_radius=24,
+        )
+        self.screen.blit(panel_surf, panel_rect.topleft)
+
+        # Top header: title + weather + datetime
+        self.draw_header(colors, mode_cfg, panel_rect)
+
+        # 3x3 grid of realms
+        self.draw_grid(colors, panel_rect)
+
+        # Bottom ticker
+        self.draw_ticker(colors, dt)
+
+    def draw_header(self, colors, mode_cfg, panel_rect):
+        """Draw title text + weather (left) + datetime (right)."""
+        # Title
+        title_text = "MOTIBEAM SPATIAL OS"
+        title_surf = self.font_title.render(title_text, True, colors["primary"])
+        title_rect = title_surf.get_rect(center=(self.width // 2, panel_rect.top + 60))
+        self.screen.blit(title_surf, title_rect)
+
+        subtitle_text = "Select Realm · Navigate with Arrows"
+        subtitle_surf = self.font_subtitle.render(
+            subtitle_text, True, colors["secondary"]
+        )
+        subtitle_rect = subtitle_surf.get_rect(
+            center=(self.width // 2, panel_rect.top + 105)
+        )
+        self.screen.blit(subtitle_surf, subtitle_rect)
+
+        # Weather panel (left)
+        self.draw_weather_panel(colors, panel_rect)
+
+        # Date + time (right)
+        self.draw_datetime_panel(colors, panel_rect, mode_cfg)
+
+    def draw_weather_panel(self, colors, panel_rect):
+        """Static weather card (API-ready later)."""
+
+        card_width = 220
+        card_height = 110
+        margin = 20
+        x = panel_rect.left + margin
+        y = panel_rect.top + margin
+
+        card_surf = pygame.Surface((card_width, card_height), pygame.SRCALPHA)
+        pygame.draw.rect(
+            card_surf,
+            (*colors["tile"][:3], colors["tile"][3]),
+            card_surf.get_rect(),
+            border_radius=16,
+        )
+        self.screen.blit(card_surf, (x, y))
+
+        # Text
+        location = self.weather_info["location"]
+        if self.global_state.get("privacy"):
+            location = "Weather"
+
+        temp = self.weather_info["temp"]
+        summary = self.weather_info["summary"]
+        temp_range = self.weather_info["range"]
+
+        loc_font = pygame.font.SysFont("DejaVu Sans", 22, bold=True)
+        temp_font = pygame.font.SysFont("DejaVu Sans", 32, bold=True)
+        small_font = pygame.font.SysFont("DejaVu Sans", 18)
+
+        loc_surf = loc_font.render(location, True, colors["primary"])
+        self.screen.blit(loc_surf, (x + 14, y + 10))
+
+        temp_surf = temp_font.render(temp, True, colors["accent"])
+        self.screen.blit(temp_surf, (x + 14, y + 36))
+
+        if not self.global_state.get("privacy"):
+            sum_surf = small_font.render(summary, True, colors["secondary"])
+            range_surf = small_font.render(temp_range, True, colors["secondary"])
+        else:
+            sum_surf = small_font.render("Details hidden", True, colors["secondary"])
+            range_surf = small_font.render("Privacy mode ON", True, colors["secondary"])
+
+        self.screen.blit(sum_surf, (x + 14, y + 72))
+        self.screen.blit(range_surf, (x + 14, y + 92 - 16))
+
+    def draw_datetime_panel(self, colors, panel_rect, mode_cfg):
+        """Live date/time on the top-right of the panel."""
+        now = datetime.now()
+        date_str = now.strftime("%a · %b %d")
+        time_str = now.strftime("%I:%M %p").lstrip("0")
+
+        scale = mode_cfg["text_scale"]
+
+        time_font = pygame.font.SysFont("DejaVu Sans", int(40 * scale), bold=True)
+        date_font = pygame.font.SysFont("DejaVu Sans", int(22 * scale))
+
+        time_surf = time_font.render(time_str, True, colors["primary"])
+        date_surf = date_font.render(date_str, True, colors["secondary"])
+
+        margin = 30
+        x = panel_rect.right - margin
+        y_top = panel_rect.top + 24
+
+        time_rect = time_surf.get_rect(topright=(x, y_top))
+        date_rect = date_surf.get_rect(topright=(x, y_top + 42))
+
+        self.screen.blit(time_surf, time_rect)
+        self.screen.blit(date_surf, date_rect)
+
+    def draw_grid(self, colors, panel_rect):
+        """Draw the 3x3 grid of realm tiles."""
+        grid_top = panel_rect.top + 150
+        grid_bottom = panel_rect.bottom - 90
+        grid_height = grid_bottom - grid_top
+
+        grid_left = panel_rect.left + 80
+        grid_right = panel_rect.right - 80
+        grid_width = grid_right - grid_left
+
+        tile_w = grid_width // 3 - 24
+        tile_h = grid_height // 3 - 24
+
+        for r in range(3):
+            for c in range(3):
+                realm_id = self.grid_layout[r][c]
+                is_selected = (r == self.selected_row and c == self.selected_col)
+
+                x = grid_left + c * (tile_w + 24)
+                y = grid_top + r * (tile_h + 24)
+
+                self.draw_tile(colors, realm_id, x, y, tile_w, tile_h, is_selected)
+
+    def draw_tile(self, colors, realm_id, x, y, w, h, is_selected):
+        """Single realm card: icon + name + subtitle."""
+        info = REALM_DISPLAY_INFO.get(
+            realm_id, {"name": realm_id, "icon": "?", "subtitle": ""}
+        )
+
+        tile_surf = pygame.Surface((w, h), pygame.SRCALPHA)
+
+        # Card
+        base_rect = tile_surf.get_rect()
+        pygame.draw.rect(
+            tile_surf,
+            (*colors["tile"][:3], colors["tile"][3]),
+            base_rect,
+            border_radius=18,
+        )
+
+        # Border highlight when selected
+        if is_selected:
+            pygame.draw.rect(
+                tile_surf, colors["accent"], base_rect, width=3, border_radius=18
+            )
+
+        # Icon circle
+        circle_radius = 26
+        circle_center = (w // 2, 40)
+        pygame.draw.circle(
+            tile_surf,
+            (colors["bg"][0] + 10, colors["bg"][1] + 10, colors["bg"][2] + 10),
+            circle_center,
+            circle_radius,
+        )
+        icon_text = info["icon"]
+        icon_surf = self.font_icon.render(icon_text, True, colors["primary"])
+        icon_rect = icon_surf.get_rect(center=circle_center)
+        tile_surf.blit(icon_surf, icon_rect)
+
+        # Realm name
+        name_surf = self.font_name.render(info["name"], True, colors["primary"])
+        name_rect = name_surf.get_rect(center=(w // 2, h // 2 + 10))
+        tile_surf.blit(name_surf, name_rect)
+
+        # Subtitle
+        subtitle = info["subtitle"]
+        sub_surf = self.font_subtile.render(subtitle, True, colors["secondary"])
+        sub_rect = sub_surf.get_rect(center=(w // 2, h // 2 + 38))
+        tile_surf.blit(sub_surf, sub_rect)
+
+        self.screen.blit(tile_surf, (x, y))
+
+    def get_current_feed_messages(self):
+        return (
+            self.feed_messages_private
+            if self.global_state.get("privacy")
+            else self.feed_messages_full
+        )
+
+    def draw_ticker(self, colors, dt):
+        """Wide, high-contrast ticker at bottom for 10ft readability."""
+        messages = self.get_current_feed_messages()
+        if not messages:
+            return
+
+        bar_height = 52
+        y = self.height - bar_height
+
+        # Background bar
+        ticker_surf = pygame.Surface((self.width, bar_height), pygame.SRCALPHA)
+        pygame.draw.rect(
+            ticker_surf,
+            colors["ticker_bg"],
+            ticker_surf.get_rect(),
+        )
+        self.screen.blit(ticker_surf, (0, y))
+
+        # Compose text
+        bullet = "   •   "
+        full_text = bullet.join(messages) + bullet
+
+        text_color = colors["primary"]
+        text_surf = self.font_ticker.render(full_text, True, text_color)
+        text_width = text_surf.get_width()
+        self.feed_text_width = text_width
+
+        if self.feed_scroll_x is None:
+            self.feed_scroll_x = self.width
+
+        # Scroll
+        self.feed_scroll_x -= self.feed_speed * dt
+        if self.feed_scroll_x < -text_width:
+            self.feed_scroll_x = self.width
+
+        self.screen.blit(text_surf, (self.feed_scroll_x, y + 10))
+
+        # Draw a second copy to make a continuous loop
+        self.screen.blit(text_surf, (self.feed_scroll_x + text_width + 60, y + 10))
+
+        # Left corner: privacy indicator
+        privacy_text = (
+            "Privacy: ON (initials / generic only)"
+            if self.global_state.get("privacy")
+            else "Privacy: OFF (full details)"
+        )
+        priv_surf = self.font_small.render(
+            privacy_text, True, (colors["secondary"][0],) * 3
+        )
+        self.screen.blit(priv_surf, (18, y + bar_height - 22))
+
+        # Right corner: mode/theme
+        mode_theme_text = (
+            f"Mode: {self.global_state['mode']} · Theme: {self.global_state['theme']}"
+        )
+        mt_surf = self.font_small.render(mode_theme_text, True, colors["secondary"])
+        mt_rect = mt_surf.get_rect(right=self.width - 18, bottom=y + bar_height - 8)
+        self.screen.blit(mt_surf, mt_rect)
+
+    # ----------------------------------------------------------------
+    # Realm loading
+    # ----------------------------------------------------------------
+    def handle_navigation(self, key):
+        if key in (pygame.K_UP, pygame.K_w):
+            self.selected_row = (self.selected_row - 1) % 3
+        elif key in (pygame.K_DOWN, pygame.K_s):
+            self.selected_row = (self.selected_row + 1) % 3
+        elif key in (pygame.K_LEFT, pygame.K_a):
+            self.selected_col = (self.selected_col - 1) % 3
+        elif key in (pygame.K_RIGHT, pygame.K_d):
+            self.selected_col = (self.selected_col + 1) % 3
+
+    def cycle_mode(self):
+        modes = ["NORMAL", "STUDY", "SLEEP"]
+        current = self.global_state["mode"]
+        idx = modes.index(current)
+        self.global_state["mode"] = modes[(idx + 1) % len(modes)]
+        return self.global_state["mode"]
+
+    def cycle_theme(self):
+        themes = ["NEUTRAL", "NEON", "NIGHT"]
+        current = self.global_state["theme"]
+        idx = themes.index(current)
+        self.global_state["theme"] = themes[(idx + 1) % len(themes)]
+        return self.global_state["theme"]
+
+    def toggle_fullscreen(self):
+        self.global_state["fullscreen"] = not self.global_state["fullscreen"]
+        self.setup_display()
+        logger.info(f"Fullscreen: {self.global_state['fullscreen']}")
+
+    def launch_realm(self):
+        realm_id = self.grid_layout[self.selected_row][self.selected_col]
+        logger.info(f"Launching realm: {realm_id}")
+        realm = self.load_realm(realm_id)
+        if not realm:
+            return
+
+        try:
+            realm.run(duration=60)
+        except TypeError:
+            # Some realms may not accept duration
+            realm.run()
+        finally:
+            # Reset display after realm messes with it
+            self.setup_display()
+
+    def load_realm(self, realm_id):
+        if realm_id in self.realm_instances:
+            realm = self.realm_instances[realm_id]
+            if hasattr(realm, "screen"):
+                realm.screen = self.screen
+            return realm
+
+        config = REALMS_CONFIG.get(realm_id)
+        if not config:
+            logger.error(f"No config found for realm {realm_id}")
+            return None
+
+        try:
+            module = importlib.import_module(config["module_path"])
+            realm_class = getattr(module, config["class_name"])
+        except Exception as e:
+            logger.error(f"Import error for realm {realm_id}: {e}")
+            return None
+
+        realm = None
+        # Flexible constructor attempts
+        try:
+            realm = realm_class(self.screen, self.clock, self.global_state, standalone=False)
+        except TypeError:
+            try:
+                realm = realm_class(self.screen, self.clock, standalone=False)
+            except TypeError:
+                try:
+                    realm = realm_class(standalone=False)
+                except TypeError:
+                    realm = realm_class()
+
+        if not hasattr(realm, "screen"):
+            realm.screen = self.screen
+
+        if hasattr(realm, "initialize"):
+            realm.initialize()
+
+        self.realm_instances[realm_id] = realm
+        return realm
+
+    # ----------------------------------------------------------------
+    # Main loop
+    # ----------------------------------------------------------------
+    def run(self):
+        logger.info("MotiBeam Spatial OS Launcher starting...")
+        logger.info(
+            f"Mode: {self.global_state['mode']}, Theme: {self.global_state['theme']}"
+        )
+
+        while self.running:
+            dt = self.clock.tick(30) / 1000.0
+            self.anim_time += dt
+
+            for event in pygame.event.get():
+                if event.type == pygame.QUIT:
+                    self.running = False
+
+                elif event.type == pygame.KEYDOWN:
+                    if event.key in (pygame.K_ESCAPE, pygame.K_q):
+                        self.running = False
+                    elif event.key in (
+                        pygame.K_UP,
+                        pygame.K_DOWN,
+                        pygame.K_LEFT,
+                        pygame.K_RIGHT,
+                        pygame.K_w,
+                        pygame.K_a,
+                        pygame.K_s,
+                        pygame.K_d,
+                    ):
+                        self.handle_navigation(event.key)
+                    elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                        self.launch_realm()
+                    elif event.key == pygame.K_m:
+                        new_mode = self.cycle_mode()
+                        logger.info(f"Mode → {new_mode}")
+                    elif event.key == pygame.K_t:
+                        new_theme = self.cycle_theme()
+                        logger.info(f"Theme → {new_theme}")
+                    elif event.key == pygame.K_f:
+                        self.toggle_fullscreen()
+                    elif event.key == pygame.K_p:
+                        self.global_state["privacy"] = not self.global_state["privacy"]
+                        logger.info(f"Privacy → {self.global_state['privacy']}")
+
+            self.draw(dt)
+            pygame.display.flip()
+
+        pygame.quit()
+        logger.info("MotiBeam Spatial OS Launcher stopped")
+
+
+def main():
+    print(
+        """
+╔══════════════════════════════════════════════════════════════════════╗
+║                    MotiBeam Spatial OS v2.0                          ║
+║               Neutral Clinical-Ready Launcher HUD                    ║
+╚══════════════════════════════════════════════════════════════════════╝
+
+Controls:
+  Navigation:  Arrow Keys / WASD
+  Launch:      ENTER / SPACE
+  Mode:        M (NORMAL → STUDY → SLEEP)
+  Theme:       T (NEUTRAL → NEON → NIGHT)
+  Fullscreen:  F
+  Privacy:     P (hide personal details)
+  Quit:        ESC / Q
+
+Inside Realms:
+  Clinical Realm → Arrows, 1/2/3 for Mind/Body/Spirit, SPACE for ECG, ESC back.
+
+Starting...
+"""
+    )
+
+    launcher = SpatialOSLauncher()
+    launcher.run()
+
+
+if __name__ == "__main__":
+    main()

@@ -1,0 +1,628 @@
+#!/usr/bin/env python3
+"""
+MotiBeam Spatial OS - Launcher (V2.2)
+Full-screen layout with emoji-enhanced realms.
+Owner: Quamie Walkes, MotiBeam Technologies, LLC
+"""
+
+import pygame
+import sys
+import os
+from datetime import datetime
+import random
+import math
+import json
+import time
+from pathlib import Path
+
+# Import realm scenes
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'scenes'))
+try:
+    from clinical_realm import ClinicalRealm
+    from home_realm import HomeRealm
+    from education_realm import EducationRealm
+except ImportError as e:
+    print(f"Note: Some realm modules not found. Error: {e}")
+
+# ============================================================================
+# CONFIGURATION & CONSTANTS (Optimized for Full-Screen Projection)
+# ============================================================================
+SCREEN_WIDTH = 1280
+SCREEN_HEIGHT = 720
+FPS = 60
+
+# ============================================================================
+# REALMS CONFIGURATION WITH EMOJIS
+# ============================================================================
+REALMS_CONFIG = [
+    {
+        "id": "home",
+        "label": "Home",
+        "sub": "Family · Devices · Routines",
+        "emoji": "🏠",
+        "key": "H",
+        "module": "home_realm",
+        "class": "HomeRealm",
+        "color": (100, 180, 255)  # Blue
+    },
+    {
+        "id": "clinical",
+        "label": "Clinical",
+        "sub": "Mind · Body · Spirit",
+        "emoji": "⚕️",
+        "key": "C",
+        "module": "clinical_realm",
+        "class": "ClinicalRealm",
+        "color": (255, 100, 120)  # Coral
+    },
+    {
+        "id": "education",
+        "label": "Education",
+        "sub": "Study · Focus · Exams",
+        "emoji": "📚",
+        "key": "ED",
+        "module": "education_realm",
+        "class": "EducationRealm",
+        "color": (255, 200, 80)   # Gold
+    },
+    {
+        "id": "transport",
+        "label": "Transport",
+        "sub": "Auto Routes · ETA",
+        "emoji": "🚗",
+        "key": "T",
+        "module": "transport_realm",
+        "class": "TransportRealm",
+        "color": (80, 220, 160)   # Mint
+    },
+    {
+        "id": "emergency",
+        "label": "Emergency",
+        "sub": "911 Alerts · Escalation",
+        "emoji": "🚨",
+        "key": "EM",
+        "module": "emergency_realm",
+        "class": "EmergencyRealm",
+        "color": (255, 80, 80)    # Red
+    },
+    {
+        "id": "security",
+        "label": "Security",
+        "sub": "Doors · Cameras · Guests",
+        "emoji": "🛡️",
+        "key": "S",
+        "module": "security_realm",
+        "class": "SecurityRealm",
+        "color": (160, 100, 255)  # Purple
+    },
+    {
+        "id": "enterprise",
+        "label": "Enterprise",
+        "sub": "Desk · Teams · Ops",
+        "emoji": "🏢",
+        "key": "EN",
+        "module": "enterprise_realm",
+        "class": "EnterpriseRealm",
+        "color": (100, 160, 255)  # Light Blue
+    },
+    {
+        "id": "aviation",
+        "label": "Aviation",
+        "sub": "Flights · Gates · ETA",
+        "emoji": "✈️",
+        "key": "A",
+        "module": "aviation_realm",
+        "class": "AviationRealm",
+        "color": (80, 200, 255)   # Sky Blue
+    },
+    {
+        "id": "maritime",
+        "label": "Maritime",
+        "sub": "Vessels · Ports · Weather",
+        "emoji": "⚓",
+        "key": "M",
+        "module": "maritime_realm",
+        "class": "MaritimeRealm",
+        "color": (80, 160, 255)   # Ocean Blue
+    },
+]
+
+# ============================================================================
+# FONT SIZES (Optimized for Full Screen)
+# ============================================================================
+TITLE_FONT_SIZE = 64
+CLOCK_FONT_SIZE = 56
+WEATHER_FONT_SIZE = 32
+REALM_EMOJI_SIZE = 72
+REALM_TITLE_SIZE = 36
+REALM_SUB_SIZE = 24
+TICKER_FONT_SIZE = 32
+MODE_FONT_SIZE = 28
+
+# ============================================================================
+# COLOR PALETTE (Based on your mockup)
+# ============================================================================
+COLOR_BG = (10, 12, 18)           # Dark blue-black background
+COLOR_CARD_BG = (20, 24, 32, 220) # Card background (semi-transparent)
+COLOR_TEXT_PRIMARY = (240, 245, 255)  # Off-white
+COLOR_TEXT_SECONDARY = (180, 195, 220) # Light gray-blue
+COLOR_TEXT_TERTIARY = (120, 140, 170) # Dimmed text
+COLOR_ACCENT = (100, 180, 255)    # MotiBeam blue
+COLOR_WARNING = (255, 100, 100)   # For alerts
+COLOR_SUCCESS = (80, 220, 160)    # For positive indicators
+
+# ============================================================================
+# LAYOUT CONSTANTS (Full Screen Utilization)
+# ============================================================================
+HEADER_HEIGHT = 160
+FOOTER_HEIGHT = 80
+GRID_MARGIN = 30
+GRID_PADDING = 20
+CARD_RADIUS = 20
+
+# ============================================================================
+# WEATHER CONFIG
+# ============================================================================
+class WeatherService:
+    def __init__(self):
+        self.cache_file = Path.home() / '.motibeam' / 'weather_cache.json'
+        self.cache_duration = 1800  # 30 minutes
+        self.api_key = None
+        self.load_config()
+    
+    def load_config(self):
+        config_path = Path.home() / '.motibeam' / 'config.json'
+        if config_path.exists():
+            try:
+                with open(config_path, 'r') as f:
+                    config = json.load(f)
+                    self.api_key = config.get('openweathermap_api_key')
+            except:
+                pass
+    
+    def get_weather(self):
+        """Get weather data with cache fallback."""
+        # Check cache first
+        if self.cache_file.exists():
+            try:
+                with open(self.cache_file, 'r') as f:
+                    cache = json.load(f)
+                    if time.time() - cache['timestamp'] < self.cache_duration:
+                        return cache['data']
+            except:
+                pass
+        
+        # Return stub data (replace with actual API call when ready)
+        stub_data = {
+            "location": "Cypress, TX",
+            "temp_f": 78,
+            "condition": "Partly Cloudy",
+            "icon": "⛅"
+        }
+        
+        # Cache the stub data
+        self.cache_data(stub_data)
+        return stub_data
+    
+    def cache_data(self, data):
+        """Cache weather data."""
+        self.cache_file.parent.mkdir(exist_ok=True)
+        cache = {
+            "timestamp": time.time(),
+            "data": data
+        }
+        with open(self.cache_file, 'w') as f:
+            json.dump(cache, f)
+
+# ============================================================================
+# MAIN LAUNCHER CLASS
+# ============================================================================
+class SpatialOSLauncher:
+    def __init__(self):
+        pygame.init()
+        # Initialize with fullscreen
+        self.screen = pygame.display.set_mode(
+            (SCREEN_WIDTH, SCREEN_HEIGHT),
+            pygame.FULLSCREEN | pygame.NOFRAME | pygame.HWSURFACE | pygame.DOUBLEBUF
+        )
+        pygame.display.set_caption("MotiBeam Spatial OS")
+        pygame.mouse.set_visible(False)
+        
+        self.clock = pygame.time.Clock()
+        self.running = True
+        self.selected_idx = 0
+        self.mode = "NORMAL"
+        self.privacy_mode = False
+        self.fullscreen = True
+        
+        # Initialize services
+        self.weather_service = WeatherService()
+        
+        # Load fonts
+        self.load_fonts()
+        
+        # Ticker content
+        self.ticker_messages = [
+            "Transport: ETA to downtown - 22 min.",
+            "Education: Spanish vocab review pending.",
+            "Security: Motion detected in backyard.",
+            "Clinical: Mind session recommended in 15 min.",
+            "Home: Front door unlocked for 12 min.",
+            "Wellness: Hydration reminder — drink water.",
+            "Family: Eli's soccer practice at 5 PM.",
+            "Weather: Light rain expected after 8 PM."
+        ]
+        self.ticker_index = 0
+        self.ticker_timer = 0
+        self.ticker_interval = 4000  # 4 seconds per message
+        
+        # Animation
+        self.particles = self.init_particles()
+        
+        # Quit confirmation
+        self.quit_requested = False
+        
+    def load_fonts(self):
+        """Load all fonts with emoji support."""
+        # Try to load emoji font
+        emoji_path = self.find_emoji_font()
+        
+        # Primary fonts
+        self.font_title = pygame.font.SysFont('Arial', TITLE_FONT_SIZE, bold=True)
+        self.font_clock = pygame.font.SysFont('Arial', CLOCK_FONT_SIZE, bold=True)
+        self.font_weather = pygame.font.SysFont('Arial', WEATHER_FONT_SIZE)
+        self.font_ticker = pygame.font.SysFont('Arial', TICKER_FONT_SIZE)
+        self.font_mode = pygame.font.SysFont('Arial', MODE_FONT_SIZE)
+        
+        # Realm fonts (with emoji support)
+        if emoji_path:
+            try:
+                self.font_emoji = pygame.font.Font(emoji_path, REALM_EMOJI_SIZE)
+                print(f"✓ Loaded emoji font: {emoji_path}")
+            except:
+                self.font_emoji = pygame.font.SysFont('Arial', REALM_EMOJI_SIZE, bold=True)
+                print("✗ Emoji font failed, using fallback")
+        else:
+            self.font_emoji = pygame.font.SysFont('Arial', REALM_EMOJI_SIZE, bold=True)
+            print("ℹ No emoji font found")
+        
+        self.font_realm_title = pygame.font.SysFont('Arial', REALM_TITLE_SIZE, bold=True)
+        self.font_realm_sub = pygame.font.SysFont('Arial', REALM_SUB_SIZE)
+    
+    def find_emoji_font(self):
+        """Find emoji font on system."""
+        paths = [
+            "/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf",
+            "/usr/share/fonts/opentype/noto/NotoColorEmoji.ttf",
+            "/usr/local/share/fonts/NotoColorEmoji.ttf",
+            "/home/pi/.fonts/NotoColorEmoji.ttf",
+        ]
+        for path in paths:
+            if os.path.exists(path):
+                return path
+        return None
+    
+    def init_particles(self):
+        """Initialize background particles."""
+        particles = []
+        for _ in range(60):
+            particles.append({
+                'x': random.randint(0, SCREEN_WIDTH),
+                'y': random.randint(0, SCREEN_HEIGHT),
+                'size': random.randint(1, 4),
+                'speed_x': random.uniform(-0.2, 0.2),
+                'speed_y': random.uniform(-0.2, 0.2),
+                'color': (
+                    random.randint(20, 60),
+                    random.randint(30, 80),
+                    random.randint(50, 100)
+                ),
+                'opacity': random.randint(30, 80)
+            })
+        return particles
+    
+    # ------------------------------------------------------------------------
+    # DRAWING METHODS
+    # ------------------------------------------------------------------------
+    def draw_background(self):
+        """Draw animated background."""
+        self.screen.fill(COLOR_BG)
+        
+        # Update and draw particles
+        for p in self.particles:
+            p['x'] += p['speed_x']
+            p['y'] += p['speed_y']
+            
+            # Wrap around edges
+            if p['x'] < 0: p['x'] = SCREEN_WIDTH
+            if p['x'] > SCREEN_WIDTH: p['x'] = 0
+            if p['y'] < 0: p['y'] = SCREEN_HEIGHT
+            if p['y'] > SCREEN_HEIGHT: p['y'] = 0
+            
+            # Draw particle
+            color = (
+                min(255, p['color'][0] + 100),
+                min(255, p['color'][1] + 100),
+                min(255, p['color'][2] + 100),
+                p['opacity']
+            )
+            pygame.draw.circle(
+                self.screen,
+                color,
+                (int(p['x']), int(p['y'])),
+                p['size']
+            )
+    
+    def draw_header(self):
+        """Draw top header with title, time, and weather."""
+        header_rect = pygame.Rect(0, 0, SCREEN_WIDTH, HEADER_HEIGHT)
+        pygame.draw.rect(self.screen, COLOR_CARD_BG, header_rect)
+        
+        # Title (left aligned)
+        title = self.font_title.render("MOTIBEAM SPATIAL OS", True, COLOR_TEXT_PRIMARY)
+        self.screen.blit(title, (40, 40))
+        
+        # Current time (center)
+        now = datetime.now()
+        time_str = now.strftime("%I:%M %p").lstrip("0")
+        date_str = now.strftime("%a, %b %d").upper()
+        
+        time_surf = self.font_clock.render(time_str, True, COLOR_TEXT_PRIMARY)
+        date_surf = self.font_weather.render(date_str, True, COLOR_TEXT_SECONDARY)
+        
+        time_x = SCREEN_WIDTH // 2 - time_surf.get_width() // 2
+        date_x = SCREEN_WIDTH // 2 - date_surf.get_width() // 2
+        
+        self.screen.blit(time_surf, (time_x, 40))
+        self.screen.blit(date_surf, (date_x, 100))
+        
+        # Weather (right aligned)
+        weather = self.weather_service.get_weather()
+        weather_text = f"{weather['location']} · {weather['temp_f']}°F · {weather['condition']}"
+        weather_surf = self.font_weather.render(weather_text, True, COLOR_TEXT_SECONDARY)
+        self.screen.blit(weather_surf, (SCREEN_WIDTH - weather_surf.get_width() - 40, 40))
+        
+        # Mode indicator
+        mode_text = f"MODE: {self.mode}"
+        if self.privacy_mode:
+            mode_text += " · PRIVACY ON"
+        mode_surf = self.font_mode.render(mode_text, True, COLOR_ACCENT)
+        self.screen.blit(mode_surf, (SCREEN_WIDTH - mode_surf.get_width() - 40, 100))
+    
+    def draw_realms_grid(self):
+        """Draw the 3x3 grid of realm cards."""
+        grid_width = SCREEN_WIDTH - (2 * GRID_MARGIN)
+        grid_height = SCREEN_HEIGHT - HEADER_HEIGHT - FOOTER_HEIGHT - GRID_MARGIN
+        
+        card_width = (grid_width // 3) - GRID_PADDING
+        card_height = (grid_height // 3) - GRID_PADDING
+        
+        start_x = GRID_MARGIN
+        start_y = HEADER_HEIGHT + GRID_MARGIN
+        
+        for i, realm in enumerate(REALMS_CONFIG):
+            row = i // 3
+            col = i % 3
+            
+            x = start_x + col * (card_width + GRID_PADDING)
+            y = start_y + row * (card_height + GRID_PADDING)
+            
+            # Draw card background
+            card_rect = pygame.Rect(x, y, card_width, card_height)
+            is_selected = (i == self.selected_idx)
+            
+            # Card color - use realm color or accent for selected
+            if is_selected:
+                card_color = realm["color"]
+                border_color = COLOR_TEXT_PRIMARY
+            else:
+                card_color = tuple(c + 10 for c in COLOR_CARD_BG[:3])
+                border_color = COLOR_TEXT_TERTIARY
+            
+            pygame.draw.rect(self.screen, card_color, card_rect, border_radius=CARD_RADIUS)
+            pygame.draw.rect(self.screen, border_color, card_rect, 2, border_radius=CARD_RADIUS)
+            
+            # Draw emoji
+            emoji_surf = self.font_emoji.render(realm["emoji"], True, COLOR_TEXT_PRIMARY)
+            emoji_x = x + (card_width - emoji_surf.get_width()) // 2
+            emoji_y = y + 30
+            self.screen.blit(emoji_surf, (emoji_x, emoji_y))
+            
+            # Draw realm title
+            title_surf = self.font_realm_title.render(realm["label"], True, COLOR_TEXT_PRIMARY)
+            title_x = x + (card_width - title_surf.get_width()) // 2
+            title_y = y + card_height - 70
+            self.screen.blit(title_surf, (title_x, title_y))
+            
+            # Draw subtitle (hidden in privacy mode)
+            if not self.privacy_mode:
+                sub_surf = self.font_realm_sub.render(realm["sub"], True, COLOR_TEXT_SECONDARY)
+                sub_x = x + (card_width - sub_surf.get_width()) // 2
+                sub_y = y + card_height - 40
+                self.screen.blit(sub_surf, (sub_x, sub_y))
+            
+            # Selection indicator
+            if is_selected:
+                # Draw a subtle glow
+                glow_rect = card_rect.inflate(10, 10)
+                pygame.draw.rect(self.screen, realm["color"], glow_rect, 3, border_radius=CARD_RADIUS+5)
+    
+    def draw_footer(self):
+        """Draw bottom footer with ticker."""
+        footer_rect = pygame.Rect(0, SCREEN_HEIGHT - FOOTER_HEIGHT, SCREEN_WIDTH, FOOTER_HEIGHT)
+        pygame.draw.rect(self.screen, COLOR_CARD_BG, footer_rect)
+        
+        # Ticker message
+        if self.privacy_mode:
+            message = "··· Privacy Mode Active ···"
+        else:
+            message = self.ticker_messages[self.ticker_index]
+        
+        ticker_surf = self.font_ticker.render(message, True, COLOR_TEXT_PRIMARY)
+        ticker_x = SCREEN_WIDTH // 2 - ticker_surf.get_width() // 2
+        ticker_y = SCREEN_HEIGHT - FOOTER_HEIGHT // 2 - ticker_surf.get_height() // 2
+        
+        self.screen.blit(ticker_surf, (ticker_x, ticker_y))
+        
+        # Ticker dots
+        dot_radius = 4
+        dot_spacing = 15
+        dots_y = SCREEN_HEIGHT - 25
+        
+        for i in range(len(self.ticker_messages)):
+            dot_x = SCREEN_WIDTH // 2 - (len(self.ticker_messages) * dot_spacing) // 2 + i * dot_spacing
+            dot_color = COLOR_ACCENT if i == self.ticker_index else COLOR_TEXT_TERTIARY
+            pygame.draw.circle(self.screen, dot_color, (dot_x, dots_y), dot_radius)
+    
+    def draw_quit_prompt(self):
+        """Draw quit confirmation overlay."""
+        overlay = pygame.Surface((SCREEN_WIDTH, SCREEN_HEIGHT), pygame.SRCALPHA)
+        overlay.fill((0, 0, 0, 200))
+        self.screen.blit(overlay, (0, 0))
+        
+        prompt_font = pygame.font.SysFont('Arial', 48, bold=True)
+        prompt_text = prompt_font.render("QUIT SPATIAL OS?", True, COLOR_WARNING)
+        prompt_rect = prompt_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 - 40))
+        self.screen.blit(prompt_text, prompt_rect)
+        
+        instruct_font = pygame.font.SysFont('Arial', 32)
+        instruct_text = instruct_font.render("Press Q to confirm, ESC to cancel", True, COLOR_TEXT_SECONDARY)
+        instruct_rect = instruct_text.get_rect(center=(SCREEN_WIDTH//2, SCREEN_HEIGHT//2 + 20))
+        self.screen.blit(instruct_text, instruct_rect)
+    
+    # ------------------------------------------------------------------------
+    # INPUT & LOGIC
+    # ------------------------------------------------------------------------
+    def handle_events(self):
+        """Process all input events."""
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            
+            elif event.type == pygame.KEYDOWN:
+                if self.quit_requested:
+                    if event.key == pygame.K_q:
+                        self.running = False
+                    elif event.key == pygame.K_ESCAPE:
+                        self.quit_requested = False
+                    continue
+                
+                # Global controls
+                if event.key == pygame.K_ESCAPE:
+                    self.quit_requested = True
+                elif event.key == pygame.K_q:
+                    self.quit_requested = True
+                elif event.key == pygame.K_f:
+                    self.toggle_fullscreen()
+                elif event.key == pygame.K_p:
+                    self.privacy_mode = not self.privacy_mode
+                elif event.key == pygame.K_m:
+                    self.cycle_mode()
+                
+                # Navigation
+                elif event.key in (pygame.K_UP, pygame.K_w):
+                    self.selected_idx = max(0, self.selected_idx - 3)
+                elif event.key in (pygame.K_DOWN, pygame.K_s):
+                    self.selected_idx = min(len(REALMS_CONFIG) - 1, self.selected_idx + 3)
+                elif event.key in (pygame.K_LEFT, pygame.K_a):
+                    self.selected_idx = max(0, self.selected_idx - 1)
+                elif event.key in (pygame.K_RIGHT, pygame.K_d):
+                    self.selected_idx = min(len(REALMS_CONFIG) - 1, self.selected_idx + 1)
+                
+                # Launch realm
+                elif event.key in (pygame.K_RETURN, pygame.K_SPACE):
+                    self.launch_realm()
+    
+    def update_ticker(self):
+        """Update ticker message at intervals."""
+        current_time = pygame.time.get_ticks()
+        if current_time - self.ticker_timer > self.ticker_interval:
+            self.ticker_timer = current_time
+            self.ticker_index = (self.ticker_index + 1) % len(self.ticker_messages)
+    
+    def cycle_mode(self):
+        """Cycle through operational modes."""
+        modes = ["NORMAL", "STUDY", "SLEEP"]
+        current_idx = modes.index(self.mode)
+        self.mode = modes[(current_idx + 1) % len(modes)]
+        
+        # Adjust animation based on mode
+        speed_factor = {"NORMAL": 1.0, "STUDY": 0.5, "SLEEP": 0.2}[self.mode]
+        for p in self.particles:
+            p['speed_x'] = abs(p['speed_x']) * speed_factor * (1 if p['speed_x'] > 0 else -1)
+            p['speed_y'] = abs(p['speed_y']) * speed_factor * (1 if p['speed_y'] > 0 else -1)
+    
+    def toggle_fullscreen(self):
+        """Toggle between fullscreen and windowed mode."""
+        self.fullscreen = not self.fullscreen
+        if self.fullscreen:
+            self.screen = pygame.display.set_mode(
+                (SCREEN_WIDTH, SCREEN_HEIGHT),
+                pygame.FULLSCREEN | pygame.NOFRAME
+            )
+            pygame.mouse.set_visible(False)
+        else:
+            self.screen = pygame.display.set_mode((SCREEN_WIDTH, SCREEN_HEIGHT))
+            pygame.mouse.set_visible(True)
+    
+    def launch_realm(self):
+        """Launch the selected realm."""
+        realm_info = REALMS_CONFIG[self.selected_idx]
+        print(f"🚀 Launching: {realm_info['label']} ({realm_info['emoji']})")
+        
+        # Example for Clinical realm
+        if realm_info["id"] == "clinical":
+            try:
+                clinical_app = ClinicalRealm(self.screen)
+                clinical_app.run()
+                # Restore fullscreen after returning
+                self.screen = pygame.display.set_mode(
+                    (SCREEN_WIDTH, SCREEN_HEIGHT),
+                    pygame.FULLSCREEN | pygame.NOFRAME
+                )
+                pygame.mouse.set_visible(False)
+            except Exception as e:
+                print(f"Error launching Clinical realm: {e}")
+        else:
+            # For other realms, show a placeholder
+            print(f"Realm '{realm_info['label']}' is in development")
+    
+    # ------------------------------------------------------------------------
+    # MAIN LOOP
+    # ------------------------------------------------------------------------
+    def run(self):
+        """Main application loop."""
+        while self.running:
+            self.handle_events()
+            self.update_ticker()
+            
+            self.draw_background()
+            self.draw_header()
+            self.draw_realms_grid()
+            self.draw_footer()
+            
+            if self.quit_requested:
+                self.draw_quit_prompt()
+            
+            pygame.display.flip()
+            self.clock.tick(FPS)
+        
+        pygame.quit()
+        sys.exit()
+
+# ============================================================================
+# ENTRY POINT
+# ============================================================================
+if __name__ == "__main__":
+    # Set environment for Raspberry Pi
+    if os.name == 'posix':
+        os.environ['SDL_VIDEO_CENTERED'] = '1'
+        os.environ['SDL_AUDIODRIVER'] = 'dsp'
+    
+    print("=" * 50)
+    print("MOTIBEAM SPATIAL OS v2.2")
+    print("Full-Screen Launcher with Emoji Realms")
+    print("=" * 50)
+    
+    app = SpatialOSLauncher()
+    app.run()

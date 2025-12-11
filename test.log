@@ -1,0 +1,79 @@
+[H[2J[3Jpygame 2.6.1 (SDL 2.32.4, Python 3.13.5)
+Hello from the pygame community. https://www.pygame.org/contribute.html
+
+╔══════════════════════════════════════════════════════════════════════╗
+║                                                                      ║
+║    ███╗   ███╗ ██████╗ ████████╗██╗██████╗ ███████╗ █████╗ ███╗   ███╗
+║    ████╗ ████║██╔═══██╗╚══██╔══╝██║██╔══██╗██╔════╝██╔══██╗████╗ ████║
+║    ██╔████╔██║██║   ██║   ██║   ██║██████╔╝█████╗  ███████║██╔████╔██║
+║    ██║╚██╔╝██║██║   ██║   ██║   ██║██╔══██╗██╔══╝  ██╔══██║██║╚██╔╝██║
+║    ██║ ╚═╝ ██║╚██████╔╝   ██║   ██║██████╔╝███████╗██║  ██║██║ ╚═╝ ██║
+║    ╚═╝     ╚═╝ ╚═════╝    ╚═╝   ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝
+║                                                                      ║
+║                      SPATIAL OS — MOS-1.0                           ║
+║              Multi-Realm Ambient Computing Platform                 ║
+║                   [Kickstarter Demo]                    ║
+║                                                                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+        
+
+======================================================================
+  AVAILABLE REALMS (9 Total)
+======================================================================
+  CONSUMER REALMS:
+  [1] 🏡  Home & Smart Living Realm
+  [2] ⚕️  Clinical & Health Monitoring Realm
+  [3] 📚  Education & Learning Realm
+  [4] 🚗  Transport & Automotive Realm
+
+  OPERATIONS REALMS:
+  [5] 🚨  Emergency Response Realm
+  [6] 🛡️  Security & Surveillance Realm
+  [7] 🏢  Enterprise Workspace Realm
+  [8] ✈️  Aviation Control Realm
+  [9] ⚓  Maritime Operations Realm
+
+  [A] 🔄  Auto-Loop Demo (All 9 Realms)
+  [Q] 👋  Quit MotiBeam OS
+======================================================================
+
+  Select option: [H[2J[3J
+  ❌ Error: 'ClinicalRealm' object has no attribute 'activate'
+
+╔══════════════════════════════════════════════════════════════════════╗
+║                                                                      ║
+║    ███╗   ███╗ ██████╗ ████████╗██╗██████╗ ███████╗ █████╗ ███╗   ███╗
+║    ████╗ ████║██╔═══██╗╚══██╔══╝██║██╔══██╗██╔════╝██╔══██╗████╗ ████║
+║    ██╔████╔██║██║   ██║   ██║   ██║██████╔╝█████╗  ███████║██╔████╔██║
+║    ██║╚██╔╝██║██║   ██║   ██║   ██║██╔══██╗██╔══╝  ██╔══██║██║╚██╔╝██║
+║    ██║ ╚═╝ ██║╚██████╔╝   ██║   ██║██████╔╝███████╗██║  ██║██║ ╚═╝ ██║
+║    ╚═╝     ╚═╝ ╚═════╝    ╚═╝   ╚═╝╚═════╝ ╚══════╝╚═╝  ╚═╝╚═╝     ╚═╝
+║                                                                      ║
+║                      SPATIAL OS — MOS-1.0                           ║
+║              Multi-Realm Ambient Computing Platform                 ║
+║                   [Kickstarter Demo]                    ║
+║                                                                      ║
+╚══════════════════════════════════════════════════════════════════════╝
+        
+
+======================================================================
+  AVAILABLE REALMS (9 Total)
+======================================================================
+  CONSUMER REALMS:
+  [1] 🏡  Home & Smart Living Realm
+  [2] ⚕️  Clinical & Health Monitoring Realm
+  [3] 📚  Education & Learning Realm
+  [4] 🚗  Transport & Automotive Realm
+
+  OPERATIONS REALMS:
+  [5] 🚨  Emergency Response Realm
+  [6] 🛡️  Security & Surveillance Realm
+  [7] 🏢  Enterprise Workspace Realm
+  [8] ✈️  Aviation Control Realm
+  [9] ⚓  Maritime Operations Realm
+
+  [A] 🔄  Auto-Loop Demo (All 9 Realms)
+  [Q] 👋  Quit MotiBeam OS
+======================================================================
+
+  Select option: 
