@@ -811,12 +811,108 @@ class MotiBeamOS:
         pass
 
     def render_education(self):
-        """Education - Learning hub (to be implemented)"""
-        pass
+        """Education - Interactive learning hub"""
+        selected = self.realm_data['education']['selected']
+
+        # Header
+        title_font = pygame.font.SysFont(None, 64, bold=True)
+        title = title_font.render('📚 EDUCATION', True, (255, 180, 50))
+        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 45))
+
+        subtitle_font = pygame.font.SysFont(None, 28)
+        subtitle = subtitle_font.render('Interactive Learning Sessions', True, (220, 200, 150))
+        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 110))
+
+        # Subjects
+        subjects = [
+            {'emoji': '🔢', 'name': 'Mathematics', 'progress': 75, 'level': 'Grade 5'},
+            {'emoji': '📖', 'name': 'Reading', 'progress': 82, 'level': 'Advanced'},
+            {'emoji': '🔬', 'name': 'Science', 'progress': 68, 'level': 'Grade 5'},
+            {'emoji': '🗺️', 'name': 'History', 'progress': 55, 'level': 'Grade 4'},
+            {'emoji': '🌍', 'name': 'Geography', 'progress': 90, 'level': 'Grade 5'},
+            {'emoji': '🎨', 'name': 'Art', 'progress': 45, 'level': 'Beginner'}
+        ]
+
+        card_width = 280
+        card_height = 240
+        gap = 40
+        start_x = 120
+        start_y = 175
+
+        for i, subject in enumerate(subjects):
+            row = i // 3
+            col = i % 3
+
+            x = start_x + col * (card_width + gap)
+            y = start_y + row * (card_height + gap)
+
+            card_rect = pygame.Rect(x, y, card_width, card_height)
+
+            # Highlight selected
+            if i == selected:
+                pygame.draw.rect(self.screen, (255, 255, 255), card_rect.inflate(6, 6), 3, border_radius=15)
+
+            pygame.draw.rect(self.screen, (30, 35, 50), card_rect, border_radius=15)
+
+            # Emoji
+            emoji_font = pygame.font.SysFont(None, 72)
+            emoji = emoji_font.render(subject['emoji'], True, (255, 255, 255))
+            self.screen.blit(emoji, (x + 20, y + 20))
+
+            # Subject name
+            name_font = pygame.font.SysFont(None, 34, bold=True)
+            name = name_font.render(subject['name'], True, (255, 255, 255))
+            self.screen.blit(name, (x + 95, y + 28))
+
+            # Level
+            level_font = pygame.font.SysFont(None, 20)
+            level = level_font.render(subject['level'], True, (180, 190, 200))
+            self.screen.blit(level, (x + 95, y + 62))
+
+            # Progress bar background
+            progress_bg = pygame.Rect(x + 20, y + 115, card_width - 40, 28)
+            pygame.draw.rect(self.screen, (50, 55, 70), progress_bg, border_radius=6)
+
+            # Progress bar fill
+            progress_fill_width = int((card_width - 40) * subject['progress'] / 100)
+            progress_fill = pygame.Rect(x + 20, y + 115, progress_fill_width, 28)
+            pygame.draw.rect(self.screen, (100, 200, 255), progress_fill, border_radius=6)
+
+            # Progress text
+            progress_font = pygame.font.SysFont(None, 20, bold=True)
+            progress_text = progress_font.render(f"{subject['progress']}%", True, (255, 255, 255))
+            self.screen.blit(progress_text, (x + card_width // 2 - progress_text.get_width() // 2, y + 119))
+
+            # Start button
+            btn_font = pygame.font.SysFont(None, 26, bold=True)
+            btn_text = btn_font.render('▶️ Start Session', True, (150, 220, 150))
+            self.screen.blit(btn_text, (x + card_width // 2 - btn_text.get_width() // 2, y + 175))
+
+        # Help
+        help_font = pygame.font.SysFont(None, 20)
+        help_text = help_font.render('Arrow Keys: Navigate | ENTER: Start Session | ESC: Back', True, (150, 160, 180))
+        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 720))
 
     def handle_education_input(self, key):
-        """Handle Education input (to be implemented)"""
-        pass
+        """Handle Education input"""
+        selected = self.realm_data['education']['selected']
+
+        subject_names = ['Mathematics', 'Reading', 'Science', 'History', 'Geography', 'Art']
+
+        if key == pygame.K_LEFT:
+            if selected % 3 > 0:
+                self.realm_data['education']['selected'] = selected - 1
+        elif key == pygame.K_RIGHT:
+            if selected % 3 < 2 and selected < 5:
+                self.realm_data['education']['selected'] = selected + 1
+        elif key == pygame.K_UP:
+            if selected >= 3:
+                self.realm_data['education']['selected'] = selected - 3
+        elif key == pygame.K_DOWN:
+            if selected < 3:
+                self.realm_data['education']['selected'] = selected + 3
+        elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
+            print(f"[EDUCATION] Starting {subject_names[selected]} session...")
 
     def render_transport(self):
         """Transport - Mobility (to be implemented)"""
