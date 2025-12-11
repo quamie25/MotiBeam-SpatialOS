@@ -148,7 +148,7 @@ class MotiBeamOS:
         # Fonts (projection friendly – large)
         self.font_header = pygame.font.SysFont(None, 42)
         self.font_header_meta = pygame.font.SysFont(None, 30)
-        self.font_emoji = pygame.font.SysFont(None, 64)
+        self.font_emoji = pygame.font.SysFont(None, 96)  # Increased from 64 to 96px for better visibility
         self.font_card_title = pygame.font.SysFont(None, 34)
         self.font_card_subtitle = pygame.font.SysFont(None, 22)
         self.font_footer = pygame.font.SysFont(None, 24)
@@ -231,10 +231,10 @@ class MotiBeamOS:
                     border_radius=18,
                 )
 
-            # Emoji
+            # Emoji (larger 96px size)
             emoji_surf = self.font_emoji.render(realm["emoji"], True, TEXT_PRIMARY)
             ex = card_rect.centerx - emoji_surf.get_width() // 2
-            ey = card_rect.y + 18
+            ey = card_rect.y + 12  # Reduced from 18 to 12 for better vertical centering
             self.screen.blit(emoji_surf, (ex, ey))
 
             # Title
@@ -242,7 +242,7 @@ class MotiBeamOS:
                 realm["name"], True, TEXT_PRIMARY
             )
             tx = card_rect.centerx - title_surf.get_width() // 2
-            ty = ey + emoji_surf.get_height() + 10
+            ty = ey + emoji_surf.get_height() + 8  # Reduced from 10 to 8 for tighter spacing
             self.screen.blit(title_surf, (tx, ty))
 
             # Subtitle
