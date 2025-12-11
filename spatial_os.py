@@ -35,18 +35,18 @@ TEXT_PRIMARY = (245, 248, 255)
 TEXT_SECONDARY = (170, 175, 190)
 
 REALMS = [
-    {"name": "CircleBeam", "subtitle": "Living relationships", "emoji": "👥"},
-    {"name": "LegacyBeam", "subtitle": "Memory & legacy",      "emoji": "📖"},
-    {"name": "LockboxBeam", "subtitle": "Secure vault",        "emoji": "🔐"},
-    {"name": "Marketplace", "subtitle": "Wellness & goods",    "emoji": "🛒"},
-    {"name": "Home",       "subtitle": "Smart home",           "emoji": "🏠"},
-    {"name": "Clinical",   "subtitle": "Health & wellness",    "emoji": "🏥"},
-    {"name": "Education",  "subtitle": "Learning hub",         "emoji": "📚"},
-    {"name": "Emergency",  "subtitle": "Crisis response",      "emoji": "🚨"},
-    {"name": "Transport",  "subtitle": "Automotive HUD",       "emoji": "🚗"},
-    {"name": "Security",   "subtitle": "Surveillance",         "emoji": "🛡️"},
-    {"name": "Aviation",   "subtitle": "Flight systems",       "emoji": "✈️"},
-    {"name": "Maritime",   "subtitle": "Navigation",           "emoji": "⚓"},
+    {"name": "CircleBeam", "subtitle": "Living relationships", "icon": "( )"},
+    {"name": "LegacyBeam", "subtitle": "Memory & legacy",      "icon": "[#]"},
+    {"name": "LockboxBeam", "subtitle": "Secure vault",        "icon": "[X]"},
+    {"name": "Marketplace", "subtitle": "Wellness & goods",    "icon": "[$]"},
+    {"name": "Home",       "subtitle": "Smart home",           "icon": "[H]"},
+    {"name": "Clinical",   "subtitle": "Health & wellness",    "icon": "[+]"},
+    {"name": "Education",  "subtitle": "Learning hub",         "icon": "[E]"},
+    {"name": "Emergency",  "subtitle": "Crisis response",      "icon": "[!]"},
+    {"name": "Transport",  "subtitle": "Automotive HUD",       "icon": "[>]"},
+    {"name": "Security",   "subtitle": "Surveillance",         "icon": "[*]"},
+    {"name": "Aviation",   "subtitle": "Flight systems",       "icon": "[^]"},
+    {"name": "Maritime",   "subtitle": "Navigation",           "icon": "[~]"},
 ]
 
 
@@ -255,18 +255,18 @@ class MotiBeamOS:
                     border_radius=18,
                 )
 
-            # Emoji (larger 96px size)
-            emoji_surf = self.font_emoji.render(realm["emoji"], True, TEXT_PRIMARY)
-            ex = card_rect.centerx - emoji_surf.get_width() // 2
+            # Icon (larger 96px size, ASCII-safe)
+            icon_surf = self.font_emoji.render(realm["icon"], True, TEXT_PRIMARY)
+            ex = card_rect.centerx - icon_surf.get_width() // 2
             ey = card_rect.y + 12  # Reduced from 18 to 12 for better vertical centering
-            self.screen.blit(emoji_surf, (ex, ey))
+            self.screen.blit(icon_surf, (ex, ey))
 
             # Title
             title_surf = self.font_card_title.render(
                 realm["name"], True, TEXT_PRIMARY
             )
             tx = card_rect.centerx - title_surf.get_width() // 2
-            ty = ey + emoji_surf.get_height() + 8  # Reduced from 10 to 8 for tighter spacing
+            ty = ey + icon_surf.get_height() + 8  # Reduced from 10 to 8 for tighter spacing
             self.screen.blit(title_surf, (tx, ty))
 
             # Subtitle
@@ -374,7 +374,7 @@ class MotiBeamOS:
 
         # Header
         title_font = pygame.font.SysFont(None, 64, bold=True)
-        title = title_font.render('👥 CIRCLEBEAM', True, (100, 180, 255))
+        title = title_font.render('( ) CIRCLEBEAM', True, (100, 180, 255))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 60))
 
         subtitle_font = pygame.font.SysFont(None, 32)
@@ -383,9 +383,9 @@ class MotiBeamOS:
 
         # Three circle members
         circles = [
-            {'name': 'Mom', 'status': 'Available', 'emoji': '👩', 'color': (50, 255, 100)},
-            {'name': 'Dad', 'status': 'Away', 'emoji': '👨', 'color': (255, 200, 50)},
-            {'name': 'Sister', 'status': 'Do Not Disturb', 'emoji': '👧', 'color': (255, 100, 100)}
+            {'name': 'Mom', 'status': 'Available', 'icon': 'M', 'color': (50, 255, 100)},
+            {'name': 'Dad', 'status': 'Away', 'icon': 'D', 'color': (255, 200, 50)},
+            {'name': 'Sister', 'status': 'Do Not Disturb', 'icon': 'S', 'color': (255, 100, 100)}
         ]
 
         # Card layout
@@ -406,10 +406,10 @@ class MotiBeamOS:
             # Card background
             pygame.draw.rect(self.screen, (30, 35, 50), card_rect, border_radius=15)
 
-            # Circle emoji (large)
-            emoji_font = pygame.font.SysFont(None, 96)
-            emoji = emoji_font.render(circle['emoji'], True, (255, 255, 255))
-            self.screen.blit(emoji, (x + card_width // 2 - emoji.get_width() // 2, y + 30))
+            # Circle icon (large, colored by status)
+            icon_font = pygame.font.SysFont(None, 120, bold=True)
+            icon = icon_font.render(circle['icon'], True, circle['color'])
+            self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 30))
 
             # Name
             name_font = pygame.font.SysFont(None, 40, bold=True)
@@ -422,7 +422,7 @@ class MotiBeamOS:
             self.screen.blit(status, (x + card_width // 2 - status.get_width() // 2, y + 190))
 
             # Action button
-            button_text = '📞 Call' if circle['status'] != 'Do Not Disturb' else '✉️ Message'
+            button_text = '[CALL]' if circle['status'] != 'Do Not Disturb' else '[MSG]'
             button_font = pygame.font.SysFont(None, 28, bold=True)
             button = button_font.render(button_text, True, (200, 220, 255))
             self.screen.blit(button, (x + card_width // 2 - button.get_width() // 2, y + 240))
@@ -431,12 +431,12 @@ class MotiBeamOS:
         emergency_rect = pygame.Rect(self.width // 2 - 200, 600, 400, 60)
         pygame.draw.rect(self.screen, (120, 30, 30), emergency_rect, border_radius=10)
         emergency_font = pygame.font.SysFont(None, 36, bold=True)
-        emergency = emergency_font.render('🚨 EMERGENCY CONTACT', True, (255, 80, 80))
+        emergency = emergency_font.render('[!] EMERGENCY CONTACT', True, (255, 80, 80))
         self.screen.blit(emergency, (self.width // 2 - emergency.get_width() // 2, 615))
 
         # Help text
         help_font = pygame.font.SysFont(None, 22)
-        help_text = help_font.render('← → Select | ENTER: Call/Message | ESC: Back', True, (150, 160, 180))
+        help_text = help_font.render('Arrow Keys: Select | ENTER: Call/Message | ESC: Back', True, (150, 160, 180))
         self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 710))
 
     def handle_circlebeam_input(self, key):
@@ -459,7 +459,7 @@ class MotiBeamOS:
 
         # Header
         title_font = pygame.font.SysFont(None, 64, bold=True)
-        title = title_font.render('🛒 MARKETPLACE', True, (180, 100, 255))
+        title = title_font.render('[$] MARKETPLACE', True, (180, 100, 255))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 50))
 
         subtitle_font = pygame.font.SysFont(None, 28)
@@ -468,18 +468,18 @@ class MotiBeamOS:
 
         # PX Database
         pxs = [
-            {'emoji': '🧘', 'name': 'Yoga Flow', 'category': 'Wellness', 'price': '$4.99', 'rating': '★★★★★'},
-            {'emoji': '⏱️', 'name': 'Focus Timer', 'category': 'Productivity', 'price': '$2.99', 'rating': '★★★★☆'},
-            {'emoji': '🎵', 'name': 'Jazz Lounge', 'category': 'Entertainment', 'price': '$3.99', 'rating': '★★★★★'},
-            {'emoji': '🏃', 'name': 'HIIT Workout', 'category': 'Fitness', 'price': '$5.99', 'rating': '★★★★☆'},
-            {'emoji': '📖', 'name': 'Story Time', 'category': 'Education', 'price': '$2.99', 'rating': '★★★★★'},
-            {'emoji': '🌊', 'name': 'Ocean Sounds', 'category': 'Relaxation', 'price': '$1.99', 'rating': '★★★★☆'},
-            {'emoji': '🧠', 'name': 'Brain Training', 'category': 'Education', 'price': '$6.99', 'rating': '★★★★☆'},
-            {'emoji': '🎨', 'name': 'Art Gallery', 'category': 'Culture', 'price': '$4.99', 'rating': '★★★★★'},
-            {'emoji': '☕', 'name': 'Coffee Shop', 'category': 'Ambiance', 'price': '$2.99', 'rating': '★★★★☆'},
-            {'emoji': '🌌', 'name': 'Starfield', 'category': 'Relaxation', 'price': '$3.99', 'rating': '★★★★★'},
-            {'emoji': '🎯', 'name': 'Goal Tracker', 'category': 'Productivity', 'price': '$4.99', 'rating': '★★★★☆'},
-            {'emoji': '🍃', 'name': 'Forest Walk', 'category': 'Nature', 'price': '$2.99', 'rating': '★★★★★'},
+            {'icon': 'Y', 'name': 'Yoga Flow', 'category': 'Wellness', 'price': '$4.99', 'rating': '*****'},
+            {'icon': 'T', 'name': 'Focus Timer', 'category': 'Productivity', 'price': '$2.99', 'rating': '****'},
+            {'icon': 'J', 'name': 'Jazz Lounge', 'category': 'Entertainment', 'price': '$3.99', 'rating': '*****'},
+            {'icon': 'H', 'name': 'HIIT Workout', 'category': 'Fitness', 'price': '$5.99', 'rating': '****'},
+            {'icon': 'S', 'name': 'Story Time', 'category': 'Education', 'price': '$2.99', 'rating': '*****'},
+            {'icon': 'O', 'name': 'Ocean Sounds', 'category': 'Relaxation', 'price': '$1.99', 'rating': '****'},
+            {'icon': 'B', 'name': 'Brain Training', 'category': 'Education', 'price': '$6.99', 'rating': '****'},
+            {'icon': 'A', 'name': 'Art Gallery', 'category': 'Culture', 'price': '$4.99', 'rating': '*****'},
+            {'icon': 'C', 'name': 'Coffee Shop', 'category': 'Ambiance', 'price': '$2.99', 'rating': '****'},
+            {'icon': 'X', 'name': 'Starfield', 'category': 'Relaxation', 'price': '$3.99', 'rating': '*****'},
+            {'icon': 'G', 'name': 'Goal Tracker', 'category': 'Productivity', 'price': '$4.99', 'rating': '****'},
+            {'icon': 'F', 'name': 'Forest Walk', 'category': 'Nature', 'price': '$2.99', 'rating': '*****'},
         ]
 
         # Show 9 PXs at a time (3x3 grid)
@@ -506,10 +506,10 @@ class MotiBeamOS:
 
             pygame.draw.rect(self.screen, (35, 30, 55), card_rect, border_radius=12)
 
-            # PX emoji
-            emoji_font = pygame.font.SysFont(None, 72)
-            emoji = emoji_font.render(px['emoji'], True, (255, 255, 255))
-            self.screen.blit(emoji, (x + 15, y + 15))
+            # PX icon
+            icon_font = pygame.font.SysFont(None, 72, bold=True)
+            icon = icon_font.render(px['icon'], True, (100, 200, 255))
+            self.screen.blit(icon, (x + 15, y + 15))
 
             # PX name
             name_font = pygame.font.SysFont(None, 32, bold=True)
@@ -534,7 +534,7 @@ class MotiBeamOS:
         # Scroll indicator
         if scroll_offset + 9 < len(pxs):
             arrow_font = pygame.font.SysFont(None, 28)
-            arrow_down = arrow_font.render('▼ More PXs Below (Down Arrow)', True, (150, 150, 200))
+            arrow_down = arrow_font.render('v More PXs Below (Down Arrow)', True, (150, 150, 200))
             self.screen.blit(arrow_down, (self.width // 2 - arrow_down.get_width() // 2, 680))
 
         # Help
@@ -581,17 +581,17 @@ class MotiBeamOS:
 
         # Header
         title_font = pygame.font.SysFont(None, 64, bold=True)
-        title = title_font.render('🏠 HOME CONTROL', True, (100, 255, 150))
+        title = title_font.render('[H] HOME CONTROL', True, (100, 255, 150))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 50))
 
         # Device configurations
         devices = [
-            {'id': 'living_lights', 'emoji': '💡', 'name': 'Living Room', 'type': 'toggle'},
-            {'id': 'bedroom_lights', 'emoji': '🛏️', 'name': 'Bedroom', 'type': 'toggle'},
-            {'id': 'temp', 'emoji': '🌡️', 'name': 'Thermostat', 'type': 'adjust'},
-            {'id': 'security', 'emoji': '🛡️', 'name': 'Security', 'type': 'toggle'},
-            {'id': 'door', 'emoji': '🚪', 'name': 'Front Door', 'type': 'toggle'},
-            {'id': 'garage', 'emoji': '🚗', 'name': 'Garage', 'type': 'toggle'}
+            {'id': 'living_lights', 'icon': 'L', 'name': 'Living Room', 'type': 'toggle'},
+            {'id': 'bedroom_lights', 'icon': 'B', 'name': 'Bedroom', 'type': 'toggle'},
+            {'id': 'temp', 'icon': 'T', 'name': 'Thermostat', 'type': 'adjust'},
+            {'id': 'security', 'icon': 'S', 'name': 'Security', 'type': 'toggle'},
+            {'id': 'door', 'icon': 'D', 'name': 'Front Door', 'type': 'toggle'},
+            {'id': 'garage', 'icon': 'G', 'name': 'Garage', 'type': 'toggle'}
         ]
 
         card_width = 280
@@ -622,10 +622,10 @@ class MotiBeamOS:
 
             pygame.draw.rect(self.screen, bg_color, card_rect, border_radius=15)
 
-            # Emoji
-            emoji_font = pygame.font.SysFont(None, 84)
-            emoji = emoji_font.render(device['emoji'], True, (255, 255, 255))
-            self.screen.blit(emoji, (x + card_width // 2 - emoji.get_width() // 2, y + 20))
+            # Icon
+            icon_font = pygame.font.SysFont(None, 96, bold=True)
+            icon = icon_font.render(device['icon'], True, (255, 255, 255))
+            self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 20))
 
             # Name
             name_font = pygame.font.SysFont(None, 32, bold=True)
@@ -686,16 +686,16 @@ class MotiBeamOS:
         """Clinical - Health monitoring dashboard"""
         # Header
         title_font = pygame.font.SysFont(None, 64, bold=True)
-        title = title_font.render('🏥 CLINICAL MONITOR', True, (255, 120, 140))
+        title = title_font.render('[+] CLINICAL MONITOR', True, (255, 120, 140))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 35))
 
         # === VITALS SECTION ===
         vitals_y = 100
         vitals = [
-            {'emoji': '❤️', 'label': 'Heart Rate', 'value': '72 bpm', 'color': (100, 255, 150)},
-            {'emoji': '🩸', 'label': 'Blood Pressure', 'value': '120/80', 'color': (100, 255, 150)},
-            {'emoji': '🫁', 'label': 'O2 Saturation', 'value': '98%', 'color': (100, 255, 150)},
-            {'emoji': '🌡️', 'label': 'Temperature', 'value': '98.6°F', 'color': (100, 255, 150)}
+            {'icon': 'HR', 'label': 'Heart Rate', 'value': '72 bpm', 'color': (100, 255, 150)},
+            {'icon': 'BP', 'label': 'Blood Pressure', 'value': '120/80', 'color': (100, 255, 150)},
+            {'icon': 'O2', 'label': 'O2 Saturation', 'value': '98%', 'color': (100, 255, 150)},
+            {'icon': 'T', 'label': 'Temperature', 'value': '98.6°F', 'color': (100, 255, 150)}
         ]
 
         vital_width = 220
@@ -707,10 +707,10 @@ class MotiBeamOS:
             card_rect = pygame.Rect(x, vitals_y, vital_width, 85)
             pygame.draw.rect(self.screen, (25, 30, 40), card_rect, border_radius=10)
 
-            # Emoji
-            emoji_font = pygame.font.SysFont(None, 48)
-            emoji = emoji_font.render(vital['emoji'], True, (255, 255, 255))
-            self.screen.blit(emoji, (x + 10, vitals_y + 10))
+            # Icon
+            icon_font = pygame.font.SysFont(None, 40, bold=True)
+            icon = icon_font.render(vital['icon'], True, vital['color'])
+            self.screen.blit(icon, (x + 10, vitals_y + 10))
 
             # Label
             label_font = pygame.font.SysFont(None, 18)
@@ -738,11 +738,12 @@ class MotiBeamOS:
         for i, med in enumerate(medications):
             y = med_y + 45 + i * 45
 
-            # Status emoji
-            status_emoji = '✅' if med['taken'] else '⏰'
-            emoji_font = pygame.font.SysFont(None, 32)
-            emoji = emoji_font.render(status_emoji, True, (255, 255, 255))
-            self.screen.blit(emoji, (70, y))
+            # Status icon
+            status_icon = '[X]' if med['taken'] else '[ ]'
+            icon_font = pygame.font.SysFont(None, 28, bold=True)
+            icon_color = (100, 255, 100) if med['taken'] else (150, 150, 150)
+            icon = icon_font.render(status_icon, True, icon_color)
+            self.screen.blit(icon, (70, y))
 
             # Med name
             name_font = pygame.font.SysFont(None, 28, bold=True)
@@ -769,17 +770,17 @@ class MotiBeamOS:
         cdi_score = 2
         cdi_status = 'LOW RISK'
         cdi_color = (100, 255, 100)
-        cdi_emoji = '✅'
+        cdi_icon = '[OK]'
 
         cdi_font = pygame.font.SysFont(None, 64, bold=True)
-        cdi_display = cdi_font.render(f'{cdi_emoji} {cdi_status}', True, cdi_color)
+        cdi_display = cdi_font.render(f'{cdi_icon} {cdi_status}', True, cdi_color)
         self.screen.blit(cdi_display, (50, cdi_y + 45))
 
         # Guardian contact button
         guardian_btn = pygame.Rect(550, cdi_y + 35, 400, 70)
         pygame.draw.rect(self.screen, (50, 100, 200), guardian_btn, border_radius=12)
         btn_font = pygame.font.SysFont(None, 36, bold=True)
-        btn_text = btn_font.render('📞 Contact Guardian', True, (255, 255, 255))
+        btn_text = btn_font.render('[CALL] Contact Guardian', True, (255, 255, 255))
         self.screen.blit(btn_text, (guardian_btn.centerx - btn_text.get_width() // 2, guardian_btn.centery - 18))
 
         # === CHART VISUALIZATION (simple bars) ===
@@ -816,7 +817,7 @@ class MotiBeamOS:
 
         # Header
         title_font = pygame.font.SysFont(None, 64, bold=True)
-        title = title_font.render('📚 EDUCATION', True, (255, 180, 50))
+        title = title_font.render('[E] EDUCATION', True, (255, 180, 50))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 45))
 
         subtitle_font = pygame.font.SysFont(None, 28)
@@ -825,12 +826,12 @@ class MotiBeamOS:
 
         # Subjects
         subjects = [
-            {'emoji': '🔢', 'name': 'Mathematics', 'progress': 75, 'level': 'Grade 5'},
-            {'emoji': '📖', 'name': 'Reading', 'progress': 82, 'level': 'Advanced'},
-            {'emoji': '🔬', 'name': 'Science', 'progress': 68, 'level': 'Grade 5'},
-            {'emoji': '🗺️', 'name': 'History', 'progress': 55, 'level': 'Grade 4'},
-            {'emoji': '🌍', 'name': 'Geography', 'progress': 90, 'level': 'Grade 5'},
-            {'emoji': '🎨', 'name': 'Art', 'progress': 45, 'level': 'Beginner'}
+            {'icon': '#', 'name': 'Mathematics', 'progress': 75, 'level': 'Grade 5'},
+            {'icon': 'R', 'name': 'Reading', 'progress': 82, 'level': 'Advanced'},
+            {'icon': 'S', 'name': 'Science', 'progress': 68, 'level': 'Grade 5'},
+            {'icon': 'H', 'name': 'History', 'progress': 55, 'level': 'Grade 4'},
+            {'icon': 'G', 'name': 'Geography', 'progress': 90, 'level': 'Grade 5'},
+            {'icon': 'A', 'name': 'Art', 'progress': 45, 'level': 'Beginner'}
         ]
 
         card_width = 280
@@ -854,10 +855,10 @@ class MotiBeamOS:
 
             pygame.draw.rect(self.screen, (30, 35, 50), card_rect, border_radius=15)
 
-            # Emoji
-            emoji_font = pygame.font.SysFont(None, 72)
-            emoji = emoji_font.render(subject['emoji'], True, (255, 255, 255))
-            self.screen.blit(emoji, (x + 20, y + 20))
+            # Icon
+            icon_font = pygame.font.SysFont(None, 84, bold=True)
+            icon = icon_font.render(subject['icon'], True, (100, 200, 255))
+            self.screen.blit(icon, (x + 20, y + 20))
 
             # Subject name
             name_font = pygame.font.SysFont(None, 34, bold=True)
@@ -885,7 +886,7 @@ class MotiBeamOS:
 
             # Start button
             btn_font = pygame.font.SysFont(None, 26, bold=True)
-            btn_text = btn_font.render('▶️ Start Session', True, (150, 220, 150))
+            btn_text = btn_font.render('[START] Session', True, (150, 220, 150))
             self.screen.blit(btn_text, (x + card_width // 2 - btn_text.get_width() // 2, y + 175))
 
         # Help
@@ -920,7 +921,7 @@ class MotiBeamOS:
 
         # Header
         title_font = pygame.font.SysFont(None, 64, bold=True)
-        title = title_font.render('🚗 TRANSPORT', True, (100, 180, 255))
+        title = title_font.render('[>] TRANSPORT', True, (100, 180, 255))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 40))
 
         # Current location section
@@ -932,7 +933,7 @@ class MotiBeamOS:
         self.screen.blit(loc_label, (100, 130))
 
         loc_value_font = pygame.font.SysFont(None, 36, bold=True)
-        loc_value = loc_value_font.render('📍 123 Main Street, Cypress, TX 77433', True, (100, 200, 255))
+        loc_value = loc_value_font.render('[*] 123 Main Street, Cypress, TX 77433', True, (100, 200, 255))
         self.screen.blit(loc_value, (100, 160))
 
         # Destinations label
@@ -942,12 +943,12 @@ class MotiBeamOS:
 
         # Destinations
         destinations = [
-            {'emoji': '🏠', 'name': 'Home', 'address': '123 Main St', 'eta': '0 min'},
-            {'emoji': '💼', 'name': 'Work', 'address': '456 Business Blvd', 'eta': '15 min'},
-            {'emoji': '🏫', 'name': 'School', 'address': '789 Education Dr', 'eta': '8 min'},
-            {'emoji': '🏥', 'name': 'Hospital', 'address': 'Memorial Medical Ctr', 'eta': '12 min'},
-            {'emoji': '🛒', 'name': 'Grocery', 'address': 'Whole Foods Market', 'eta': '5 min'},
-            {'emoji': '⛽', 'name': 'Gas Station', 'address': 'Shell Station', 'eta': '3 min'}
+            {'icon': 'H', 'name': 'Home', 'address': '123 Main St', 'eta': '0 min'},
+            {'icon': 'W', 'name': 'Work', 'address': '456 Business Blvd', 'eta': '15 min'},
+            {'icon': 'S', 'name': 'School', 'address': '789 Education Dr', 'eta': '8 min'},
+            {'icon': '+', 'name': 'Hospital', 'address': 'Memorial Medical Ctr', 'eta': '12 min'},
+            {'icon': 'G', 'name': 'Grocery', 'address': 'Whole Foods Market', 'eta': '5 min'},
+            {'icon': 'F', 'name': 'Gas Station', 'address': 'Shell Station', 'eta': '3 min'}
         ]
 
         card_width = 280
@@ -971,10 +972,10 @@ class MotiBeamOS:
 
             pygame.draw.rect(self.screen, (30, 40, 60), card_rect, border_radius=12)
 
-            # Emoji
-            emoji_font = pygame.font.SysFont(None, 56)
-            emoji = emoji_font.render(dest['emoji'], True, (255, 255, 255))
-            self.screen.blit(emoji, (x + 15, y + 15))
+            # Icon
+            icon_font = pygame.font.SysFont(None, 72, bold=True)
+            icon = icon_font.render(dest['icon'], True, (100, 200, 255))
+            self.screen.blit(icon, (x + 15, y + 15))
 
             # Name
             name_font = pygame.font.SysFont(None, 32, bold=True)
@@ -988,7 +989,7 @@ class MotiBeamOS:
 
             # ETA
             eta_font = pygame.font.SysFont(None, 26, bold=True)
-            eta = eta_font.render(f"🕐 {dest['eta']}", True, (100, 255, 150))
+            eta = eta_font.render(f"ETA: {dest['eta']}", True, (100, 255, 150))
             self.screen.blit(eta, (x + 15, y + 105))
 
         # Help
