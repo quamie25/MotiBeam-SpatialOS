@@ -453,12 +453,126 @@ class MotiBeamOS:
             print(f"[CIRCLEBEAM] {actions[selected]} {circles[selected]}...")
 
     def render_marketplace(self):
-        """Marketplace - PX store (to be implemented)"""
-        pass
+        """Marketplace - PX store with scrollable grid"""
+        selected = self.realm_data['marketplace']['selected']
+        scroll_offset = self.realm_data['marketplace']['scroll']
+
+        # Header
+        title_font = pygame.font.SysFont(None, 64, bold=True)
+        title = title_font.render('🛒 MARKETPLACE', True, (180, 100, 255))
+        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 50))
+
+        subtitle_font = pygame.font.SysFont(None, 28)
+        subtitle = subtitle_font.render('Projection Experiences', True, (200, 180, 255))
+        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 115))
+
+        # PX Database
+        pxs = [
+            {'emoji': '🧘', 'name': 'Yoga Flow', 'category': 'Wellness', 'price': '$4.99', 'rating': '★★★★★'},
+            {'emoji': '⏱️', 'name': 'Focus Timer', 'category': 'Productivity', 'price': '$2.99', 'rating': '★★★★☆'},
+            {'emoji': '🎵', 'name': 'Jazz Lounge', 'category': 'Entertainment', 'price': '$3.99', 'rating': '★★★★★'},
+            {'emoji': '🏃', 'name': 'HIIT Workout', 'category': 'Fitness', 'price': '$5.99', 'rating': '★★★★☆'},
+            {'emoji': '📖', 'name': 'Story Time', 'category': 'Education', 'price': '$2.99', 'rating': '★★★★★'},
+            {'emoji': '🌊', 'name': 'Ocean Sounds', 'category': 'Relaxation', 'price': '$1.99', 'rating': '★★★★☆'},
+            {'emoji': '🧠', 'name': 'Brain Training', 'category': 'Education', 'price': '$6.99', 'rating': '★★★★☆'},
+            {'emoji': '🎨', 'name': 'Art Gallery', 'category': 'Culture', 'price': '$4.99', 'rating': '★★★★★'},
+            {'emoji': '☕', 'name': 'Coffee Shop', 'category': 'Ambiance', 'price': '$2.99', 'rating': '★★★★☆'},
+            {'emoji': '🌌', 'name': 'Starfield', 'category': 'Relaxation', 'price': '$3.99', 'rating': '★★★★★'},
+            {'emoji': '🎯', 'name': 'Goal Tracker', 'category': 'Productivity', 'price': '$4.99', 'rating': '★★★★☆'},
+            {'emoji': '🍃', 'name': 'Forest Walk', 'category': 'Nature', 'price': '$2.99', 'rating': '★★★★★'},
+        ]
+
+        # Show 9 PXs at a time (3x3 grid)
+        visible_pxs = pxs[scroll_offset:scroll_offset + 9]
+
+        card_width = 280
+        card_height = 180
+        gap = 30
+        start_x = 80
+        start_y = 180
+
+        for i, px in enumerate(visible_pxs):
+            row = i // 3
+            col = i % 3
+
+            x = start_x + col * (card_width + gap)
+            y = start_y + row * (card_height + gap)
+
+            card_rect = pygame.Rect(x, y, card_width, card_height)
+
+            # Highlight selected
+            if i == selected:
+                pygame.draw.rect(self.screen, (255, 255, 255), card_rect.inflate(6, 6), 3, border_radius=12)
+
+            pygame.draw.rect(self.screen, (35, 30, 55), card_rect, border_radius=12)
+
+            # PX emoji
+            emoji_font = pygame.font.SysFont(None, 72)
+            emoji = emoji_font.render(px['emoji'], True, (255, 255, 255))
+            self.screen.blit(emoji, (x + 15, y + 15))
+
+            # PX name
+            name_font = pygame.font.SysFont(None, 32, bold=True)
+            name = name_font.render(px['name'], True, (255, 255, 255))
+            self.screen.blit(name, (x + 90, y + 20))
+
+            # Category
+            cat_font = pygame.font.SysFont(None, 20)
+            cat = cat_font.render(px['category'], True, (180, 160, 200))
+            self.screen.blit(cat, (x + 90, y + 50))
+
+            # Price
+            price_font = pygame.font.SysFont(None, 36, bold=True)
+            price = price_font.render(px['price'], True, (100, 255, 150))
+            self.screen.blit(price, (x + 15, y + 115))
+
+            # Rating
+            rating_font = pygame.font.SysFont(None, 22)
+            rating = rating_font.render(px['rating'], True, (255, 200, 50))
+            self.screen.blit(rating, (x + 15, y + 150))
+
+        # Scroll indicator
+        if scroll_offset + 9 < len(pxs):
+            arrow_font = pygame.font.SysFont(None, 28)
+            arrow_down = arrow_font.render('▼ More PXs Below (Down Arrow)', True, (150, 150, 200))
+            self.screen.blit(arrow_down, (self.width // 2 - arrow_down.get_width() // 2, 680))
+
+        # Help
+        help_font = pygame.font.SysFont(None, 20)
+        help_text = help_font.render('Arrow Keys: Navigate | ENTER: Install | ESC: Back', True, (150, 160, 180))
+        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 720))
 
     def handle_marketplace_input(self, key):
-        """Handle Marketplace input (to be implemented)"""
-        pass
+        """Handle Marketplace input"""
+        selected = self.realm_data['marketplace']['selected']
+        scroll_offset = self.realm_data['marketplace']['scroll']
+
+        total_pxs = 12  # Total in database
+        visible_count = 9  # Show 9 at a time
+
+        if key == pygame.K_LEFT:
+            if selected % 3 > 0:
+                self.realm_data['marketplace']['selected'] = selected - 1
+        elif key == pygame.K_RIGHT:
+            if selected % 3 < 2 and selected < min(visible_count, total_pxs - scroll_offset) - 1:
+                self.realm_data['marketplace']['selected'] = selected + 1
+        elif key == pygame.K_UP:
+            if selected >= 3:
+                self.realm_data['marketplace']['selected'] = selected - 3
+        elif key == pygame.K_DOWN:
+            if selected + 3 < min(visible_count, total_pxs - scroll_offset):
+                self.realm_data['marketplace']['selected'] = selected + 3
+            elif scroll_offset + visible_count < total_pxs:
+                # Scroll down to next page
+                self.realm_data['marketplace']['scroll'] = min(scroll_offset + 3, total_pxs - visible_count)
+                self.realm_data['marketplace']['selected'] = 0
+        elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
+            px_names = ['Yoga Flow', 'Focus Timer', 'Jazz Lounge', 'HIIT Workout', 'Story Time',
+                       'Ocean Sounds', 'Brain Training', 'Art Gallery', 'Coffee Shop',
+                       'Starfield', 'Goal Tracker', 'Forest Walk']
+            actual_index = scroll_offset + selected
+            if actual_index < len(px_names):
+                print(f"[MARKETPLACE] Installing {px_names[actual_index]}...")
 
     def render_home_realm(self):
         """Home - Smart home control (to be implemented)"""
