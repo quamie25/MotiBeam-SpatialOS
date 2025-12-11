@@ -683,11 +683,131 @@ class MotiBeamOS:
                 print(f"[HOME] {device_names[selected]} turned {state_str}")
 
     def render_clinical(self):
-        """Clinical - Health monitoring (to be implemented)"""
-        pass
+        """Clinical - Health monitoring dashboard"""
+        # Header
+        title_font = pygame.font.SysFont(None, 64, bold=True)
+        title = title_font.render('🏥 CLINICAL MONITOR', True, (255, 120, 140))
+        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 35))
+
+        # === VITALS SECTION ===
+        vitals_y = 100
+        vitals = [
+            {'emoji': '❤️', 'label': 'Heart Rate', 'value': '72 bpm', 'color': (100, 255, 150)},
+            {'emoji': '🩸', 'label': 'Blood Pressure', 'value': '120/80', 'color': (100, 255, 150)},
+            {'emoji': '🫁', 'label': 'O2 Saturation', 'value': '98%', 'color': (100, 255, 150)},
+            {'emoji': '🌡️', 'label': 'Temperature', 'value': '98.6°F', 'color': (100, 255, 150)}
+        ]
+
+        vital_width = 220
+        vital_gap = 20
+        vital_start_x = self.width // 2 - (4 * vital_width + 3 * vital_gap) // 2
+
+        for i, vital in enumerate(vitals):
+            x = vital_start_x + i * (vital_width + vital_gap)
+            card_rect = pygame.Rect(x, vitals_y, vital_width, 85)
+            pygame.draw.rect(self.screen, (25, 30, 40), card_rect, border_radius=10)
+
+            # Emoji
+            emoji_font = pygame.font.SysFont(None, 48)
+            emoji = emoji_font.render(vital['emoji'], True, (255, 255, 255))
+            self.screen.blit(emoji, (x + 10, vitals_y + 10))
+
+            # Label
+            label_font = pygame.font.SysFont(None, 18)
+            label = label_font.render(vital['label'], True, (180, 190, 200))
+            self.screen.blit(label, (x + 65, vitals_y + 15))
+
+            # Value
+            value_font = pygame.font.SysFont(None, 32, bold=True)
+            value = value_font.render(vital['value'], True, vital['color'])
+            self.screen.blit(value, (x + 65, vitals_y + 45))
+
+        # === MEDICATION SECTION ===
+        med_y = 220
+        med_title_font = pygame.font.SysFont(None, 32, bold=True)
+        med_title = med_title_font.render('Medication Schedule', True, (200, 210, 220))
+        self.screen.blit(med_title, (50, med_y))
+
+        medications = [
+            {'name': 'Metformin', 'dose': '500mg', 'time': '08:00 AM', 'taken': True},
+            {'name': 'Lisinopril', 'dose': '10mg', 'time': '08:00 AM', 'taken': True},
+            {'name': 'Metformin', 'dose': '500mg', 'time': '06:00 PM', 'taken': False},
+            {'name': 'Atorvastatin', 'dose': '20mg', 'time': '09:00 PM', 'taken': False}
+        ]
+
+        for i, med in enumerate(medications):
+            y = med_y + 45 + i * 45
+
+            # Status emoji
+            status_emoji = '✅' if med['taken'] else '⏰'
+            emoji_font = pygame.font.SysFont(None, 32)
+            emoji = emoji_font.render(status_emoji, True, (255, 255, 255))
+            self.screen.blit(emoji, (70, y))
+
+            # Med name
+            name_font = pygame.font.SysFont(None, 28, bold=True)
+            name = name_font.render(med['name'], True, (255, 255, 255))
+            self.screen.blit(name, (110, y))
+
+            # Dose
+            dose_font = pygame.font.SysFont(None, 22)
+            dose = dose_font.render(med['dose'], True, (180, 200, 220))
+            self.screen.blit(dose, (260, y + 4))
+
+            # Time
+            time_font = pygame.font.SysFont(None, 24)
+            time_surf = time_font.render(med['time'], True, (100, 180, 255))
+            self.screen.blit(time_surf, (360, y + 2))
+
+        # === CDI SECTION ===
+        cdi_y = 480
+        cdi_title_font = pygame.font.SysFont(None, 32, bold=True)
+        cdi_title = cdi_title_font.render('Clinical Deterioration Index', True, (200, 210, 220))
+        self.screen.blit(cdi_title, (50, cdi_y))
+
+        # CDI Score (Low risk = 2)
+        cdi_score = 2
+        cdi_status = 'LOW RISK'
+        cdi_color = (100, 255, 100)
+        cdi_emoji = '✅'
+
+        cdi_font = pygame.font.SysFont(None, 64, bold=True)
+        cdi_display = cdi_font.render(f'{cdi_emoji} {cdi_status}', True, cdi_color)
+        self.screen.blit(cdi_display, (50, cdi_y + 45))
+
+        # Guardian contact button
+        guardian_btn = pygame.Rect(550, cdi_y + 35, 400, 70)
+        pygame.draw.rect(self.screen, (50, 100, 200), guardian_btn, border_radius=12)
+        btn_font = pygame.font.SysFont(None, 36, bold=True)
+        btn_text = btn_font.render('📞 Contact Guardian', True, (255, 255, 255))
+        self.screen.blit(btn_text, (guardian_btn.centerx - btn_text.get_width() // 2, guardian_btn.centery - 18))
+
+        # === CHART VISUALIZATION (simple bars) ===
+        chart_y = 600
+        chart_title_font = pygame.font.SysFont(None, 24, bold=True)
+        chart_title = chart_title_font.render('24-Hour Vital Trends', True, (180, 190, 200))
+        self.screen.blit(chart_title, (50, chart_y))
+
+        # Simple bar chart representation
+        bars = [75, 80, 72, 68, 71, 73, 75, 72]  # Heart rate trend
+        bar_width = 40
+        bar_gap = 15
+        bar_start_x = 60
+
+        for i, height in enumerate(bars):
+            x = bar_start_x + i * (bar_width + bar_gap)
+            bar_height = int(height * 0.8)  # Scale for display
+            bar_rect = pygame.Rect(x, chart_y + 80 - bar_height, bar_width, bar_height)
+            pygame.draw.rect(self.screen, (100, 180, 255), bar_rect, border_radius=4)
+
+        # Help
+        help_font = pygame.font.SysFont(None, 20)
+        help_text = help_font.render('ESC: Back to Home', True, (150, 160, 180))
+        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 735))
 
     def handle_clinical_input(self, key):
-        """Handle Clinical input (to be implemented)"""
+        """Handle Clinical input (read-only for demo)"""
+        # Clinical is a dashboard view - no interactive elements needed for demo
         pass
 
     def render_education(self):
