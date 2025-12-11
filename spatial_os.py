@@ -369,12 +369,88 @@ class MotiBeamOS:
     # ==================== REALM IMPLEMENTATIONS ====================
 
     def render_circlebeam(self):
-        """CircleBeam - Family telepresence (to be implemented)"""
-        pass
+        """CircleBeam - Family telepresence"""
+        selected = self.realm_data['circlebeam']['selected']
+
+        # Header
+        title_font = pygame.font.SysFont(None, 64, bold=True)
+        title = title_font.render('👥 CIRCLEBEAM', True, (100, 180, 255))
+        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 60))
+
+        subtitle_font = pygame.font.SysFont(None, 32)
+        subtitle = subtitle_font.render('Stay Connected, Always', True, (180, 200, 220))
+        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 130))
+
+        # Three circle members
+        circles = [
+            {'name': 'Mom', 'status': 'Available', 'emoji': '👩', 'color': (50, 255, 100)},
+            {'name': 'Dad', 'status': 'Away', 'emoji': '👨', 'color': (255, 200, 50)},
+            {'name': 'Sister', 'status': 'Do Not Disturb', 'emoji': '👧', 'color': (255, 100, 100)}
+        ]
+
+        # Card layout
+        card_width = 250
+        card_height = 320
+        gap = 50
+        start_x = self.width // 2 - (3 * card_width + 2 * gap) // 2
+        y = 220
+
+        for i, circle in enumerate(circles):
+            x = start_x + i * (card_width + gap)
+            card_rect = pygame.Rect(x, y, card_width, card_height)
+
+            # Highlight if selected
+            if i == selected:
+                pygame.draw.rect(self.screen, (255, 255, 255), card_rect.inflate(8, 8), 4, border_radius=15)
+
+            # Card background
+            pygame.draw.rect(self.screen, (30, 35, 50), card_rect, border_radius=15)
+
+            # Circle emoji (large)
+            emoji_font = pygame.font.SysFont(None, 96)
+            emoji = emoji_font.render(circle['emoji'], True, (255, 255, 255))
+            self.screen.blit(emoji, (x + card_width // 2 - emoji.get_width() // 2, y + 30))
+
+            # Name
+            name_font = pygame.font.SysFont(None, 40, bold=True)
+            name = name_font.render(circle['name'], True, (255, 255, 255))
+            self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 140))
+
+            # Status with colored dot
+            status_font = pygame.font.SysFont(None, 24)
+            status = status_font.render(circle['status'], True, circle['color'])
+            self.screen.blit(status, (x + card_width // 2 - status.get_width() // 2, y + 190))
+
+            # Action button
+            button_text = '📞 Call' if circle['status'] != 'Do Not Disturb' else '✉️ Message'
+            button_font = pygame.font.SysFont(None, 28, bold=True)
+            button = button_font.render(button_text, True, (200, 220, 255))
+            self.screen.blit(button, (x + card_width // 2 - button.get_width() // 2, y + 240))
+
+        # Emergency button at bottom
+        emergency_rect = pygame.Rect(self.width // 2 - 200, 600, 400, 60)
+        pygame.draw.rect(self.screen, (120, 30, 30), emergency_rect, border_radius=10)
+        emergency_font = pygame.font.SysFont(None, 36, bold=True)
+        emergency = emergency_font.render('🚨 EMERGENCY CONTACT', True, (255, 80, 80))
+        self.screen.blit(emergency, (self.width // 2 - emergency.get_width() // 2, 615))
+
+        # Help text
+        help_font = pygame.font.SysFont(None, 22)
+        help_text = help_font.render('← → Select | ENTER: Call/Message | ESC: Back', True, (150, 160, 180))
+        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 710))
 
     def handle_circlebeam_input(self, key):
-        """Handle CircleBeam input (to be implemented)"""
-        pass
+        """Handle CircleBeam input"""
+        selected = self.realm_data['circlebeam']['selected']
+
+        if key == pygame.K_LEFT:
+            self.realm_data['circlebeam']['selected'] = max(0, selected - 1)
+        elif key == pygame.K_RIGHT:
+            self.realm_data['circlebeam']['selected'] = min(2, selected + 1)
+        elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
+            circles = ['Mom', 'Dad', 'Sister']
+            actions = ['Calling', 'Calling', 'Messaging']
+            print(f"[CIRCLEBEAM] {actions[selected]} {circles[selected]}...")
 
     def render_marketplace(self):
         """Marketplace - PX store (to be implemented)"""
