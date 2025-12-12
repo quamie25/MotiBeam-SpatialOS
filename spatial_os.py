@@ -35,9 +35,9 @@ TEXT_PRIMARY = (245, 248, 255)
 TEXT_SECONDARY = (170, 175, 190)
 
 REALMS = [
-    {"name": "CircleBeam", "subtitle": "Living relationships", "emoji": "👥"},
-    {"name": "LegacyBeam", "subtitle": "Memory & legacy",      "emoji": "📖"},
-    {"name": "LockboxBeam", "subtitle": "Secure vault",        "emoji": "🔐"},
+    {"name": "Circle", "subtitle": "Living relationships", "emoji": "👥"},
+    {"name": "Legacy", "subtitle": "Memory & legacy",      "emoji": "📖"},
+    {"name": "Lockbox", "subtitle": "Secure vault",        "emoji": "🔐"},
     {"name": "Marketplace", "subtitle": "Wellness & goods",    "emoji": "🛒"},
     {"name": "Home",       "subtitle": "Smart home",           "emoji": "🏠"},
     {"name": "Clinical",   "subtitle": "Health & wellness",    "emoji": "🏥"},
@@ -243,7 +243,7 @@ class MotiBeamOS:
         self.call_caller = {
             'name': 'Mom',
             'emoji': '👩',
-            'status': 'CircleBeam Call',
+            'status': 'Circle Call',
             'location': 'Home'
         }
 
@@ -305,6 +305,66 @@ class MotiBeamOS:
             (self.width // 2 - surf.get_width() // 2,
              self.height - 60 + 18),
         )
+
+    def draw_call_overlay(self):
+        """Draw incoming call simulation overlay"""
+        if not self.call_active:
+            return
+
+        # Semi-transparent overlay
+        overlay = pygame.Surface((self.width, self.height))
+        overlay.set_alpha(200)
+        overlay.fill((20, 25, 35))
+        self.screen.blit(overlay, (0, 0))
+
+        # Call card
+        card_width = 600
+        card_height = 400
+        card_x = (self.width - card_width) // 2
+        card_y = (self.height - card_height) // 2
+
+        card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
+        pygame.draw.rect(self.screen, (35, 40, 55), card_rect, border_radius=20)
+        pygame.draw.rect(self.screen, (100, 180, 255), card_rect, width=4, border_radius=20)
+
+        # Caller emoji (large)
+        caller_emoji_font = load_emoji_font(252)  # Was 180
+        caller_emoji = caller_emoji_font.render(self.call_caller['emoji'], True, (255, 255, 255))
+        emoji_x = card_x + (card_width - caller_emoji.get_width()) // 2
+        self.screen.blit(caller_emoji, (emoji_x, card_y + 40))
+
+        # Caller name
+        name_font = pygame.font.SysFont(None, 67, bold=True)  # Was 48
+        name_surf = name_font.render(self.call_caller['name'], True, (255, 255, 255))
+        name_x = card_x + (card_width - name_surf.get_width()) // 2
+        self.screen.blit(name_surf, (name_x, card_y + 230))
+
+        # Call status
+        status_font = pygame.font.SysFont(None, 39)  # Was 28
+        status_surf = status_font.render(self.call_caller['status'], True, (150, 200, 255))
+        status_x = card_x + (card_width - status_surf.get_width()) // 2
+        self.screen.blit(status_surf, (status_x, card_y + 275))
+
+        # Action buttons
+        button_y = card_y + 320
+
+        # Accept button
+        accept_rect = pygame.Rect(card_x + 80, button_y, 200, 50)
+        pygame.draw.rect(self.screen, (50, 200, 100), accept_rect, border_radius=10)
+        accept_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
+        accept_text = accept_font.render('📞 Accept (A)', True, (255, 255, 255))
+        accept_x = accept_rect.centerx - accept_text.get_width() // 2
+        accept_y = accept_rect.centery - accept_text.get_height() // 2
+        self.screen.blit(accept_text, (accept_x, accept_y))
+
+        # Decline button
+        decline_rect = pygame.Rect(card_x + 320, button_y, 200, 50)
+        pygame.draw.rect(self.screen, (200, 50, 50), decline_rect, border_radius=10)
+        decline_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
+        decline_text = decline_font.render('❌ Decline (D)', True, (255, 255, 255))
+        decline_x = decline_rect.centerx - decline_text.get_width() // 2
+        decline_y = decline_rect.centery - decline_text.get_height() // 2
+        self.screen.blit(decline_text, (decline_x, decline_y))
 
     def draw_grid(self):
         for i, realm in enumerate(REALMS):
@@ -403,6 +463,22 @@ class MotiBeamOS:
                 self.go_back()
                 return
 
+        # Call simulation (press 'c' to trigger incoming call on home screen)
+        if key == pygame.K_c and self.state == "home":
+            self.call_active = True
+            print("[CALL] Incoming call from " + self.call_caller['name'])
+            return
+
+        if key == pygame.K_a and self.call_active:
+            print("[CALL] Call accepted")
+            self.call_active = False
+            return
+
+        if key == pygame.K_d and self.call_active:
+            print("[CALL] Call declined")
+            self.call_active = False
+            return
+
         # Route input based on current state
         if self.state == "home":
             # Home screen navigation
@@ -421,7 +497,7 @@ class MotiBeamOS:
                 if realm_name == "home":
                     realm_name = "home_realm"
                 # Enter the realm if we have a render method for it
-                if realm_name == "circlebeam":
+                if realm_name == "circle":
                     self.enter_realm("circlebeam")
                 elif realm_name == "marketplace":
                     self.enter_realm("marketplace")
@@ -462,7 +538,7 @@ class MotiBeamOS:
 
         # Header
         title_font = pygame.font.SysFont(None, 90, bold=True)  # Was 64
-        title = title_font.render('👥 CIRCLEBEAM', True, (100, 180, 255))
+        title = title_font.render('👥 CIRCLE', True, (100, 180, 255))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 60))
 
         subtitle_font = pygame.font.SysFont(None, 45)  # Was 32
@@ -563,7 +639,7 @@ class MotiBeamOS:
             import time
             self.realm_data['circlebeam']['action_feedback'] = f"{actions[selected]} {circles[selected]}..."
             self.realm_data['circlebeam']['action_time'] = time.time()
-            print(f"[CIRCLEBEAM] {actions[selected]} {circles[selected]}...")
+            print(f"[CIRCLE] {actions[selected]} {circles[selected]}...")
 
     def render_marketplace(self):
         """Marketplace - PX store with scrollable grid"""
@@ -1151,6 +1227,7 @@ class MotiBeamOS:
                 self.draw_header()
                 self.draw_grid()
                 self.draw_footer()
+                self.draw_call_overlay()  # Draw incoming call overlay if active
             elif self.state == "circlebeam":
                 self.render_circlebeam()
             elif self.state == "marketplace":
