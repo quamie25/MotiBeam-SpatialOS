@@ -14,6 +14,8 @@ MotiBeam Spatial OS - Clean Pygame Launcher (Framebuffer-Friendly)
 import os
 import sys
 import pygame
+import requests
+import json
 from datetime import datetime
 
 # ---------------------------
@@ -40,6 +42,34 @@ def load_emoji_font(size=96):
 
     # Fallback to default system font
     return pygame.font.Font(None, size)
+
+# ---------------------------
+# Weather Integration
+# ---------------------------
+
+def fetch_weather(api_key=None, city="Houston,US"):
+    """
+    Fetch current weather from OpenWeather API.
+    Returns weather description or None if unavailable.
+    """
+    if not api_key:
+        api_key = os.getenv('OPENWEATHER_API_KEY')
+
+    if not api_key:
+        return None
+
+    try:
+        url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=imperial"
+        response = requests.get(url, timeout=3)
+        if response.status_code == 200:
+            data = response.json()
+            temp = int(data['main']['temp'])
+            description = data['weather'][0]['description'].title()
+            return f"{temp}°F • {description}"
+    except:
+        pass
+
+    return None
 
 # ---------------------------
 # Config
@@ -205,6 +235,20 @@ class MotiBeamOS:
             'transport': {'selected': 0}
         }
 
+        # Weather integration
+        self.weather = None
+        self.weather_last_update = 0
+        self.fetch_weather_async()
+
+        # Call simulation state
+        self.call_active = False
+        self.call_caller = {
+            'name': 'Mom',
+            'emoji': '👩',
+            'status': 'CircleBeam Call',
+            'location': 'Home'
+        }
+
         # Precompute grid cell sizes
         self.grid_top = 140
         self.grid_bottom = self.height - 120
@@ -214,23 +258,38 @@ class MotiBeamOS:
         self.cell_w = available_width // GRID_COLS
         self.cell_h = available_height // GRID_ROWS
 
+    def fetch_weather_async(self):
+        """Fetch weather in non-blocking way"""
+        import time
+        current_time = time.time()
+
+        # Update weather every 10 minutes
+        if current_time - self.weather_last_update > 600:
+            self.weather = fetch_weather()
+            self.weather_last_update = current_time
+
     def draw_header(self):
         # Left: title
         title_text = self.font_header.render("MOTIBEAM SPATIAL OS", True, HEADER_COLOR)
         self.screen.blit(title_text, (40, 30))
 
-        # Right: time + date
+        # Right: time + date + weather
         now = datetime.now()
         time_str = now.strftime("%I:%M %p").lstrip("0")
         date_str = now.strftime("%a • %b %d")
 
+        # Weather info
+        weather_str = self.weather if self.weather else "Weather: --"
+
         time_surf = self.font_header_meta.render(time_str, True, HEADER_COLOR)
         date_surf = self.font_header_meta.render(date_str, True, HEADER_COLOR)
+        weather_surf = self.font_header_meta.render(weather_str, True, (150, 200, 255))
 
-        tx = self.width - time_surf.get_width() - 40
-        ty = 26
+        tx = self.width - max(time_surf.get_width(), date_surf.get_width(), weather_surf.get_width()) - 40
+        ty = 20
         self.screen.blit(time_surf, (tx, ty))
-        self.screen.blit(date_surf, (tx, ty + time_surf.get_height() + 4))
+        self.screen.blit(date_surf, (tx, ty + time_surf.get_height() + 2))
+        self.screen.blit(weather_surf, (tx, ty + time_surf.get_height() + date_surf.get_height() + 4))
 
     def draw_footer(self):
         # Simple footer strip
@@ -238,7 +297,7 @@ class MotiBeamOS:
         pygame.draw.rect(self.screen, (18, 20, 30), footer_rect)
 
         footer_text = (
-            "←↑↓→ Move   |   Enter Select   |   Q / ESC Exit   |   1–9 Quick Jump"
+            "←↑↓→ Move   |   Enter Select   |   I Incoming Call   |   Q / ESC Exit   |   1–9 Quick Jump"
         )
         surf = self.font_footer.render(footer_text, True, FOOTER_COLOR)
         self.screen.blit(
@@ -246,6 +305,66 @@ class MotiBeamOS:
             (self.width // 2 - surf.get_width() // 2,
              self.height - 60 + 18),
         )
+
+    def draw_call_overlay(self):
+        """Draw incoming call simulation overlay"""
+        if not self.call_active:
+            return
+
+        # Semi-transparent overlay
+        overlay = pygame.Surface((self.width, self.height))
+        overlay.set_alpha(200)
+        overlay.fill((20, 25, 35))
+        self.screen.blit(overlay, (0, 0))
+
+        # Call card
+        card_width = 600
+        card_height = 400
+        card_x = (self.width - card_width) // 2
+        card_y = (self.height - card_height) // 2
+
+        card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
+        pygame.draw.rect(self.screen, (35, 40, 55), card_rect, border_radius=20)
+        pygame.draw.rect(self.screen, (100, 180, 255), card_rect, width=4, border_radius=20)
+
+        # Caller emoji (large)
+        caller_emoji_font = load_emoji_font(180)
+        caller_emoji = caller_emoji_font.render(self.call_caller['emoji'], True, (255, 255, 255))
+        emoji_x = card_x + (card_width - caller_emoji.get_width()) // 2
+        self.screen.blit(caller_emoji, (emoji_x, card_y + 40))
+
+        # Caller name
+        name_font = pygame.font.SysFont(None, 48, bold=True)
+        name_surf = name_font.render(self.call_caller['name'], True, (255, 255, 255))
+        name_x = card_x + (card_width - name_surf.get_width()) // 2
+        self.screen.blit(name_surf, (name_x, card_y + 230))
+
+        # Call status
+        status_font = pygame.font.SysFont(None, 28)
+        status_surf = status_font.render(self.call_caller['status'], True, (150, 200, 255))
+        status_x = card_x + (card_width - status_surf.get_width()) // 2
+        self.screen.blit(status_surf, (status_x, card_y + 275))
+
+        # Action buttons
+        button_y = card_y + 320
+
+        # Accept button
+        accept_rect = pygame.Rect(card_x + 80, button_y, 200, 50)
+        pygame.draw.rect(self.screen, (50, 200, 100), accept_rect, border_radius=10)
+        accept_font = pygame.font.SysFont(None, 32, bold=True)
+        accept_text = accept_font.render('📞 Accept (A)', True, (255, 255, 255))
+        accept_x = accept_rect.centerx - accept_text.get_width() // 2
+        accept_y = accept_rect.centery - accept_text.get_height() // 2
+        self.screen.blit(accept_text, (accept_x, accept_y))
+
+        # Decline button
+        decline_rect = pygame.Rect(card_x + 320, button_y, 200, 50)
+        pygame.draw.rect(self.screen, (200, 50, 50), decline_rect, border_radius=10)
+        decline_font = pygame.font.SysFont(None, 32, bold=True)
+        decline_text = decline_font.render('❌ Decline (D)', True, (255, 255, 255))
+        decline_x = decline_rect.centerx - decline_text.get_width() // 2
+        decline_y = decline_rect.centery - decline_text.get_height() // 2
+        self.screen.blit(decline_text, (decline_x, decline_y))
 
     def draw_grid(self):
         for i, realm in enumerate(REALMS):
@@ -343,6 +462,22 @@ class MotiBeamOS:
             else:
                 self.go_back()
                 return
+
+        # Call simulation keys (I = incoming, A = accept, D = decline)
+        if key == pygame.K_i:
+            self.call_active = True
+            print("[CALL] Incoming call from " + self.call_caller['name'])
+            return
+
+        if key == pygame.K_a and self.call_active:
+            print("[CALL] Call accepted")
+            self.call_active = False
+            return
+
+        if key == pygame.K_d and self.call_active:
+            print("[CALL] Call declined")
+            self.call_active = False
+            return
 
         # Route to state-specific handlers
         if self.state == "home":
@@ -1074,6 +1209,9 @@ class MotiBeamOS:
                 self.render_education()
             elif self.state == "transport":
                 self.render_transport()
+
+            # Draw call overlay on top of everything if active
+            self.draw_call_overlay()
 
             pygame.display.flip()
             self.clock.tick(30)
