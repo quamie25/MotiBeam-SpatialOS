@@ -1,0 +1,16 @@
+[Unit]
+Description=MotiBeam Spatial OS
+After=multi-user.target
+
+[Service]
+Type=simple
+User=motibeam
+WorkingDirectory=/home/motibeam/motibeam-spatial-os
+Environment="DISPLAY=:0"
+Environment="SDL_VIDEODRIVER="
+ExecStart=/usr/bin/python3 /home/motibeam/motibeam-spatial-os/spatial_os.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=multi-user.target

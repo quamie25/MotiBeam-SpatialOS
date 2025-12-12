@@ -3,7 +3,7 @@
 MotiBeam Spatial OS - Clean Pygame Launcher (Framebuffer-Friendly)
 
 - Uses the same style of framebuffer init as your working test_display.py
-- 1024x768 fullscreen
+- 1920x1080 fullscreen
 - 4x3 realm grid
 - Big fonts + emojis
 - Arrow keys to move selection
@@ -14,43 +14,12 @@ MotiBeam Spatial OS - Clean Pygame Launcher (Framebuffer-Friendly)
 import os
 import sys
 import pygame
+import requests
+import json
 from datetime import datetime
 
 # ---------------------------
-# Config
-# ---------------------------
-
-SCREEN_WIDTH = 1024
-SCREEN_HEIGHT = 768
-GRID_COLS = 4
-GRID_ROWS = 3
-
-BG_COLOR = (10, 12, 20)
-CARD_BG = (26, 30, 48)
-CARD_BORDER = (80, 90, 140)
-CARD_BORDER_SELECTED = (255, 200, 80)
-HEADER_COLOR = (230, 235, 245)
-FOOTER_COLOR = (200, 205, 215)
-TEXT_PRIMARY = (245, 248, 255)
-TEXT_SECONDARY = (170, 175, 190)
-
-REALMS = [
-    {"name": "Circle", "subtitle": "Living relationships", "emoji": "👥"},
-    {"name": "Legacy", "subtitle": "Memory & legacy",      "emoji": "📖"},
-    {"name": "Lockbox", "subtitle": "Secure vault",        "emoji": "🔐"},
-    {"name": "Marketplace", "subtitle": "Wellness & goods",    "emoji": "🛒"},
-    {"name": "Home",       "subtitle": "Smart home",           "emoji": "🏠"},
-    {"name": "Clinical",   "subtitle": "Health & wellness",    "emoji": "🏥"},
-    {"name": "Education",  "subtitle": "Learning hub",         "emoji": "📚"},
-    {"name": "Emergency",  "subtitle": "Crisis response",      "emoji": "🚨"},
-    {"name": "Transport",  "subtitle": "Automotive HUD",       "emoji": "🚗"},
-    {"name": "Security",   "subtitle": "Surveillance",         "emoji": "🛡️"},
-    {"name": "Aviation",   "subtitle": "Flight systems",       "emoji": "✈️"},
-    {"name": "Maritime",   "subtitle": "Navigation",           "emoji": "⚓"},
-]
-
-# ---------------------------
-# Emoji Font Loader
+# Emoji Font Loading with Fallback
 # ---------------------------
 
 def load_emoji_font(size=96):
@@ -75,7 +44,7 @@ def load_emoji_font(size=96):
     return pygame.font.Font(None, size)
 
 # ---------------------------
-# Weather Integration (optional, silent fail if unavailable)
+# Weather Integration
 # ---------------------------
 
 def fetch_weather(api_key=None, city="Houston,US"):
@@ -90,7 +59,6 @@ def fetch_weather(api_key=None, city="Houston,US"):
         return None
 
     try:
-        import requests
         url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=imperial"
         response = requests.get(url, timeout=3)
         if response.status_code == 200:
@@ -102,6 +70,40 @@ def fetch_weather(api_key=None, city="Houston,US"):
         pass
 
     return None
+
+# ---------------------------
+# Config
+# ---------------------------
+
+SCREEN_WIDTH = 1920
+SCREEN_HEIGHT = 1080
+GRID_COLS = 4
+GRID_ROWS = 3
+
+BG_COLOR = (10, 12, 20)
+CARD_BG = (26, 30, 48)
+CARD_BORDER = (80, 90, 140)
+CARD_BORDER_SELECTED = (255, 200, 80)
+HEADER_COLOR = (230, 235, 245)
+FOOTER_COLOR = (200, 205, 215)
+TEXT_PRIMARY = (245, 248, 255)
+TEXT_SECONDARY = (170, 175, 190)
+
+REALMS = [
+    {"name": "CircleBeam", "subtitle": "Living relationships", "emoji": "👥"},
+    {"name": "LegacyBeam", "subtitle": "Memory & legacy",      "emoji": "📖"},
+    {"name": "LockboxBeam", "subtitle": "Secure vault",        "emoji": "🔐"},
+    {"name": "Marketplace", "subtitle": "Wellness & goods",    "emoji": "🛒"},
+    {"name": "Home",       "subtitle": "Smart home",           "emoji": "🏠"},
+    {"name": "Clinical",   "subtitle": "Health & wellness",    "emoji": "🏥"},
+    {"name": "Education",  "subtitle": "Learning hub",         "emoji": "📚"},
+    {"name": "Emergency",  "subtitle": "Crisis response",      "emoji": "🚨"},
+    {"name": "Transport",  "subtitle": "Automotive HUD",       "emoji": "🚗"},
+    {"name": "Security",   "subtitle": "Surveillance",         "emoji": "🛡️"},
+    {"name": "Aviation",   "subtitle": "Flight systems",       "emoji": "✈️"},
+    {"name": "Maritime",   "subtitle": "Navigation",           "emoji": "⚓"},
+]
+
 
 # ---------------------------
 # Display init (matching test_display.py style)
@@ -243,13 +245,31 @@ class MotiBeamOS:
         self.call_caller = {
             'name': 'Mom',
             'emoji': '👩',
-            'status': 'Circle Call',
+            'status': 'CircleBeam Call',
             'location': 'Home'
         }
 
-        # Precompute grid cell sizes
-        self.grid_top = 140
-        self.grid_bottom = self.height - 120
+        # Alert system (professional features)
+        self.alerts = [
+            {'type': 'severe', 'message': '🌪 SEVERE WEATHER WARNING - Tornado spotted nearby. Take shelter immediately.', 'color': (255, 80, 80)},
+            {'type': 'medical', 'message': '💊 MEDICAL REMINDER - Time to take medication - check MedBeam', 'color': (255, 200, 80)},
+            {'type': 'message', 'message': '💬 NEW MESSAGE - 3 unread messages from CircleBeam', 'color': (100, 180, 255)},
+        ]
+        self.current_alert_index = 0
+        self.alert_change_time = 0
+        self.alert_duration = 8  # seconds per alert
+
+        # Ticker system (scrolling updates at bottom)
+        self.ticker_text = "→ Scheduling CircleBeam → Listing schematica → Missed call from Dad → Traffic alert: I-45 delay 15min → Weather update: Clear skies → "
+        self.ticker_offset = 0
+        self.ticker_speed = 2  # pixels per frame
+
+        # System state (ALERT vs CALM)
+        self.system_state = "CALM"  # or "ALERT"
+
+        # Precompute grid cell sizes (adjusted for alert banner and ticker)
+        self.grid_top = 180  # Was 140, pushed down for alert banner
+        self.grid_bottom = self.height - 140  # Adjusted for ticker
         available_height = self.grid_bottom - self.grid_top
         available_width = self.width - 120
 
@@ -266,30 +286,81 @@ class MotiBeamOS:
             self.weather = fetch_weather()
             self.weather_last_update = current_time
 
-    def draw_header(self):
-        # Left: title
-        title_text = self.font_header.render("MOTIBEAM SPATIAL OS", True, HEADER_COLOR)
-        self.screen.blit(title_text, (40, 30))
+    def draw_alert_banner(self):
+        """Draw rotating alert banner at top of screen"""
+        import time
+        current_time = time.time()
 
-        # Right: time + date + weather (stacked vertically)
+        # Rotate alerts every N seconds
+        if current_time - self.alert_change_time > self.alert_duration:
+            self.current_alert_index = (self.current_alert_index + 1) % len(self.alerts)
+            self.alert_change_time = current_time
+            # Update system state based on alert type
+            current_alert = self.alerts[self.current_alert_index]
+            self.system_state = "ALERT" if current_alert['type'] in ['severe', 'medical'] else "CALM"
+
+        # Draw current alert
+        alert = self.alerts[self.current_alert_index]
+        banner_height = 45
+        banner_rect = pygame.Rect(0, 0, self.width, banner_height)
+        pygame.draw.rect(self.screen, alert['color'], banner_rect)
+
+        # Alert text (using emoji font for proper emoji rendering)
+        alert_font = load_emoji_font(32)
+        alert_surf = alert_font.render(alert['message'], True, (255, 255, 255))
+        text_x = (self.width - alert_surf.get_width()) // 2
+        self.screen.blit(alert_surf, (text_x, 10))
+
+    def draw_state_indicator(self):
+        """Draw STATE indicator in top right"""
+        state_color = (255, 80, 80) if self.system_state == "ALERT" else (80, 255, 120)
+        state_font = pygame.font.SysFont(None, 28, bold=True)
+        state_text = f"STATE: {self.system_state}"
+        state_surf = state_font.render(state_text, True, state_color)
+        self.screen.blit(state_surf, (self.width - state_surf.get_width() - 20, 55))
+
+    def draw_ticker(self):
+        """Draw scrolling ticker at bottom of screen"""
+        ticker_height = 35
+        ticker_y = self.height - ticker_height
+
+        # Background
+        ticker_rect = pygame.Rect(0, ticker_y, self.width, ticker_height)
+        pygame.draw.rect(self.screen, (25, 30, 45), ticker_rect)
+
+        # Scrolling text (using emoji font for proper emoji rendering)
+        ticker_font = load_emoji_font(26)
+        ticker_surf = ticker_font.render(self.ticker_text, True, (180, 200, 220))
+
+        # Update offset for scrolling effect
+        self.ticker_offset -= self.ticker_speed
+        if self.ticker_offset < -ticker_surf.get_width():
+            self.ticker_offset = self.width
+
+        self.screen.blit(ticker_surf, (self.ticker_offset, ticker_y + 8))
+
+    def draw_header(self):
+        # Left: title (pushed down to account for alert banner)
+        title_text = self.font_header.render("MOTIBEAM SPATIAL OS", True, HEADER_COLOR)
+        self.screen.blit(title_text, (40, 75))
+
+        # Right: time + date + weather
         now = datetime.now()
         time_str = now.strftime("%I:%M %p").lstrip("0")
         date_str = now.strftime("%a • %b %d")
 
         # Weather info
-        weather_str = self.weather if self.weather else ""
+        weather_str = self.weather if self.weather else "Weather: --"
 
         time_surf = self.font_header_meta.render(time_str, True, HEADER_COLOR)
         date_surf = self.font_header_meta.render(date_str, True, HEADER_COLOR)
-        weather_surf = self.font_header_meta.render(weather_str, True, (150, 200, 255)) if weather_str else None
+        weather_surf = self.font_header_meta.render(weather_str, True, (150, 200, 255))
 
-        # Position from right edge with more margin
-        tx = self.width - max(time_surf.get_width(), date_surf.get_width(), weather_surf.get_width() if weather_surf else 0) - 50
-        ty = 20
+        tx = self.width - max(time_surf.get_width(), date_surf.get_width(), weather_surf.get_width()) - 40
+        ty = 65  # Pushed down to account for alert banner
         self.screen.blit(time_surf, (tx, ty))
         self.screen.blit(date_surf, (tx, ty + time_surf.get_height() + 2))
-        if weather_surf:
-            self.screen.blit(weather_surf, (tx, ty + time_surf.get_height() + date_surf.get_height() + 4))
+        self.screen.blit(weather_surf, (tx, ty + time_surf.get_height() + date_surf.get_height() + 4))
 
     def draw_footer(self):
         # Simple footer strip
@@ -297,7 +368,7 @@ class MotiBeamOS:
         pygame.draw.rect(self.screen, (18, 20, 30), footer_rect)
 
         footer_text = (
-            "←↑↓→ Move   |   Enter Select   |   Q / ESC Exit   |   1–9 Quick Jump"
+            "←↑↓→ Move   |   Enter Select   |   I Incoming Call   |   Q / ESC Exit   |   1–9 Quick Jump"
         )
         surf = self.font_footer.render(footer_text, True, FOOTER_COLOR)
         self.screen.blit(
@@ -399,18 +470,18 @@ class MotiBeamOS:
                     border_radius=18,
                 )
 
-            # Emoji (larger 96px size)
-            emoji_surf = self.font_emoji.render(realm["emoji"], True, TEXT_PRIMARY)
-            ex = card_rect.centerx - emoji_surf.get_width() // 2
+            # Emoji icon (96px size)
+            icon_surf = self.font_emoji.render(realm["emoji"], True, TEXT_PRIMARY)
+            ex = card_rect.centerx - icon_surf.get_width() // 2
             ey = card_rect.y + 12  # Reduced from 18 to 12 for better vertical centering
-            self.screen.blit(emoji_surf, (ex, ey))
+            self.screen.blit(icon_surf, (ex, ey))
 
             # Title
             title_surf = self.font_card_title.render(
                 realm["name"], True, TEXT_PRIMARY
             )
             tx = card_rect.centerx - title_surf.get_width() // 2
-            ty = ey + emoji_surf.get_height() + 8  # Reduced from 10 to 8 for tighter spacing
+            ty = ey + icon_surf.get_height() + 8  # Reduced from 10 to 8 for tighter spacing
             self.screen.blit(title_surf, (tx, ty))
 
             # Subtitle
@@ -463,8 +534,8 @@ class MotiBeamOS:
                 self.go_back()
                 return
 
-        # Call simulation (press 'c' to trigger incoming call on home screen)
-        if key == pygame.K_c and self.state == "home":
+        # Call simulation keys (I = incoming, A = accept, D = decline)
+        if key == pygame.K_i:
             self.call_active = True
             print("[CALL] Incoming call from " + self.call_caller['name'])
             return
@@ -479,44 +550,9 @@ class MotiBeamOS:
             self.call_active = False
             return
 
-        # Route input based on current state
+        # Route to state-specific handlers
         if self.state == "home":
-            # Home screen navigation
-            if key == pygame.K_LEFT:
-                self.move_selection(-1, 0)
-            elif key == pygame.K_RIGHT:
-                self.move_selection(1, 0)
-            elif key == pygame.K_UP:
-                self.move_selection(0, -1)
-            elif key == pygame.K_DOWN:
-                self.move_selection(0, 1)
-            elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
-                realm = REALMS[self.selected_index]
-                realm_name = realm['name'].lower().replace(' ', '_')
-                # Special case for "Home" realm -> "home_realm"
-                if realm_name == "home":
-                    realm_name = "home_realm"
-                # Enter the realm if we have a render method for it
-                if realm_name == "circle":
-                    self.enter_realm("circlebeam")
-                elif realm_name == "marketplace":
-                    self.enter_realm("marketplace")
-                elif realm_name == "home_realm":
-                    self.enter_realm("home_realm")
-                elif realm_name == "clinical":
-                    self.enter_realm("clinical")
-                elif realm_name == "education":
-                    self.enter_realm("education")
-                elif realm_name == "transport":
-                    self.enter_realm("transport")
-                else:
-                    print(f"[SELECT] {realm['name']} – {realm['subtitle']} (not implemented yet)")
-            elif pygame.K_1 <= key <= pygame.K_9:
-                idx = key - pygame.K_1
-                if idx < len(REALMS):
-                    self.selected_index = idx
-
-        # Realm-specific input handling
+            self.handle_home_input(key)
         elif self.state == "circlebeam":
             self.handle_circlebeam_input(key)
         elif self.state == "marketplace":
@@ -530,6 +566,37 @@ class MotiBeamOS:
         elif self.state == "transport":
             self.handle_transport_input(key)
 
+    def handle_home_input(self, key):
+        """Handle input on home grid"""
+        if key == pygame.K_LEFT:
+            self.move_selection(-1, 0)
+        elif key == pygame.K_RIGHT:
+            self.move_selection(1, 0)
+        elif key == pygame.K_UP:
+            self.move_selection(0, -1)
+        elif key == pygame.K_DOWN:
+            self.move_selection(0, 1)
+        elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
+            # Map realm index to realm state name
+            realm_map = {
+                0: "circlebeam",
+                3: "marketplace",
+                4: "home_realm",
+                5: "clinical",
+                6: "education",
+                8: "transport"
+            }
+            if self.selected_index in realm_map:
+                self.enter_realm(realm_map[self.selected_index])
+            else:
+                # Show "Coming Soon" for unimplemented realms
+                realm = REALMS[self.selected_index]
+                print(f"[COMING SOON] {realm['name']} – Not yet implemented")
+        elif pygame.K_1 <= key <= pygame.K_9:
+            idx = key - pygame.K_1
+            if idx < len(REALMS):
+                self.selected_index = idx
+
     # ==================== REALM IMPLEMENTATIONS ====================
 
     def render_circlebeam(self):
@@ -538,7 +605,7 @@ class MotiBeamOS:
 
         # Header
         title_font = pygame.font.SysFont(None, 90, bold=True)  # Was 64
-        title = title_font.render('👥 CIRCLE', True, (100, 180, 255))
+        title = title_font.render('👥 CIRCLEBEAM', True, (100, 180, 255))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 60))
 
         subtitle_font = pygame.font.SysFont(None, 45)  # Was 32
@@ -547,9 +614,9 @@ class MotiBeamOS:
 
         # Three circle members
         circles = [
-            {'name': 'Mom', 'status': 'Available', 'emoji': '👩', 'color': (0, 255, 0)},
-            {'name': 'Dad', 'status': 'Away', 'emoji': '👨', 'color': (255, 180, 0)},
-            {'name': 'Sister', 'status': 'Do Not Disturb', 'emoji': '👧', 'color': (255, 50, 50)}
+            {'name': 'Mom', 'status': 'Available', 'emoji': '👩', 'color': (50, 255, 100)},
+            {'name': 'Dad', 'status': 'Away', 'emoji': '👨', 'color': (255, 200, 50)},
+            {'name': 'Sister', 'status': 'Do Not Disturb', 'emoji': '👧', 'color': (255, 100, 100)}
         ]
 
         # Card layout
@@ -563,18 +630,12 @@ class MotiBeamOS:
             x = start_x + i * (card_width + gap)
             card_rect = pygame.Rect(x, y, card_width, card_height)
 
-            # Highlight if selected (cursor matches status color)
+            # Highlight if selected
             if i == selected:
-                pygame.draw.rect(self.screen, circle['color'], card_rect.inflate(8, 8), 4, border_radius=15)
+                pygame.draw.rect(self.screen, (255, 255, 255), card_rect.inflate(8, 8), 4, border_radius=15)
 
             # Card background
             pygame.draw.rect(self.screen, (30, 35, 50), card_rect, border_radius=15)
-
-            # Dim unselected cards
-            if i != selected:
-                dim_overlay = pygame.Surface((card_width, card_height), pygame.SRCALPHA)
-                dim_overlay.fill((0, 0, 0, 100))  # ~40% dimming (255 * 0.4 = 100)
-                self.screen.blit(dim_overlay, (x, y))
 
             # Circle emoji (large, colored by status)
             icon_font = load_emoji_font(168)  # Was 120
@@ -592,14 +653,14 @@ class MotiBeamOS:
             self.screen.blit(status, (x + card_width // 2 - status.get_width() // 2, y + 190))
 
             # Action button
-            button_text = '📞 CALL' if circle['status'] != 'Do Not Disturb' else '💬 MESSAGE'
+            button_text = '📞 CALL' if circle['status'] != 'Do Not Disturb' else '✉️ MESSAGE'
             button_font = pygame.font.SysFont(None, 39, bold=True)  # Was 28
             button = button_font.render(button_text, True, (200, 220, 255))
             self.screen.blit(button, (x + card_width // 2 - button.get_width() // 2, y + 240))
 
         # Emergency button at bottom
         emergency_rect = pygame.Rect(self.width // 2 - 200, 600, 400, 60)
-        pygame.draw.rect(self.screen, (200, 40, 40), emergency_rect, border_radius=10)
+        pygame.draw.rect(self.screen, (120, 30, 30), emergency_rect, border_radius=10)
         emergency_font = pygame.font.SysFont(None, 50, bold=True)  # Was 36
         emergency = emergency_font.render('🚨 EMERGENCY CONTACT', True, (255, 80, 80))
         self.screen.blit(emergency, (self.width // 2 - emergency.get_width() // 2, 615))
@@ -616,13 +677,13 @@ class MotiBeamOS:
         if feedback_text and time.time() - feedback_time < 2.5:  # Show for 2.5 seconds
             feedback_font = pygame.font.SysFont(None, 48, bold=True)
             feedback_surf = feedback_font.render(feedback_text, True, (100, 255, 200))
-            # Draw semi-transparent overlay (positioned to be visible on 768px screen)
-            overlay_rect = pygame.Rect(self.width // 2 - 220, 670, 440, 70)
+            # Draw semi-transparent overlay
+            overlay_rect = pygame.Rect(self.width // 2 - 220, 770, 440, 70)
             overlay = pygame.Surface((440, 70), pygame.SRCALPHA)
             overlay.fill((20, 25, 35, 220))
             self.screen.blit(overlay, (overlay_rect.x, overlay_rect.y))
             pygame.draw.rect(self.screen, (100, 255, 200), overlay_rect, 3, border_radius=12)
-            self.screen.blit(feedback_surf, (self.width // 2 - feedback_surf.get_width() // 2, 685))
+            self.screen.blit(feedback_surf, (self.width // 2 - feedback_surf.get_width() // 2, 785))
 
     def handle_circlebeam_input(self, key):
         """Handle CircleBeam input"""
@@ -639,7 +700,7 @@ class MotiBeamOS:
             import time
             self.realm_data['circlebeam']['action_feedback'] = f"{actions[selected]} {circles[selected]}..."
             self.realm_data['circlebeam']['action_time'] = time.time()
-            print(f"[CIRCLE] {actions[selected]} {circles[selected]}...")
+            print(f"[CIRCLEBEAM] {actions[selected]} {circles[selected]}...")
 
     def render_marketplace(self):
         """Marketplace - PX store with scrollable grid"""
@@ -1219,15 +1280,17 @@ class MotiBeamOS:
                 if event.type == pygame.KEYDOWN:
                     self.handle_key(event.key)
 
-            # Clear screen
             self.screen.fill(BG_COLOR)
 
-            # Render based on current state
+            # Professional platform features - draw alert banner and STATE indicator first
+            self.draw_alert_banner()
+            self.draw_state_indicator()
+
+            # Route rendering based on current state
             if self.state == "home":
                 self.draw_header()
                 self.draw_grid()
                 self.draw_footer()
-                self.draw_call_overlay()  # Draw incoming call overlay if active
             elif self.state == "circlebeam":
                 self.render_circlebeam()
             elif self.state == "marketplace":
@@ -1240,6 +1303,12 @@ class MotiBeamOS:
                 self.render_education()
             elif self.state == "transport":
                 self.render_transport()
+
+            # Draw ticker at bottom (before call overlay)
+            self.draw_ticker()
+
+            # Draw call overlay on top of everything if active
+            self.draw_call_overlay()
 
             pygame.display.flip()
             self.clock.tick(30)
