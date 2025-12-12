@@ -49,6 +49,59 @@ REALMS = [
     {"name": "Maritime",   "subtitle": "Navigation",           "emoji": "⚓"},
 ]
 
+# ---------------------------
+# Emoji Font Loader
+# ---------------------------
+
+def load_emoji_font(size=96):
+    """
+    Load emoji font with graceful fallback.
+    Tries NotoColorEmoji first, falls back to default if not available.
+    """
+    emoji_font_paths = [
+        '/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf',
+        '/System/Library/Fonts/Apple Color Emoji.ttc',  # macOS
+        'C:\\Windows\\Fonts\\seguiemj.ttf',  # Windows
+    ]
+
+    for font_path in emoji_font_paths:
+        if os.path.exists(font_path):
+            try:
+                return pygame.font.Font(font_path, size)
+            except:
+                pass
+
+    # Fallback to default system font
+    return pygame.font.Font(None, size)
+
+# ---------------------------
+# Weather Integration (optional, silent fail if unavailable)
+# ---------------------------
+
+def fetch_weather(api_key=None, city="Houston,US"):
+    """
+    Fetch current weather from OpenWeather API.
+    Returns weather description or None if unavailable.
+    """
+    if not api_key:
+        api_key = os.getenv('OPENWEATHER_API_KEY')
+
+    if not api_key:
+        return None
+
+    try:
+        import requests
+        url = f"http://api.openweathermap.org/data/2.5/weather?q={city}&appid={api_key}&units=imperial"
+        response = requests.get(url, timeout=3)
+        if response.status_code == 200:
+            data = response.json()
+            temp = int(data['main']['temp'])
+            description = data['weather'][0]['description'].title()
+            return f"{temp}°F • {description}"
+    except:
+        pass
+
+    return None
 
 # ---------------------------
 # Display init (matching test_display.py style)
@@ -145,16 +198,54 @@ class MotiBeamOS:
         self.width = width
         self.height = height
 
-        # Fonts (projection friendly – large)
-        self.font_header = pygame.font.SysFont(None, 42)
-        self.font_header_meta = pygame.font.SysFont(None, 30)
-        self.font_emoji = pygame.font.SysFont(None, 96)  # Increased from 64 to 96px for better visibility
-        self.font_card_title = pygame.font.SysFont(None, 34)
-        self.font_card_subtitle = pygame.font.SysFont(None, 22)
-        self.font_footer = pygame.font.SysFont(None, 24)
+        # Fonts (projection friendly – large, 40% larger for 10-15ft viewing)
+        self.font_header = pygame.font.SysFont(None, 59)  # Was 42
+        self.font_header_meta = pygame.font.SysFont(None, 42)  # Was 30
+        self.font_emoji = load_emoji_font(134)  # Was 96, use emoji font with fallback
+        self.font_card_title = pygame.font.SysFont(None, 48)  # Was 34
+        self.font_card_subtitle = pygame.font.SysFont(None, 31)  # Was 22
+        self.font_footer = pygame.font.SysFont(None, 34)  # Was 24
 
         self.clock = pygame.time.Clock()
-        self.selected_index = 0  # which card is selected
+        self.selected_index = 0  # which card is selected on home grid
+
+        # Navigation system
+        self.state = "home"
+        self.navigation_stack = ["home"]
+
+        # Realm-specific state data
+        self.realm_data = {
+            'circlebeam': {'selected': 0, 'action_feedback': None, 'action_time': 0},
+            'marketplace': {'selected': 0, 'scroll': 0},
+            'home_realm': {
+                'selected': 0,
+                'devices': {
+                    'living_lights': True,
+                    'bedroom_lights': False,
+                    'temp': 72,
+                    'security': False,
+                    'door': True,
+                    'garage': False
+                }
+            },
+            'clinical': {'selected': 0},
+            'education': {'selected': 0},
+            'transport': {'selected': 0}
+        }
+
+        # Weather integration
+        self.weather = None
+        self.weather_last_update = 0
+        self.fetch_weather_async()
+
+        # Call simulation state
+        self.call_active = False
+        self.call_caller = {
+            'name': 'Mom',
+            'emoji': '👩',
+            'status': 'CircleBeam Call',
+            'location': 'Home'
+        }
 
         # Precompute grid cell sizes
         self.grid_top = 140
@@ -164,6 +255,16 @@ class MotiBeamOS:
 
         self.cell_w = available_width // GRID_COLS
         self.cell_h = available_height // GRID_ROWS
+
+    def fetch_weather_async(self):
+        """Fetch weather in non-blocking way"""
+        import time
+        current_time = time.time()
+
+        # Update weather every 10 minutes
+        if current_time - self.weather_last_update > 600:
+            self.weather = fetch_weather()
+            self.weather_last_update = current_time
 
     def draw_header(self):
         # Left: title
@@ -265,6 +366,21 @@ class MotiBeamOS:
         if new_index < len(REALMS):
             self.selected_index = new_index
 
+    def enter_realm(self, realm_name):
+        """Navigate into a realm"""
+        self.navigation_stack.append(realm_name)
+        self.state = realm_name
+        print(f"[NAVIGATE] Entered {realm_name}")
+
+    def go_back(self):
+        """Navigate back one level"""
+        if len(self.navigation_stack) > 1:
+            self.navigation_stack.pop()
+            self.state = self.navigation_stack[-1]
+            print(f"[NAVIGATE] Back to {self.state}")
+            return True
+        return False
+
     def handle_key(self, key):
         if key in (pygame.K_q, pygame.K_ESCAPE):
             pygame.quit()
@@ -319,9 +435,9 @@ class MotiBeamOS:
             x = start_x + i * (card_width + gap)
             card_rect = pygame.Rect(x, y, card_width, card_height)
 
-            # Highlight if selected
+            # Highlight if selected (cursor matches status color)
             if i == selected:
-                pygame.draw.rect(self.screen, (0, 255, 255), card_rect.inflate(8, 8), 4, border_radius=15)
+                pygame.draw.rect(self.screen, circle['color'], card_rect.inflate(8, 8), 4, border_radius=15)
 
             # Card background
             pygame.draw.rect(self.screen, (30, 35, 50), card_rect, border_radius=15)
@@ -348,7 +464,7 @@ class MotiBeamOS:
             self.screen.blit(status, (x + card_width // 2 - status.get_width() // 2, y + 190))
 
             # Action button
-            button_text = '📞 CALL' if circle['status'] != 'Do Not Disturb' else '✉️ MESSAGE'
+            button_text = '📞 CALL' if circle['status'] != 'Do Not Disturb' else '💬 MESSAGE'
             button_font = pygame.font.SysFont(None, 39, bold=True)  # Was 28
             button = button_font.render(button_text, True, (200, 220, 255))
             self.screen.blit(button, (x + card_width // 2 - button.get_width() // 2, y + 240))
@@ -365,6 +481,21 @@ class MotiBeamOS:
         help_text = help_font.render('Arrow Keys: Select | ENTER: Call/Message | ESC: Back', True, (150, 160, 180))
         self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 710))
 
+        # Show action feedback (calling/messaging notification)
+        import time
+        feedback_text = self.realm_data['circlebeam']['action_feedback']
+        feedback_time = self.realm_data['circlebeam']['action_time']
+        if feedback_text and time.time() - feedback_time < 2.5:  # Show for 2.5 seconds
+            feedback_font = pygame.font.SysFont(None, 56, bold=True)
+            feedback_surf = feedback_font.render(feedback_text, True, (100, 255, 200))
+            # Draw semi-transparent overlay
+            overlay_rect = pygame.Rect(self.width // 2 - 250, 780, 500, 80)
+            overlay = pygame.Surface((500, 80), pygame.SRCALPHA)
+            overlay.fill((20, 25, 35, 220))
+            self.screen.blit(overlay, (overlay_rect.x, overlay_rect.y))
+            pygame.draw.rect(self.screen, (100, 255, 200), overlay_rect, 3, border_radius=12)
+            self.screen.blit(feedback_surf, (self.width // 2 - feedback_surf.get_width() // 2, 800))
+
     def handle_circlebeam_input(self, key):
         """Handle CircleBeam input"""
         selected = self.realm_data['circlebeam']['selected']
@@ -376,6 +507,10 @@ class MotiBeamOS:
         elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
             circles = ['Mom', 'Dad', 'Sister']
             actions = ['Calling', 'Calling', 'Messaging']
+            # Set visual feedback
+            import time
+            self.realm_data['circlebeam']['action_feedback'] = f"{actions[selected]} {circles[selected]}..."
+            self.realm_data['circlebeam']['action_time'] = time.time()
             print(f"[CIRCLEBEAM] {actions[selected]} {circles[selected]}...")
 
     def render_marketplace(self):
