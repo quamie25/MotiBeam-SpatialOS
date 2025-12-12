@@ -1,0 +1,258 @@
+===============================================================================
+MOTIBEAM SPATIAL OS - SAFETY TESTING CHECKLIST
+===============================================================================
+
+Use this checklist after making ANY changes to spatial_os.py to ensure
+nothing broke. Test EVERY item before considering changes complete.
+
+===============================================================================
+BEFORE MAKING CHANGES
+===============================================================================
+
+□ Run: ./safety.sh backup
+  - Creates timestamped backup you can restore if needed
+
+□ Note what you're changing:
+  - What feature are you adding?
+  - What files will be modified?
+  - What could break?
+
+===============================================================================
+BASIC FUNCTIONALITY TESTS
+===============================================================================
+
+□ Python syntax check passes
+  - Run: ./safety.sh test
+  - Should show: "✓ Syntax check PASSED!"
+
+□ App launches without errors
+  - Run: python3 spatial_os.py
+  - OR if auto-boot: sudo systemctl restart motibeam
+  - Should launch fullscreen at 1920x1080
+
+□ Home screen displays correctly
+  - 4x3 grid of realm cards visible
+  - 12 realms total displayed
+  - Cards have rounded borders
+
+===============================================================================
+EMOJI RENDERING TESTS
+===============================================================================
+
+□ Home grid emoji display correctly
+  - NOT showing as [brackets], question marks, or boxes
+  - CircleBeam shows: 👥
+  - LegacyBeam shows: 📖
+  - LockboxBeam shows: 🔐
+  - Marketplace shows: 🛒
+  - Home shows: 🏠
+  - Clinical shows: 🏥
+  - Education shows: 📚
+  - Emergency shows: 🚨
+  - Transport shows: 🚗
+  - Security shows: 🛡️
+  - Aviation shows: ✈️
+  - Maritime shows: ⚓
+
+□ Emoji are properly sized
+  - Large enough to see clearly
+  - Not cut off or truncated
+  - Centered in cards
+
+===============================================================================
+NAVIGATION TESTS
+===============================================================================
+
+□ Arrow key navigation works
+  - Left/Right moves selection horizontally
+  - Up/Down moves selection vertically
+  - Selected card shows yellow/gold border
+
+□ Number key shortcuts work
+  - Press 1-9 to jump to specific realms
+  - Selection highlights correct card
+
+□ Enter key opens realms
+  - CircleBeam (position 1)
+  - Marketplace (position 4)
+  - Home (position 5)
+  - Clinical (position 6)
+  - Education (position 7)
+  - Transport (position 9)
+
+□ ESC key navigation works
+  - From home screen: Quits app
+  - From inside realm: Returns to home
+  - No crashes or errors
+
+□ Q key quits
+  - Clean exit from any screen
+  - No error messages
+
+===============================================================================
+HEADER & FOOTER TESTS
+===============================================================================
+
+□ Header displays
+  - Shows "MOTIBEAM SPATIAL OS" on left
+  - Shows live time on right (format: "2:34 PM")
+  - Shows live date on right (format: "Thu • Dec 1")
+
+□ Live time updates
+  - Wait 1 minute
+  - Time should change
+  - Should update automatically every second
+
+□ Footer displays
+  - Shows navigation instructions
+  - Text is readable
+  - Positioned at bottom
+
+===============================================================================
+REALM IMPLEMENTATION TESTS
+===============================================================================
+
+TEST CIRCLEBEAM (👥):
+□ Navigate to CircleBeam (press 1 or select + Enter)
+□ Shows "👥 CIRCLEBEAM" header
+□ Shows 3 family members: Mom, Dad, Sister
+□ Each shows emoji (👩 👨 👧) NOT brackets
+□ Shows status: Available, Away, Do Not Disturb
+□ Shows action buttons: 📞 CALL or ✉️ MESSAGE
+□ Shows 🚨 EMERGENCY CONTACT button
+□ Arrow keys select between members
+□ ESC returns to home
+
+TEST MARKETPLACE (🛒):
+□ Navigate to Marketplace (press 4 or select + Enter)
+□ Shows "🛒 MARKETPLACE" header
+□ Shows 9 PX cards in 3x3 grid
+□ Each PX shows emoji (🧘 ⏱️ 🎵 etc.) NOT brackets
+□ Shows names, prices, categories
+□ Shows star ratings (★★★★★)
+□ Arrow keys navigate grid
+□ ESC returns to home
+
+TEST HOME CONTROL (🏠):
+□ Navigate to Home (press 5 or select + Enter)
+□ Shows "🏠 HOME CONTROL" header
+□ Shows 6 devices in 2x3 grid
+□ Each shows emoji (💡 🛏️ 🌡️ 🛡️ 🚪 🚗) NOT brackets
+□ Shows ON/OFF status or temperature
+□ Living Room shows as ON (green background)
+□ Arrow keys select devices
+□ Enter toggles devices on/off
+□ ESC returns to home
+
+TEST CLINICAL (🏥):
+□ Navigate to Clinical (press 6 or select + Enter)
+□ Shows "🏥 CLINICAL MONITOR" header
+□ Shows 4 vital cards at top (❤️ 🩸 🫁 🌡️)
+□ Shows medication schedule with ✅ and ⏰ emoji
+□ Shows "✅ LOW RISK" CDI status
+□ Shows "📞 Contact Guardian" button
+□ Shows chart at bottom
+□ ESC returns to home
+
+TEST EDUCATION (📚):
+□ Navigate to Education (press 7 or select + Enter)
+□ Shows "📚 EDUCATION" header
+□ Shows 6 subject cards in 2x3 grid
+□ Each shows emoji (🔢 📖 🔬 🗺️ 🌍 🎨)
+□ Shows progress bars
+□ Shows "▶️ Start Session" button
+□ Arrow keys select subjects
+□ ESC returns to home
+
+TEST TRANSPORT (🚗):
+□ Navigate to Transport (press 9 or select + Enter)
+□ Shows "🚗 TRANSPORT" header
+□ Shows current location with 📍 emoji
+□ Shows 6 destinations in 2x3 grid
+□ Each shows emoji (🏠 💼 🏫 🏥 🛒 ⛽)
+□ Shows ETAs with 🕐 emoji
+□ Arrow keys select destinations
+□ ESC returns to home
+
+===============================================================================
+AUTO-BOOT TESTS (If Enabled)
+===============================================================================
+
+□ Service auto-starts on boot
+  - Reboot Pi: sudo reboot
+  - Wait for boot (10-20 seconds)
+  - MotiBeam should launch automatically
+  - No manual commands needed
+
+□ Desktop is skipped
+  - Boot goes directly from console to MotiBeam
+  - No desktop environment loads first
+
+□ Auto-restart on crash
+  - From MotiBeam, force quit (Ctrl+C if testing manually)
+  - If service enabled: Should restart in ~10 seconds
+  - Check: sudo systemctl status motibeam
+
+===============================================================================
+PERFORMANCE TESTS
+===============================================================================
+
+□ Framerate is smooth
+  - Navigation feels responsive
+  - No lag when moving selection
+  - Renders at ~30 FPS
+
+□ No memory leaks
+  - Leave running for 5+ minutes
+  - Navigate through realms multiple times
+  - Should remain smooth and responsive
+
+□ Clean console output
+  - No Python errors or warnings
+  - Only expected log messages
+  - No emoji rendering errors
+
+===============================================================================
+IF SOMETHING BROKE
+===============================================================================
+
+1. Stop testing immediately
+2. Note what broke (be specific)
+3. Restore backup: ./safety.sh restore
+4. Choose most recent backup from list
+5. Test that restored version works
+6. Report what broke to person who made changes
+
+COMMON ISSUES:
+
+Emoji showing as brackets:
+  - Font loading broke
+  - Restore backup immediately
+  - Check load_emoji_font() function
+
+Navigation not working:
+  - Event handling broke
+  - Restore backup
+  - Check handle_key() and input methods
+
+Realms won't open:
+  - State management broke
+  - Restore backup
+  - Check enter_realm() and navigation_stack
+
+App crashes on launch:
+  - Syntax error or import error
+  - Run: ./safety.sh test
+  - Restore backup if syntax fails
+
+===============================================================================
+AFTER ALL TESTS PASS
+===============================================================================
+
+□ All checkboxes above are marked ✓
+□ System is stable and working perfectly
+□ Create new backup: ./safety.sh backup
+□ Note what was changed in git commit or notes
+□ Safe to use for demos or presentations
+
+===============================================================================
