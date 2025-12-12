@@ -114,6 +114,9 @@ class SpatialOS:
         self.selected_realm = 0
         self.realms = REALMS
 
+        # Call overlay
+        self.show_call_overlay = False
+
         # Add sample ticker messages
         self.ticker.add_message("Weather: Sunny, 72°F • Traffic: Normal conditions on all routes")
         self.ticker.add_message("System Status: All realms operational • Last sync: 3 minutes ago")
@@ -180,6 +183,27 @@ class SpatialOS:
                     self.banner.set_state("CALM")
                     self.ticker.add_message("System returned to calm state")
 
+                # Call overlay
+                elif event.key == pygame.K_i:
+                    self.show_call_overlay = not self.show_call_overlay
+
+                elif event.key == pygame.K_a and self.show_call_overlay:
+                    print("Call accepted from Mom")
+                    self.show_call_overlay = False
+                    self.ticker.add_message("Call accepted from Mom")
+
+                elif event.key == pygame.K_d and self.show_call_overlay:
+                    print("Call declined from Mom")
+                    self.show_call_overlay = False
+                    self.ticker.add_message("Call declined from Mom")
+
+                # ESC cancels overlay or quits
+                elif event.key == pygame.K_ESCAPE:
+                    if self.show_call_overlay:
+                        self.show_call_overlay = False
+                    else:
+                        self.running = False
+
                 # Quit
                 elif event.key == pygame.K_q:
                     self.running = False
@@ -208,6 +232,10 @@ class SpatialOS:
 
         # Footer ticker
         self.ticker.draw(self.screen)
+
+        # Call overlay on top if active
+        if self.show_call_overlay:
+            self.render_call_overlay()
 
         pygame.display.flip()
 
@@ -263,7 +291,11 @@ class SpatialOS:
         emoji = realm.get("emoji", "")
         if emoji:
             try:
-                font_emoji = pygame.font.Font(None, FONT_EMOJI_SIZE)
+                # Use NotoColorEmoji for proper emoji rendering
+                try:
+                    font_emoji = pygame.font.Font('/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf', FONT_EMOJI_SIZE)
+                except:
+                    font_emoji = pygame.font.Font(None, FONT_EMOJI_SIZE)  # Fallback
                 emoji_surface = font_emoji.render(emoji, True, TEXT_PRIMARY)
                 emoji_x = x + (width - emoji_surface.get_width()) // 2
                 self.screen.blit(emoji_surface, (emoji_x, content_y))
@@ -284,6 +316,44 @@ class SpatialOS:
         subtitle_x = x + (width - subtitle_surface.get_width()) // 2
         self.screen.blit(subtitle_surface, (subtitle_x, content_y))
 
+    def render_call_overlay(self):
+        """Render incoming call overlay with dimmed background."""
+        # Dim background
+        overlay = pygame.Surface(self.screen.get_size())
+        overlay.set_alpha(180)
+        overlay.fill((0, 0, 0))
+        self.screen.blit(overlay, (0, 0))
+
+        # Call card (centered)
+        card_w, card_h = 500, 300
+        card_x = (self.width - card_w) // 2
+        card_y = (self.height - card_h) // 2
+
+        pygame.draw.rect(self.screen, (40, 40, 50),
+                         (card_x, card_y, card_w, card_h), border_radius=15)
+
+        # "Incoming Call" label
+        font_label = pygame.font.Font(None, 34)
+        label_surf = font_label.render("Incoming Call", True, (200, 200, 210))
+        label_x = card_x + card_w // 2 - label_surf.get_width() // 2
+        label_y = card_y + 40
+        self.screen.blit(label_surf, (label_x, label_y))
+
+        # Caller name "Mom"
+        font_name = pygame.font.Font(None, 56)
+        name_surf = font_name.render("Mom", True, (255, 255, 255))
+        name_x = card_x + card_w // 2 - name_surf.get_width() // 2
+        name_y = label_y + 60
+        self.screen.blit(name_surf, (name_x, name_y))
+
+        # Instructions
+        font_inst = pygame.font.Font(None, 24)
+        instruction_surf = font_inst.render("A - Accept  |  D - Decline  |  ESC - Cancel",
+                                            True, (170, 175, 190))
+        inst_x = card_x + card_w // 2 - instruction_surf.get_width() // 2
+        inst_y = card_y + card_h - 50
+        self.screen.blit(instruction_surf, (inst_x, inst_y))
+
     def run(self):
         """Main game loop."""
         print("MotiBeam Spatial OS - Starting projection interface...")
@@ -294,7 +364,8 @@ class SpatialOS:
         print("  A: Trigger severe weather alert")
         print("  M: Trigger medical reminder")
         print("  C: Clear alerts (return to calm)")
-        print("  Q: Quit")
+        print("  I: Incoming call simulation")
+        print("  Q / ESC: Quit")
         print()
 
         # Force initial draw to ensure window appears
