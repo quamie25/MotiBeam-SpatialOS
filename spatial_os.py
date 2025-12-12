@@ -200,13 +200,13 @@ class MotiBeamOS:
         self.width = width
         self.height = height
 
-        # Fonts (projection friendly – large)
-        self.font_header = pygame.font.SysFont(None, 42)
-        self.font_header_meta = pygame.font.SysFont(None, 30)
-        self.font_emoji = load_emoji_font(96)  # Use emoji font with fallback
-        self.font_card_title = pygame.font.SysFont(None, 34)
-        self.font_card_subtitle = pygame.font.SysFont(None, 22)
-        self.font_footer = pygame.font.SysFont(None, 24)
+        # Fonts (projection friendly – large, 40% larger for 10-15ft viewing)
+        self.font_header = pygame.font.SysFont(None, 59)  # Was 42
+        self.font_header_meta = pygame.font.SysFont(None, 42)  # Was 30
+        self.font_emoji = load_emoji_font(134)  # Was 96, use emoji font with fallback
+        self.font_card_title = pygame.font.SysFont(None, 48)  # Was 34
+        self.font_card_subtitle = pygame.font.SysFont(None, 31)  # Was 22
+        self.font_footer = pygame.font.SysFont(None, 34)  # Was 24
 
         self.clock = pygame.time.Clock()
         self.selected_index = 0  # which card is selected on home grid
@@ -328,19 +328,19 @@ class MotiBeamOS:
         pygame.draw.rect(self.screen, (100, 180, 255), card_rect, width=4, border_radius=20)
 
         # Caller emoji (large)
-        caller_emoji_font = load_emoji_font(180)
+        caller_emoji_font = load_emoji_font(252)  # Was 180
         caller_emoji = caller_emoji_font.render(self.call_caller['emoji'], True, (255, 255, 255))
         emoji_x = card_x + (card_width - caller_emoji.get_width()) // 2
         self.screen.blit(caller_emoji, (emoji_x, card_y + 40))
 
         # Caller name
-        name_font = pygame.font.SysFont(None, 48, bold=True)
+        name_font = pygame.font.SysFont(None, 67, bold=True)  # Was 48
         name_surf = name_font.render(self.call_caller['name'], True, (255, 255, 255))
         name_x = card_x + (card_width - name_surf.get_width()) // 2
         self.screen.blit(name_surf, (name_x, card_y + 230))
 
         # Call status
-        status_font = pygame.font.SysFont(None, 28)
+        status_font = pygame.font.SysFont(None, 39)  # Was 28
         status_surf = status_font.render(self.call_caller['status'], True, (150, 200, 255))
         status_x = card_x + (card_width - status_surf.get_width()) // 2
         self.screen.blit(status_surf, (status_x, card_y + 275))
@@ -351,7 +351,7 @@ class MotiBeamOS:
         # Accept button
         accept_rect = pygame.Rect(card_x + 80, button_y, 200, 50)
         pygame.draw.rect(self.screen, (50, 200, 100), accept_rect, border_radius=10)
-        accept_font = pygame.font.SysFont(None, 32, bold=True)
+        accept_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
         accept_text = accept_font.render('📞 Accept (A)', True, (255, 255, 255))
         accept_x = accept_rect.centerx - accept_text.get_width() // 2
         accept_y = accept_rect.centery - accept_text.get_height() // 2
@@ -360,7 +360,7 @@ class MotiBeamOS:
         # Decline button
         decline_rect = pygame.Rect(card_x + 320, button_y, 200, 50)
         pygame.draw.rect(self.screen, (200, 50, 50), decline_rect, border_radius=10)
-        decline_font = pygame.font.SysFont(None, 32, bold=True)
+        decline_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
         decline_text = decline_font.render('❌ Decline (D)', True, (255, 255, 255))
         decline_x = decline_rect.centerx - decline_text.get_width() // 2
         decline_y = decline_rect.centery - decline_text.get_height() // 2
@@ -533,11 +533,11 @@ class MotiBeamOS:
         selected = self.realm_data['circlebeam']['selected']
 
         # Header
-        title_font = pygame.font.SysFont(None, 64, bold=True)
+        title_font = pygame.font.SysFont(None, 90, bold=True)  # Was 64
         title = title_font.render('👥 CIRCLEBEAM', True, (100, 180, 255))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 60))
 
-        subtitle_font = pygame.font.SysFont(None, 32)
+        subtitle_font = pygame.font.SysFont(None, 45)  # Was 32
         subtitle = subtitle_font.render('Stay Connected, Always', True, (180, 200, 220))
         self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 130))
 
@@ -567,35 +567,35 @@ class MotiBeamOS:
             pygame.draw.rect(self.screen, (30, 35, 50), card_rect, border_radius=15)
 
             # Circle emoji (large, colored by status)
-            icon_font = load_emoji_font(120)
+            icon_font = load_emoji_font(168)  # Was 120
             icon = icon_font.render(circle['emoji'], True, circle['color'])
             self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 30))
 
             # Name
-            name_font = pygame.font.SysFont(None, 40, bold=True)
+            name_font = pygame.font.SysFont(None, 56, bold=True)  # Was 40
             name = name_font.render(circle['name'], True, (255, 255, 255))
             self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 140))
 
             # Status with colored dot
-            status_font = pygame.font.SysFont(None, 24)
+            status_font = pygame.font.SysFont(None, 34)  # Was 24
             status = status_font.render(circle['status'], True, circle['color'])
             self.screen.blit(status, (x + card_width // 2 - status.get_width() // 2, y + 190))
 
             # Action button
             button_text = '📞 CALL' if circle['status'] != 'Do Not Disturb' else '✉️ MESSAGE'
-            button_font = pygame.font.SysFont(None, 28, bold=True)
+            button_font = pygame.font.SysFont(None, 39, bold=True)  # Was 28
             button = button_font.render(button_text, True, (200, 220, 255))
             self.screen.blit(button, (x + card_width // 2 - button.get_width() // 2, y + 240))
 
         # Emergency button at bottom
         emergency_rect = pygame.Rect(self.width // 2 - 200, 600, 400, 60)
         pygame.draw.rect(self.screen, (120, 30, 30), emergency_rect, border_radius=10)
-        emergency_font = pygame.font.SysFont(None, 36, bold=True)
+        emergency_font = pygame.font.SysFont(None, 50, bold=True)  # Was 36
         emergency = emergency_font.render('🚨 EMERGENCY CONTACT', True, (255, 80, 80))
         self.screen.blit(emergency, (self.width // 2 - emergency.get_width() // 2, 615))
 
         # Help text
-        help_font = pygame.font.SysFont(None, 22)
+        help_font = pygame.font.SysFont(None, 31)  # Was 22
         help_text = help_font.render('Arrow Keys: Select | ENTER: Call/Message | ESC: Back', True, (150, 160, 180))
         self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 710))
 
@@ -618,11 +618,11 @@ class MotiBeamOS:
         scroll_offset = self.realm_data['marketplace']['scroll']
 
         # Header
-        title_font = pygame.font.SysFont(None, 64, bold=True)
+        title_font = pygame.font.SysFont(None, 90, bold=True)  # Was 64
         title = title_font.render('🛒 MARKETPLACE', True, (180, 100, 255))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 50))
 
-        subtitle_font = pygame.font.SysFont(None, 28)
+        subtitle_font = pygame.font.SysFont(None, 39)  # Was 28
         subtitle = subtitle_font.render('Projection Experiences', True, (200, 180, 255))
         self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 115))
 
@@ -667,38 +667,38 @@ class MotiBeamOS:
             pygame.draw.rect(self.screen, (35, 30, 55), card_rect, border_radius=12)
 
             # PX emoji
-            icon_font = load_emoji_font(72)
+            icon_font = load_emoji_font(101)  # Was 72
             icon = icon_font.render(px['emoji'], True, (100, 200, 255))
             self.screen.blit(icon, (x + 15, y + 15))
 
             # PX name
-            name_font = pygame.font.SysFont(None, 32, bold=True)
+            name_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
             name = name_font.render(px['name'], True, (255, 255, 255))
             self.screen.blit(name, (x + 90, y + 20))
 
             # Category
-            cat_font = pygame.font.SysFont(None, 20)
+            cat_font = pygame.font.SysFont(None, 28)  # Was 20
             cat = cat_font.render(px['category'], True, (180, 160, 200))
             self.screen.blit(cat, (x + 90, y + 50))
 
             # Price
-            price_font = pygame.font.SysFont(None, 36, bold=True)
+            price_font = pygame.font.SysFont(None, 50, bold=True)  # Was 36
             price = price_font.render(px['price'], True, (100, 255, 150))
             self.screen.blit(price, (x + 15, y + 115))
 
             # Rating
-            rating_font = pygame.font.SysFont(None, 22)
+            rating_font = pygame.font.SysFont(None, 31)  # Was 22
             rating = rating_font.render(px['rating'], True, (255, 200, 50))
             self.screen.blit(rating, (x + 15, y + 150))
 
         # Scroll indicator
         if scroll_offset + 9 < len(pxs):
-            arrow_font = pygame.font.SysFont(None, 28)
+            arrow_font = pygame.font.SysFont(None, 39)  # Was 28
             arrow_down = arrow_font.render('v More PXs Below (Down Arrow)', True, (150, 150, 200))
             self.screen.blit(arrow_down, (self.width // 2 - arrow_down.get_width() // 2, 680))
 
         # Help
-        help_font = pygame.font.SysFont(None, 20)
+        help_font = pygame.font.SysFont(None, 28)  # Was 20
         help_text = help_font.render('Arrow Keys: Navigate | ENTER: Install | ESC: Back', True, (150, 160, 180))
         self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 720))
 
@@ -740,7 +740,7 @@ class MotiBeamOS:
         devices_state = self.realm_data['home_realm']['devices']
 
         # Header
-        title_font = pygame.font.SysFont(None, 64, bold=True)
+        title_font = pygame.font.SysFont(None, 90, bold=True)  # Was 64
         title = title_font.render('🏠 HOME CONTROL', True, (100, 255, 150))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 50))
 
@@ -783,12 +783,12 @@ class MotiBeamOS:
             pygame.draw.rect(self.screen, bg_color, card_rect, border_radius=15)
 
             # Emoji
-            icon_font = load_emoji_font(96)
+            icon_font = load_emoji_font(134)  # Was 96
             icon = icon_font.render(device['emoji'], True, (255, 255, 255))
             self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 20))
 
             # Name
-            name_font = pygame.font.SysFont(None, 32, bold=True)
+            name_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
             name = name_font.render(device['name'], True, (255, 255, 255))
             self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 110))
 
@@ -800,12 +800,12 @@ class MotiBeamOS:
                 state_text = f"{state}°F"
                 state_color = (100, 200, 255)
 
-            state_font = pygame.font.SysFont(None, 42, bold=True)
+            state_font = pygame.font.SysFont(None, 59, bold=True)  # Was 42
             state_surf = state_font.render(state_text, True, state_color)
             self.screen.blit(state_surf, (x + card_width // 2 - state_surf.get_width() // 2, y + 155))
 
         # Help
-        help_font = pygame.font.SysFont(None, 20)
+        help_font = pygame.font.SysFont(None, 28)  # Was 20
         help_text = help_font.render('Arrow Keys: Navigate | ENTER: Toggle/Adjust | ESC: Back', True, (150, 160, 180))
         self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 720))
 
@@ -845,7 +845,7 @@ class MotiBeamOS:
     def render_clinical(self):
         """Clinical - Health monitoring dashboard"""
         # Header
-        title_font = pygame.font.SysFont(None, 64, bold=True)
+        title_font = pygame.font.SysFont(None, 90, bold=True)  # Was 64
         title = title_font.render('🏥 CLINICAL MONITOR', True, (255, 120, 140))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 35))
 
@@ -868,23 +868,23 @@ class MotiBeamOS:
             pygame.draw.rect(self.screen, (25, 30, 40), card_rect, border_radius=10)
 
             # Emoji
-            icon_font = load_emoji_font(40)
+            icon_font = load_emoji_font(56)  # Was 40
             icon = icon_font.render(vital['emoji'], True, vital['color'])
             self.screen.blit(icon, (x + 10, vitals_y + 10))
 
             # Label
-            label_font = pygame.font.SysFont(None, 18)
+            label_font = pygame.font.SysFont(None, 25)  # Was 18
             label = label_font.render(vital['label'], True, (180, 190, 200))
             self.screen.blit(label, (x + 65, vitals_y + 15))
 
             # Value
-            value_font = pygame.font.SysFont(None, 32, bold=True)
+            value_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
             value = value_font.render(vital['value'], True, vital['color'])
             self.screen.blit(value, (x + 65, vitals_y + 45))
 
         # === MEDICATION SECTION ===
         med_y = 220
-        med_title_font = pygame.font.SysFont(None, 32, bold=True)
+        med_title_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
         med_title = med_title_font.render('Medication Schedule', True, (200, 210, 220))
         self.screen.blit(med_title, (50, med_y))
 
@@ -900,29 +900,29 @@ class MotiBeamOS:
 
             # Status emoji
             status_icon = '✅' if med['taken'] else '⏰'
-            icon_font = load_emoji_font(28)
+            icon_font = load_emoji_font(39)  # Was 28
             icon_color = (100, 255, 100) if med['taken'] else (150, 150, 150)
             icon = icon_font.render(status_icon, True, icon_color)
             self.screen.blit(icon, (70, y))
 
             # Med name
-            name_font = pygame.font.SysFont(None, 28, bold=True)
+            name_font = pygame.font.SysFont(None, 39, bold=True)  # Was 28
             name = name_font.render(med['name'], True, (255, 255, 255))
             self.screen.blit(name, (110, y))
 
             # Dose
-            dose_font = pygame.font.SysFont(None, 22)
+            dose_font = pygame.font.SysFont(None, 31)  # Was 22
             dose = dose_font.render(med['dose'], True, (180, 200, 220))
             self.screen.blit(dose, (260, y + 4))
 
             # Time
-            time_font = pygame.font.SysFont(None, 24)
+            time_font = pygame.font.SysFont(None, 34)  # Was 24
             time_surf = time_font.render(med['time'], True, (100, 180, 255))
             self.screen.blit(time_surf, (360, y + 2))
 
         # === CDI SECTION ===
         cdi_y = 480
-        cdi_title_font = pygame.font.SysFont(None, 32, bold=True)
+        cdi_title_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
         cdi_title = cdi_title_font.render('Clinical Deterioration Index', True, (200, 210, 220))
         self.screen.blit(cdi_title, (50, cdi_y))
 
@@ -932,20 +932,20 @@ class MotiBeamOS:
         cdi_color = (100, 255, 100)
         cdi_emoji = '✅'
 
-        cdi_font = pygame.font.SysFont(None, 64, bold=True)
+        cdi_font = pygame.font.SysFont(None, 90, bold=True)  # Was 64
         cdi_display = cdi_font.render(f'{cdi_emoji} {cdi_status}', True, cdi_color)
         self.screen.blit(cdi_display, (50, cdi_y + 45))
 
         # Guardian contact button
         guardian_btn = pygame.Rect(550, cdi_y + 35, 400, 70)
         pygame.draw.rect(self.screen, (50, 100, 200), guardian_btn, border_radius=12)
-        btn_font = pygame.font.SysFont(None, 36, bold=True)
+        btn_font = pygame.font.SysFont(None, 50, bold=True)  # Was 36
         btn_text = btn_font.render('📞 Contact Guardian', True, (255, 255, 255))
         self.screen.blit(btn_text, (guardian_btn.centerx - btn_text.get_width() // 2, guardian_btn.centery - 18))
 
         # === CHART VISUALIZATION (simple bars) ===
         chart_y = 600
-        chart_title_font = pygame.font.SysFont(None, 24, bold=True)
+        chart_title_font = pygame.font.SysFont(None, 34, bold=True)  # Was 24
         chart_title = chart_title_font.render('24-Hour Vital Trends', True, (180, 190, 200))
         self.screen.blit(chart_title, (50, chart_y))
 
@@ -962,7 +962,7 @@ class MotiBeamOS:
             pygame.draw.rect(self.screen, (100, 180, 255), bar_rect, border_radius=4)
 
         # Help
-        help_font = pygame.font.SysFont(None, 20)
+        help_font = pygame.font.SysFont(None, 28)  # Was 20
         help_text = help_font.render('ESC: Back to Home', True, (150, 160, 180))
         self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 735))
 
@@ -976,11 +976,11 @@ class MotiBeamOS:
         selected = self.realm_data['education']['selected']
 
         # Header
-        title_font = pygame.font.SysFont(None, 64, bold=True)
+        title_font = pygame.font.SysFont(None, 90, bold=True)  # Was 64
         title = title_font.render('📚 EDUCATION', True, (255, 180, 50))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 45))
 
-        subtitle_font = pygame.font.SysFont(None, 28)
+        subtitle_font = pygame.font.SysFont(None, 39)  # Was 28
         subtitle = subtitle_font.render('Interactive Learning Sessions', True, (220, 200, 150))
         self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 110))
 
@@ -1016,17 +1016,17 @@ class MotiBeamOS:
             pygame.draw.rect(self.screen, (30, 35, 50), card_rect, border_radius=15)
 
             # Emoji
-            icon_font = load_emoji_font(84)
+            icon_font = load_emoji_font(118)  # Was 84
             icon = icon_font.render(subject['emoji'], True, (100, 200, 255))
             self.screen.blit(icon, (x + 20, y + 20))
 
             # Subject name
-            name_font = pygame.font.SysFont(None, 34, bold=True)
+            name_font = pygame.font.SysFont(None, 48, bold=True)  # Was 34
             name = name_font.render(subject['name'], True, (255, 255, 255))
             self.screen.blit(name, (x + 95, y + 28))
 
             # Level
-            level_font = pygame.font.SysFont(None, 20)
+            level_font = pygame.font.SysFont(None, 28)  # Was 20
             level = level_font.render(subject['level'], True, (180, 190, 200))
             self.screen.blit(level, (x + 95, y + 62))
 
@@ -1040,17 +1040,17 @@ class MotiBeamOS:
             pygame.draw.rect(self.screen, (100, 200, 255), progress_fill, border_radius=6)
 
             # Progress text
-            progress_font = pygame.font.SysFont(None, 20, bold=True)
+            progress_font = pygame.font.SysFont(None, 28, bold=True)  # Was 20
             progress_text = progress_font.render(f"{subject['progress']}%", True, (255, 255, 255))
             self.screen.blit(progress_text, (x + card_width // 2 - progress_text.get_width() // 2, y + 119))
 
             # Start button
-            btn_font = pygame.font.SysFont(None, 26, bold=True)
+            btn_font = pygame.font.SysFont(None, 36, bold=True)  # Was 26
             btn_text = btn_font.render('▶️ Start Session', True, (150, 220, 150))
             self.screen.blit(btn_text, (x + card_width // 2 - btn_text.get_width() // 2, y + 175))
 
         # Help
-        help_font = pygame.font.SysFont(None, 20)
+        help_font = pygame.font.SysFont(None, 28)  # Was 20
         help_text = help_font.render('Arrow Keys: Navigate | ENTER: Start Session | ESC: Back', True, (150, 160, 180))
         self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 720))
 
@@ -1080,7 +1080,7 @@ class MotiBeamOS:
         selected = self.realm_data['transport']['selected']
 
         # Header
-        title_font = pygame.font.SysFont(None, 64, bold=True)
+        title_font = pygame.font.SysFont(None, 90, bold=True)  # Was 64
         title = title_font.render('🚗 TRANSPORT', True, (100, 180, 255))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 40))
 
@@ -1088,16 +1088,16 @@ class MotiBeamOS:
         loc_section = pygame.Rect(80, 115, 900, 80)
         pygame.draw.rect(self.screen, (25, 30, 45), loc_section, border_radius=12)
 
-        loc_label_font = pygame.font.SysFont(None, 24)
+        loc_label_font = pygame.font.SysFont(None, 34)  # Was 24
         loc_label = loc_label_font.render('Current Location:', True, (180, 190, 200))
         self.screen.blit(loc_label, (100, 130))
 
-        loc_value_font = pygame.font.SysFont(None, 36, bold=True)
+        loc_value_font = pygame.font.SysFont(None, 50, bold=True)  # Was 36
         loc_value = loc_value_font.render('📍 123 Main Street, Cypress, TX 77433', True, (100, 200, 255))
         self.screen.blit(loc_value, (100, 160))
 
         # Destinations label
-        dest_label_font = pygame.font.SysFont(None, 32, bold=True)
+        dest_label_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
         dest_label = dest_label_font.render('Quick Destinations', True, (220, 230, 240))
         self.screen.blit(dest_label, (80, 230))
 
@@ -1133,27 +1133,27 @@ class MotiBeamOS:
             pygame.draw.rect(self.screen, (30, 40, 60), card_rect, border_radius=12)
 
             # Emoji
-            icon_font = load_emoji_font(72)
+            icon_font = load_emoji_font(101)  # Was 72
             icon = icon_font.render(dest['emoji'], True, (100, 200, 255))
             self.screen.blit(icon, (x + 15, y + 15))
 
             # Name
-            name_font = pygame.font.SysFont(None, 32, bold=True)
+            name_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
             name = name_font.render(dest['name'], True, (255, 255, 255))
             self.screen.blit(name, (x + 80, y + 20))
 
             # Address
-            address_font = pygame.font.SysFont(None, 18)
+            address_font = pygame.font.SysFont(None, 25)  # Was 18
             address = address_font.render(dest['address'], True, (180, 190, 210))
             self.screen.blit(address, (x + 15, y + 75))
 
             # ETA
-            eta_font = pygame.font.SysFont(None, 26, bold=True)
+            eta_font = pygame.font.SysFont(None, 36, bold=True)  # Was 26
             eta = eta_font.render(f"🕐 {dest['eta']}", True, (100, 255, 150))
             self.screen.blit(eta, (x + 15, y + 105))
 
         # Help
-        help_font = pygame.font.SysFont(None, 20)
+        help_font = pygame.font.SysFont(None, 28)  # Was 20
         help_text = help_font.render('Arrow Keys: Navigate | ENTER: Navigate to Destination | ESC: Back', True, (150, 160, 180))
         self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 720))
 
