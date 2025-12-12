@@ -148,13 +148,18 @@ class MotiBeamOS:
         # Fonts (projection friendly – large)
         self.font_header = pygame.font.SysFont(None, 42)
         self.font_header_meta = pygame.font.SysFont(None, 30)
-        self.font_emoji = pygame.font.SysFont(None, 96)  # Increased from 64 to 96px for better visibility
+        # Use NotoColorEmoji for proper emoji rendering
+        try:
+            self.font_emoji = pygame.font.Font('/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf', 96)
+        except:
+            self.font_emoji = pygame.font.SysFont(None, 96)  # Fallback
         self.font_card_title = pygame.font.SysFont(None, 34)
         self.font_card_subtitle = pygame.font.SysFont(None, 22)
         self.font_footer = pygame.font.SysFont(None, 24)
 
         self.clock = pygame.time.Clock()
         self.selected_index = 0  # which card is selected
+        self.show_call_overlay = False  # call simulation overlay
 
         # Precompute grid cell sizes
         self.grid_top = 140
@@ -267,24 +272,75 @@ class MotiBeamOS:
 
     def handle_key(self, key):
         if key in (pygame.K_q, pygame.K_ESCAPE):
-            pygame.quit()
-            sys.exit(0)
+            if self.show_call_overlay:
+                # ESC cancels the call overlay
+                self.show_call_overlay = False
+            else:
+                pygame.quit()
+                sys.exit(0)
 
-        if key == pygame.K_LEFT:
-            self.move_selection(-1, 0)
-        elif key == pygame.K_RIGHT:
-            self.move_selection(1, 0)
-        elif key == pygame.K_UP:
-            self.move_selection(0, -1)
-        elif key == pygame.K_DOWN:
-            self.move_selection(0, 1)
-        elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
-            realm = REALMS[self.selected_index]
-            print(f"[SELECT] {realm['name']} – {realm['subtitle']}")
-        elif pygame.K_1 <= key <= pygame.K_9:
-            idx = key - pygame.K_1
-            if idx < len(REALMS):
-                self.selected_index = idx
+        # Call overlay handlers
+        if key == pygame.K_i:
+            self.show_call_overlay = not self.show_call_overlay
+        elif key == pygame.K_a and self.show_call_overlay:
+            print("Call accepted from Mom")
+            self.show_call_overlay = False
+        elif key == pygame.K_d and self.show_call_overlay:
+            print("Call declined from Mom")
+            self.show_call_overlay = False
+
+        # Navigation (disabled during call overlay)
+        if not self.show_call_overlay:
+            if key == pygame.K_LEFT:
+                self.move_selection(-1, 0)
+            elif key == pygame.K_RIGHT:
+                self.move_selection(1, 0)
+            elif key == pygame.K_UP:
+                self.move_selection(0, -1)
+            elif key == pygame.K_DOWN:
+                self.move_selection(0, 1)
+            elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
+                realm = REALMS[self.selected_index]
+                print(f"[SELECT] {realm['name']} – {realm['subtitle']}")
+            elif pygame.K_1 <= key <= pygame.K_9:
+                idx = key - pygame.K_1
+                if idx < len(REALMS):
+                    self.selected_index = idx
+
+    def render_call_overlay(self):
+        """Render incoming call overlay with dimmed background"""
+        # Dim background
+        overlay = pygame.Surface(self.screen.get_size())
+        overlay.set_alpha(180)
+        overlay.fill((0, 0, 0))
+        self.screen.blit(overlay, (0, 0))
+
+        # Call card (centered)
+        card_w, card_h = 500, 300
+        card_x = (self.width - card_w) // 2
+        card_y = (self.height - card_h) // 2
+
+        pygame.draw.rect(self.screen, (40, 40, 50),
+                         (card_x, card_y, card_w, card_h), border_radius=15)
+
+        # "Incoming Call" label
+        label_surf = self.font_card_title.render("Incoming Call", True, (200, 200, 210))
+        label_x = card_x + card_w // 2 - label_surf.get_width() // 2
+        label_y = card_y + 40
+        self.screen.blit(label_surf, (label_x, label_y))
+
+        # Caller name "Mom"
+        name_surf = self.font_header.render("Mom", True, (255, 255, 255))
+        name_x = card_x + card_w // 2 - name_surf.get_width() // 2
+        name_y = label_y + 60
+        self.screen.blit(name_surf, (name_x, name_y))
+
+        # Instructions
+        instruction_surf = self.font_footer.render("A - Accept  |  D - Decline  |  ESC - Cancel",
+                                                    True, (170, 175, 190))
+        inst_x = card_x + card_w // 2 - instruction_surf.get_width() // 2
+        inst_y = card_y + card_h - 50
+        self.screen.blit(instruction_surf, (inst_x, inst_y))
 
     def run(self):
         print("MotiBeam Spatial OS – clean launcher running (framebuffer-friendly)")
@@ -300,6 +356,10 @@ class MotiBeamOS:
             self.draw_header()
             self.draw_grid()
             self.draw_footer()
+
+            # Render call overlay on top if active
+            if self.show_call_overlay:
+                self.render_call_overlay()
 
             pygame.display.flip()
             self.clock.tick(30)
