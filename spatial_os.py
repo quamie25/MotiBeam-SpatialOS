@@ -249,9 +249,27 @@ class MotiBeamOS:
             'location': 'Home'
         }
 
-        # Precompute grid cell sizes
-        self.grid_top = 140
-        self.grid_bottom = self.height - 120
+        # Alert system (professional features)
+        self.alerts = [
+            {'type': 'severe', 'message': '🌪 SEVERE WEATHER WARNING - Tornado spotted nearby. Take shelter immediately.', 'color': (255, 80, 80)},
+            {'type': 'medical', 'message': '💊 MEDICAL REMINDER - Time to take medication - check MedBeam', 'color': (255, 200, 80)},
+            {'type': 'message', 'message': '💬 NEW MESSAGE - 3 unread messages from CircleBeam', 'color': (100, 180, 255)},
+        ]
+        self.current_alert_index = 0
+        self.alert_change_time = 0
+        self.alert_duration = 8  # seconds per alert
+
+        # Ticker system (scrolling updates at bottom)
+        self.ticker_text = "→ Scheduling CircleBeam → Listing schematica → Missed call from Dad → Traffic alert: I-45 delay 15min → Weather update: Clear skies → "
+        self.ticker_offset = 0
+        self.ticker_speed = 2  # pixels per frame
+
+        # System state (ALERT vs CALM)
+        self.system_state = "CALM"  # or "ALERT"
+
+        # Precompute grid cell sizes (adjusted for alert banner and ticker)
+        self.grid_top = 180  # Was 140, pushed down for alert banner
+        self.grid_bottom = self.height - 140  # Adjusted for ticker
         available_height = self.grid_bottom - self.grid_top
         available_width = self.width - 120
 
@@ -268,10 +286,63 @@ class MotiBeamOS:
             self.weather = fetch_weather()
             self.weather_last_update = current_time
 
+    def draw_alert_banner(self):
+        """Draw rotating alert banner at top of screen"""
+        import time
+        current_time = time.time()
+
+        # Rotate alerts every N seconds
+        if current_time - self.alert_change_time > self.alert_duration:
+            self.current_alert_index = (self.current_alert_index + 1) % len(self.alerts)
+            self.alert_change_time = current_time
+            # Update system state based on alert type
+            current_alert = self.alerts[self.current_alert_index]
+            self.system_state = "ALERT" if current_alert['type'] in ['severe', 'medical'] else "CALM"
+
+        # Draw current alert
+        alert = self.alerts[self.current_alert_index]
+        banner_height = 45
+        banner_rect = pygame.Rect(0, 0, self.width, banner_height)
+        pygame.draw.rect(self.screen, alert['color'], banner_rect)
+
+        # Alert text (using emoji font for proper emoji rendering)
+        alert_font = load_emoji_font(32)
+        alert_surf = alert_font.render(alert['message'], True, (255, 255, 255))
+        text_x = (self.width - alert_surf.get_width()) // 2
+        self.screen.blit(alert_surf, (text_x, 10))
+
+    def draw_state_indicator(self):
+        """Draw STATE indicator in top right"""
+        state_color = (255, 80, 80) if self.system_state == "ALERT" else (80, 255, 120)
+        state_font = pygame.font.SysFont(None, 28, bold=True)
+        state_text = f"STATE: {self.system_state}"
+        state_surf = state_font.render(state_text, True, state_color)
+        self.screen.blit(state_surf, (self.width - state_surf.get_width() - 20, 55))
+
+    def draw_ticker(self):
+        """Draw scrolling ticker at bottom of screen"""
+        ticker_height = 35
+        ticker_y = self.height - ticker_height
+
+        # Background
+        ticker_rect = pygame.Rect(0, ticker_y, self.width, ticker_height)
+        pygame.draw.rect(self.screen, (25, 30, 45), ticker_rect)
+
+        # Scrolling text (using emoji font for proper emoji rendering)
+        ticker_font = load_emoji_font(26)
+        ticker_surf = ticker_font.render(self.ticker_text, True, (180, 200, 220))
+
+        # Update offset for scrolling effect
+        self.ticker_offset -= self.ticker_speed
+        if self.ticker_offset < -ticker_surf.get_width():
+            self.ticker_offset = self.width
+
+        self.screen.blit(ticker_surf, (self.ticker_offset, ticker_y + 8))
+
     def draw_header(self):
-        # Left: title
+        # Left: title (pushed down to account for alert banner)
         title_text = self.font_header.render("MOTIBEAM SPATIAL OS", True, HEADER_COLOR)
-        self.screen.blit(title_text, (40, 30))
+        self.screen.blit(title_text, (40, 75))
 
         # Right: time + date + weather
         now = datetime.now()
@@ -286,7 +357,7 @@ class MotiBeamOS:
         weather_surf = self.font_header_meta.render(weather_str, True, (150, 200, 255))
 
         tx = self.width - max(time_surf.get_width(), date_surf.get_width(), weather_surf.get_width()) - 40
-        ty = 20
+        ty = 65  # Pushed down to account for alert banner
         self.screen.blit(time_surf, (tx, ty))
         self.screen.blit(date_surf, (tx, ty + time_surf.get_height() + 2))
         self.screen.blit(weather_surf, (tx, ty + time_surf.get_height() + date_surf.get_height() + 4))
@@ -1192,6 +1263,10 @@ class MotiBeamOS:
 
             self.screen.fill(BG_COLOR)
 
+            # Professional platform features - draw alert banner and STATE indicator first
+            self.draw_alert_banner()
+            self.draw_state_indicator()
+
             # Route rendering based on current state
             if self.state == "home":
                 self.draw_header()
@@ -1209,6 +1284,9 @@ class MotiBeamOS:
                 self.render_education()
             elif self.state == "transport":
                 self.render_transport()
+
+            # Draw ticker at bottom (before call overlay)
+            self.draw_ticker()
 
             # Draw call overlay on top of everything if active
             self.draw_call_overlay()
