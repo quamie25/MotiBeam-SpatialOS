@@ -382,25 +382,70 @@ class MotiBeamOS:
         return False
 
     def handle_key(self, key):
-        if key in (pygame.K_q, pygame.K_ESCAPE):
+        # Q always quits
+        if key == pygame.K_q:
             pygame.quit()
             sys.exit(0)
 
-        if key == pygame.K_LEFT:
-            self.move_selection(-1, 0)
-        elif key == pygame.K_RIGHT:
-            self.move_selection(1, 0)
-        elif key == pygame.K_UP:
-            self.move_selection(0, -1)
-        elif key == pygame.K_DOWN:
-            self.move_selection(0, 1)
-        elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
-            realm = REALMS[self.selected_index]
-            print(f"[SELECT] {realm['name']} – {realm['subtitle']}")
-        elif pygame.K_1 <= key <= pygame.K_9:
-            idx = key - pygame.K_1
-            if idx < len(REALMS):
-                self.selected_index = idx
+        # ESC behavior depends on current state
+        if key == pygame.K_ESCAPE:
+            if self.state == "home":
+                pygame.quit()
+                sys.exit(0)
+            else:
+                self.go_back()
+                return
+
+        # Route input based on current state
+        if self.state == "home":
+            # Home screen navigation
+            if key == pygame.K_LEFT:
+                self.move_selection(-1, 0)
+            elif key == pygame.K_RIGHT:
+                self.move_selection(1, 0)
+            elif key == pygame.K_UP:
+                self.move_selection(0, -1)
+            elif key == pygame.K_DOWN:
+                self.move_selection(0, 1)
+            elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
+                realm = REALMS[self.selected_index]
+                realm_name = realm['name'].lower().replace(' ', '_')
+                # Special case for "Home" realm -> "home_realm"
+                if realm_name == "home":
+                    realm_name = "home_realm"
+                # Enter the realm if we have a render method for it
+                if realm_name == "circlebeam":
+                    self.enter_realm("circlebeam")
+                elif realm_name == "marketplace":
+                    self.enter_realm("marketplace")
+                elif realm_name == "home_realm":
+                    self.enter_realm("home_realm")
+                elif realm_name == "clinical":
+                    self.enter_realm("clinical")
+                elif realm_name == "education":
+                    self.enter_realm("education")
+                elif realm_name == "transport":
+                    self.enter_realm("transport")
+                else:
+                    print(f"[SELECT] {realm['name']} – {realm['subtitle']} (not implemented yet)")
+            elif pygame.K_1 <= key <= pygame.K_9:
+                idx = key - pygame.K_1
+                if idx < len(REALMS):
+                    self.selected_index = idx
+
+        # Realm-specific input handling
+        elif self.state == "circlebeam":
+            self.handle_circlebeam_input(key)
+        elif self.state == "marketplace":
+            self.handle_marketplace_input(key)
+        elif self.state == "home_realm":
+            self.handle_home_realm_input(key)
+        elif self.state == "clinical":
+            self.handle_clinical_input(key)
+        elif self.state == "education":
+            self.handle_education_input(key)
+        elif self.state == "transport":
+            self.handle_transport_input(key)
 
     # ==================== REALM IMPLEMENTATIONS ====================
 
@@ -1091,10 +1136,26 @@ class MotiBeamOS:
                 if event.type == pygame.KEYDOWN:
                     self.handle_key(event.key)
 
+            # Clear screen
             self.screen.fill(BG_COLOR)
-            self.draw_header()
-            self.draw_grid()
-            self.draw_footer()
+
+            # Render based on current state
+            if self.state == "home":
+                self.draw_header()
+                self.draw_grid()
+                self.draw_footer()
+            elif self.state == "circlebeam":
+                self.render_circlebeam()
+            elif self.state == "marketplace":
+                self.render_marketplace()
+            elif self.state == "home_realm":
+                self.render_home_realm()
+            elif self.state == "clinical":
+                self.render_clinical()
+            elif self.state == "education":
+                self.render_education()
+            elif self.state == "transport":
+                self.render_transport()
 
             pygame.display.flip()
             self.clock.tick(30)
