@@ -538,15 +538,15 @@ class MotiBeamOS:
         feedback_text = self.realm_data['circlebeam']['action_feedback']
         feedback_time = self.realm_data['circlebeam']['action_time']
         if feedback_text and time.time() - feedback_time < 2.5:  # Show for 2.5 seconds
-            feedback_font = pygame.font.SysFont(None, 56, bold=True)
+            feedback_font = pygame.font.SysFont(None, 48, bold=True)
             feedback_surf = feedback_font.render(feedback_text, True, (100, 255, 200))
-            # Draw semi-transparent overlay
-            overlay_rect = pygame.Rect(self.width // 2 - 250, 780, 500, 80)
-            overlay = pygame.Surface((500, 80), pygame.SRCALPHA)
+            # Draw semi-transparent overlay (positioned to be visible on 768px screen)
+            overlay_rect = pygame.Rect(self.width // 2 - 220, 670, 440, 70)
+            overlay = pygame.Surface((440, 70), pygame.SRCALPHA)
             overlay.fill((20, 25, 35, 220))
             self.screen.blit(overlay, (overlay_rect.x, overlay_rect.y))
             pygame.draw.rect(self.screen, (100, 255, 200), overlay_rect, 3, border_radius=12)
-            self.screen.blit(feedback_surf, (self.width // 2 - feedback_surf.get_width() // 2, 800))
+            self.screen.blit(feedback_surf, (self.width // 2 - feedback_surf.get_width() // 2, 685))
 
     def handle_circlebeam_input(self, key):
         """Handle CircleBeam input"""
