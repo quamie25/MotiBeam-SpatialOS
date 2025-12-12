@@ -271,18 +271,25 @@ class MotiBeamOS:
         title_text = self.font_header.render("MOTIBEAM SPATIAL OS", True, HEADER_COLOR)
         self.screen.blit(title_text, (40, 30))
 
-        # Right: time + date
+        # Right: time + date + weather (stacked vertically)
         now = datetime.now()
         time_str = now.strftime("%I:%M %p").lstrip("0")
         date_str = now.strftime("%a • %b %d")
 
+        # Weather info
+        weather_str = self.weather if self.weather else ""
+
         time_surf = self.font_header_meta.render(time_str, True, HEADER_COLOR)
         date_surf = self.font_header_meta.render(date_str, True, HEADER_COLOR)
+        weather_surf = self.font_header_meta.render(weather_str, True, (150, 200, 255)) if weather_str else None
 
-        tx = self.width - time_surf.get_width() - 40
-        ty = 26
+        # Position from right edge with more margin
+        tx = self.width - max(time_surf.get_width(), date_surf.get_width(), weather_surf.get_width() if weather_surf else 0) - 50
+        ty = 20
         self.screen.blit(time_surf, (tx, ty))
-        self.screen.blit(date_surf, (tx, ty + time_surf.get_height() + 4))
+        self.screen.blit(date_surf, (tx, ty + time_surf.get_height() + 2))
+        if weather_surf:
+            self.screen.blit(weather_surf, (tx, ty + time_surf.get_height() + date_surf.get_height() + 4))
 
     def draw_footer(self):
         # Simple footer strip
