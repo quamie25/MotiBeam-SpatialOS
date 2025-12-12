@@ -3,7 +3,7 @@
 cd "$(dirname "$0")"
 
 echo "======================================"
-echo "  MotiBeam TEST Launcher"
+echo "  MotiBeam Spatial OS"
 echo "======================================"
 
-python3 motibeam_launcher.py
+python3 spatial_os.py
