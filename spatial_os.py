@@ -253,12 +253,14 @@ class MotiBeamOS:
         # Alert system (professional features) - shorter messages to prevent overlap
         self.alerts = [
             {'type': 'severe', 'message': 'SEVERE WEATHER - Tornado spotted. Seek shelter immediately', 'color': (255, 80, 80)},
-            {'type': 'medical', 'message': 'MEDICATION REMINDER - Check MedBeam for details', 'color': (255, 200, 80)},
+            {'type': 'medical', 'message': '💊 MEDICATION TIME - Take your medication NOW', 'color': (255, 50, 50)},  # Bright red, critical
             {'type': 'message', 'message': 'NEW MESSAGES - 3 unread from CircleBeam', 'color': (100, 180, 255)},
         ]
         self.current_alert_index = 0
         self.alert_change_time = 0
         self.alert_duration = 8  # seconds per alert
+        self.alert_enabled = False  # Toggle with 'A' key for simulation
+        self.alert_pulse = 0  # For pulsing effect on critical alerts
 
         # Ticker system (scrolling updates at bottom)
         self.ticker_text = "→ Scheduling CircleBeam → Listing schematica → Missed call from Dad → Traffic alert: I-45 delay 15min → Weather update: Clear skies → "
@@ -288,8 +290,12 @@ class MotiBeamOS:
             self.weather_last_update = current_time
 
     def draw_alert_banner(self):
-        """Draw rotating alert banner at top of screen"""
+        """Draw rotating alert banner at top of screen (toggle with 'A' key)"""
+        if not self.alert_enabled:
+            return  # Don't draw if alerts are disabled
+
         import time
+        import math
         current_time = time.time()
 
         # Rotate alerts every N seconds
@@ -302,18 +308,41 @@ class MotiBeamOS:
 
         # Draw current alert
         alert = self.alerts[self.current_alert_index]
-        banner_height = 45
-        banner_rect = pygame.Rect(0, 0, self.width, banner_height)
-        pygame.draw.rect(self.screen, alert['color'], banner_rect)
 
-        # Alert text (using system font for crisp rendering)
-        alert_font = pygame.font.SysFont(None, 32, bold=True)
-        alert_surf = alert_font.render(alert['message'], True, (255, 255, 255))
-        text_x = (self.width - alert_surf.get_width()) // 2
-        self.screen.blit(alert_surf, (text_x, 10))
+        # MEDICATION ALERT: Bigger, brighter, pulsing for elderly visibility
+        if alert['type'] == 'medical':
+            banner_height = 65  # Taller for medication
+
+            # Pulsing effect - brightness oscillates for attention
+            self.alert_pulse += 0.15
+            pulse = abs(math.sin(self.alert_pulse))
+            pulse_brightness = int(150 + (pulse * 105))  # 150-255 brightness
+            banner_color = (pulse_brightness, 30, 30)  # Pulsing red
+
+            banner_rect = pygame.Rect(0, 0, self.width, banner_height)
+            pygame.draw.rect(self.screen, banner_color, banner_rect)
+
+            # Extra large text for medication
+            alert_font = pygame.font.SysFont(None, 48, bold=True)
+            alert_surf = alert_font.render(alert['message'], True, (255, 255, 255))
+            text_x = (self.width - alert_surf.get_width()) // 2
+            self.screen.blit(alert_surf, (text_x, 15))
+        else:
+            # Normal alerts
+            banner_height = 45
+            banner_rect = pygame.Rect(0, 0, self.width, banner_height)
+            pygame.draw.rect(self.screen, alert['color'], banner_rect)
+
+            alert_font = pygame.font.SysFont(None, 32, bold=True)
+            alert_surf = alert_font.render(alert['message'], True, (255, 255, 255))
+            text_x = (self.width - alert_surf.get_width()) // 2
+            self.screen.blit(alert_surf, (text_x, 10))
 
     def draw_state_indicator(self):
         """Draw STATE indicator in top right corner of alert banner"""
+        if not self.alert_enabled:
+            return  # Don't draw if alerts are disabled
+
         state_color = (255, 255, 255) if self.system_state == "ALERT" else (255, 255, 255)
         state_font = pygame.font.SysFont(None, 26, bold=True)
         state_text = f"STATE: {self.system_state}"
@@ -371,7 +400,7 @@ class MotiBeamOS:
         pygame.draw.rect(self.screen, (18, 20, 30), footer_rect)
 
         footer_text = (
-            "←↑↓→ Move   |   Enter Select   |   I Incoming Call   |   Q / ESC Exit   |   1–9 Quick Jump"
+            "←↑↓→ Move   |   Enter Select   |   I Incoming Call   |   L Alerts   |   Q / ESC Exit   |   1–9 Quick Jump"
         )
         surf = self.font_footer.render(footer_text, True, FOOTER_COLOR)
         self.screen.blit(
@@ -537,6 +566,15 @@ class MotiBeamOS:
             else:
                 self.go_back()
                 return
+
+        # Alert banner toggle (L = toggle aLerts)
+        if key == pygame.K_l:
+            self.alert_enabled = not self.alert_enabled
+            import time
+            self.alert_change_time = time.time()  # Reset timer when toggling
+            status = "ON" if self.alert_enabled else "OFF"
+            print(f"[ALERTS] Alert banner simulation {status}")
+            return
 
         # Call simulation keys (I = incoming, A = accept, D = decline)
         if key == pygame.K_i:
