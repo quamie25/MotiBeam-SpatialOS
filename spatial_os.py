@@ -201,9 +201,10 @@ class MotiBeamOS:
         self.height = height
 
         # Fonts (projection friendly – large, 40% larger for 10-15ft viewing)
+        # Use system fonts for crisp rendering quality
         self.font_header = pygame.font.SysFont(None, 59)  # Was 42
         self.font_header_meta = pygame.font.SysFont(None, 42)  # Was 30
-        self.font_emoji = load_emoji_font(134)  # Was 96, use emoji font with fallback
+        self.font_emoji = pygame.font.SysFont(None, 134)  # System font for sharp text
         self.font_card_title = pygame.font.SysFont(None, 48)  # Was 34
         self.font_card_subtitle = pygame.font.SysFont(None, 31)  # Was 22
         self.font_footer = pygame.font.SysFont(None, 34)  # Was 24
@@ -305,8 +306,8 @@ class MotiBeamOS:
         banner_rect = pygame.Rect(0, 0, self.width, banner_height)
         pygame.draw.rect(self.screen, alert['color'], banner_rect)
 
-        # Alert text (using emoji font for proper emoji rendering)
-        alert_font = load_emoji_font(32)
+        # Alert text (using system font for crisp rendering)
+        alert_font = pygame.font.SysFont(None, 32, bold=True)
         alert_surf = alert_font.render(alert['message'], True, (255, 255, 255))
         text_x = (self.width - alert_surf.get_width()) // 2
         self.screen.blit(alert_surf, (text_x, 10))
@@ -328,8 +329,8 @@ class MotiBeamOS:
         ticker_rect = pygame.Rect(0, ticker_y, self.width, ticker_height)
         pygame.draw.rect(self.screen, (25, 30, 45), ticker_rect)
 
-        # Scrolling text (using emoji font for proper emoji rendering)
-        ticker_font = load_emoji_font(26)
+        # Scrolling text (using system font for crisp rendering)
+        ticker_font = pygame.font.SysFont(None, 26)
         ticker_surf = ticker_font.render(self.ticker_text, True, (180, 200, 220))
 
         # Update offset for scrolling effect
@@ -398,8 +399,8 @@ class MotiBeamOS:
         pygame.draw.rect(self.screen, (35, 40, 55), card_rect, border_radius=20)
         pygame.draw.rect(self.screen, (100, 180, 255), card_rect, width=4, border_radius=20)
 
-        # Caller emoji (large)
-        caller_emoji_font = load_emoji_font(252)  # Was 180
+        # Caller emoji (large) - using system font for crisp rendering
+        caller_emoji_font = pygame.font.SysFont(None, 252)
         caller_emoji = caller_emoji_font.render(self.call_caller['emoji'], True, (255, 255, 255))
         emoji_x = card_x + (card_width - caller_emoji.get_width()) // 2
         self.screen.blit(caller_emoji, (emoji_x, card_y + 40))
@@ -637,8 +638,8 @@ class MotiBeamOS:
             # Card background
             pygame.draw.rect(self.screen, (30, 35, 50), card_rect, border_radius=15)
 
-            # Circle emoji (large, colored by status)
-            icon_font = load_emoji_font(168)  # Was 120
+            # Circle emoji (large, colored by status) - system font for crisp rendering
+            icon_font = pygame.font.SysFont(None, 168)
             icon = icon_font.render(circle['emoji'], True, circle['color'])
             self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 30))
 
@@ -756,8 +757,8 @@ class MotiBeamOS:
 
             pygame.draw.rect(self.screen, (35, 30, 55), card_rect, border_radius=12)
 
-            # PX emoji
-            icon_font = load_emoji_font(101)  # Was 72
+            # PX emoji - system font for crisp rendering
+            icon_font = pygame.font.SysFont(None, 101)
             icon = icon_font.render(px['emoji'], True, (100, 200, 255))
             self.screen.blit(icon, (x + 15, y + 15))
 
@@ -872,8 +873,8 @@ class MotiBeamOS:
 
             pygame.draw.rect(self.screen, bg_color, card_rect, border_radius=15)
 
-            # Emoji
-            icon_font = load_emoji_font(134)  # Was 96
+            # Emoji - system font for crisp rendering
+            icon_font = pygame.font.SysFont(None, 134)
             icon = icon_font.render(device['emoji'], True, (255, 255, 255))
             self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 20))
 
@@ -957,8 +958,8 @@ class MotiBeamOS:
             card_rect = pygame.Rect(x, vitals_y, vital_width, 85)
             pygame.draw.rect(self.screen, (25, 30, 40), card_rect, border_radius=10)
 
-            # Emoji
-            icon_font = load_emoji_font(56)  # Was 40
+            # Emoji - system font for crisp rendering
+            icon_font = pygame.font.SysFont(None, 56)
             icon = icon_font.render(vital['emoji'], True, vital['color'])
             self.screen.blit(icon, (x + 10, vitals_y + 10))
 
@@ -988,9 +989,9 @@ class MotiBeamOS:
         for i, med in enumerate(medications):
             y = med_y + 45 + i * 45
 
-            # Status emoji
+            # Status emoji - system font for crisp rendering
             status_icon = '✅' if med['taken'] else '⏰'
-            icon_font = load_emoji_font(39)  # Was 28
+            icon_font = pygame.font.SysFont(None, 39)
             icon_color = (100, 255, 100) if med['taken'] else (150, 150, 150)
             icon = icon_font.render(status_icon, True, icon_color)
             self.screen.blit(icon, (70, y))
@@ -1105,8 +1106,8 @@ class MotiBeamOS:
 
             pygame.draw.rect(self.screen, (30, 35, 50), card_rect, border_radius=15)
 
-            # Emoji
-            icon_font = load_emoji_font(118)  # Was 84
+            # Emoji - system font for crisp rendering
+            icon_font = pygame.font.SysFont(None, 118)
             icon = icon_font.render(subject['emoji'], True, (100, 200, 255))
             self.screen.blit(icon, (x + 20, y + 20))
 
@@ -1222,8 +1223,8 @@ class MotiBeamOS:
 
             pygame.draw.rect(self.screen, (30, 40, 60), card_rect, border_radius=12)
 
-            # Emoji
-            icon_font = load_emoji_font(101)  # Was 72
+            # Emoji - system font for crisp rendering
+            icon_font = pygame.font.SysFont(None, 101)
             icon = icon_font.render(dest['emoji'], True, (100, 200, 255))
             self.screen.blit(icon, (x + 15, y + 15))
 
