@@ -250,11 +250,11 @@ class MotiBeamOS:
             'location': 'Home'
         }
 
-        # Alert system (professional features)
+        # Alert system (professional features) - shorter messages to prevent overlap
         self.alerts = [
-            {'type': 'severe', 'message': '🌪 SEVERE WEATHER WARNING - Tornado spotted nearby. Take shelter immediately.', 'color': (255, 80, 80)},
-            {'type': 'medical', 'message': '💊 MEDICAL REMINDER - Time to take medication - check MedBeam', 'color': (255, 200, 80)},
-            {'type': 'message', 'message': '💬 NEW MESSAGE - 3 unread messages from CircleBeam', 'color': (100, 180, 255)},
+            {'type': 'severe', 'message': 'SEVERE WEATHER - Tornado spotted. Seek shelter immediately', 'color': (255, 80, 80)},
+            {'type': 'medical', 'message': 'MEDICATION REMINDER - Check MedBeam for details', 'color': (255, 200, 80)},
+            {'type': 'message', 'message': 'NEW MESSAGES - 3 unread from CircleBeam', 'color': (100, 180, 255)},
         ]
         self.current_alert_index = 0
         self.alert_change_time = 0
@@ -313,24 +313,26 @@ class MotiBeamOS:
         self.screen.blit(alert_surf, (text_x, 10))
 
     def draw_state_indicator(self):
-        """Draw STATE indicator in top right"""
-        state_color = (255, 80, 80) if self.system_state == "ALERT" else (80, 255, 120)
-        state_font = pygame.font.SysFont(None, 28, bold=True)
+        """Draw STATE indicator in top right corner of alert banner"""
+        state_color = (255, 255, 255) if self.system_state == "ALERT" else (255, 255, 255)
+        state_font = pygame.font.SysFont(None, 26, bold=True)
         state_text = f"STATE: {self.system_state}"
         state_surf = state_font.render(state_text, True, state_color)
-        self.screen.blit(state_surf, (self.width - state_surf.get_width() - 20, 55))
+        # Position inside alert banner at far right
+        self.screen.blit(state_surf, (self.width - state_surf.get_width() - 15, 12))
 
     def draw_ticker(self):
-        """Draw scrolling ticker at bottom of screen"""
+        """Draw scrolling ticker above footer"""
         ticker_height = 35
-        ticker_y = self.height - ticker_height
+        # Position ticker ABOVE footer (footer is 60px at bottom)
+        ticker_y = self.height - 60 - ticker_height
 
         # Background
         ticker_rect = pygame.Rect(0, ticker_y, self.width, ticker_height)
         pygame.draw.rect(self.screen, (25, 30, 45), ticker_rect)
 
         # Scrolling text (using system font for crisp rendering)
-        ticker_font = pygame.font.SysFont(None, 26)
+        ticker_font = pygame.font.SysFont(None, 24)
         ticker_surf = ticker_font.render(self.ticker_text, True, (180, 200, 220))
 
         # Update offset for scrolling effect
@@ -338,7 +340,7 @@ class MotiBeamOS:
         if self.ticker_offset < -ticker_surf.get_width():
             self.ticker_offset = self.width
 
-        self.screen.blit(ticker_surf, (self.ticker_offset, ticker_y + 8))
+        self.screen.blit(ticker_surf, (self.ticker_offset, ticker_y + 7))
 
     def draw_header(self):
         # Left: title (pushed down to account for alert banner)
