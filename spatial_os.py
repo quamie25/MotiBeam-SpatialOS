@@ -178,21 +178,6 @@ def init_display(width, height):
     pygame.display.set_caption("MotiBeam Spatial OS")
     return screen
 
-    # Now create the display
-    flags = pygame.FULLSCREEN
-    print(f"Creating display: {width}x{height} (fullscreen=True)")
-    try:
-        screen = pygame.display.set_mode((width, height), flags)
-        print("  ✓ Display created successfully")
-    except pygame.error as e:
-        print(f"  ✗ Fullscreen failed: {e}")
-        print("  → Falling back to windowed mode")
-        screen = pygame.display.set_mode((width, height))
-        print("  ✓ Windowed display created successfully")
-
-    pygame.display.set_caption("MotiBeam Spatial OS")
-    return screen
-
 
 class MotiBeamOS:
     def __init__(self, width=SCREEN_WIDTH, height=SCREEN_HEIGHT):
