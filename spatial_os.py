@@ -207,7 +207,7 @@ class MotiBeamOS:
         # Realm-specific state data
         self.realm_data = {
             'circlebeam': {'selected': 0, 'action_feedback': None, 'action_time': 0},
-            'marketplace': {'selected': 0, 'scroll': 0},
+            'marketplace': {'selected': 0, 'preview_open': False, 'installed_pxs': set()},
             'home_realm': {
                 'selected': 0,
                 'devices': {
@@ -777,47 +777,88 @@ class MotiBeamOS:
             print(f"[CIRCLEBEAM] {actions[selected]} {circles[selected]}...")
 
     def render_marketplace(self):
-        """Marketplace - PX store with scrollable grid"""
+        """Marketplace - Investor-ready PX Store (2x3 grid, no commerce language)"""
         selected = self.realm_data['marketplace']['selected']
-        scroll_offset = self.realm_data['marketplace']['scroll']
+        preview_open = self.realm_data['marketplace']['preview_open']
+        installed_pxs = self.realm_data['marketplace']['installed_pxs']
 
         # Header
-        title_font = pygame.font.SysFont(None, 90, bold=True)  # Was 64
+        title_font = pygame.font.SysFont(None, 90, bold=True)
         title = title_font.render('🛒 MARKETPLACE', True, (180, 100, 255))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 50))
 
-        subtitle_font = pygame.font.SysFont(None, 39)  # Was 28
+        subtitle_font = pygame.font.SysFont(None, 39)
         subtitle = subtitle_font.render('Projection Experiences', True, (200, 180, 255))
         self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 115))
 
-        # PX Database
+        # PX Database - 6 investor-focused items
         pxs = [
-            {'emoji': '🧘', 'name': 'Yoga Flow', 'category': 'Wellness', 'price': '$4.99', 'rating': '★★★★★'},
-            {'emoji': '⏱️', 'name': 'Focus Timer', 'category': 'Productivity', 'price': '$2.99', 'rating': '★★★★'},
-            {'emoji': '🎵', 'name': 'Jazz Lounge', 'category': 'Entertainment', 'price': '$3.99', 'rating': '★★★★★'},
-            {'emoji': '🏃', 'name': 'HIIT Workout', 'category': 'Fitness', 'price': '$5.99', 'rating': '★★★★'},
-            {'emoji': '📚', 'name': 'Story Time', 'category': 'Education', 'price': '$2.99', 'rating': '★★★★★'},
-            {'emoji': '🌊', 'name': 'Ocean Sounds', 'category': 'Relaxation', 'price': '$1.99', 'rating': '★★★★'},
-            {'emoji': '🧠', 'name': 'Brain Training', 'category': 'Education', 'price': '$6.99', 'rating': '★★★★'},
-            {'emoji': '🎨', 'name': 'Art Gallery', 'category': 'Culture', 'price': '$4.99', 'rating': '★★★★★'},
-            {'emoji': '☕', 'name': 'Coffee Shop', 'category': 'Ambiance', 'price': '$2.99', 'rating': '★★★★'},
-            {'emoji': '✨', 'name': 'Starfield', 'category': 'Relaxation', 'price': '$3.99', 'rating': '★★★★★'},
-            {'emoji': '🎯', 'name': 'Goal Tracker', 'category': 'Productivity', 'price': '$4.99', 'rating': '★★★★'},
-            {'emoji': '🌲', 'name': 'Forest Walk', 'category': 'Nature', 'price': '$2.99', 'rating': '★★★★★'},
+            {
+                'emoji': '🌙',
+                'name': 'Sleep PX',
+                'category': 'Wellness',
+                'description': 'Guided relaxation and sleep routines',
+                'features': ['Calming visuals', 'Breathing exercises', 'Sleep timer', 'Ambient sounds'],
+                'status': 'AVAILABLE'
+            },
+            {
+                'emoji': '🎯',
+                'name': 'Focus PX',
+                'category': 'Productivity',
+                'description': 'Distraction-free work environment',
+                'features': ['Pomodoro timer', 'Focus music', 'Task tracking', 'Progress visualization'],
+                'status': 'AVAILABLE'
+            },
+            {
+                'emoji': '👨‍👩‍👧',
+                'name': 'Family PX',
+                'category': 'Social',
+                'description': 'Shared experiences for families',
+                'features': ['Story time', 'Game night', 'Family calendar', 'Photo memories'],
+                'status': 'INSTALLED' if 'Family PX' in installed_pxs else 'AVAILABLE'
+            },
+            {
+                'emoji': '📚',
+                'name': 'Education PX',
+                'category': 'Learning',
+                'description': 'Interactive learning experiences',
+                'features': ['Language lessons', 'Science demos', 'History tours', 'Math games'],
+                'status': 'AVAILABLE'
+            },
+            {
+                'emoji': '🏠',
+                'name': 'Home PX',
+                'category': 'Lifestyle',
+                'description': 'Smart home visualization',
+                'features': ['Energy dashboard', 'Device control', 'Security feed', 'Climate zones'],
+                'status': 'AVAILABLE'
+            },
+            {
+                'emoji': '⭐',
+                'name': 'Featured Today',
+                'category': 'Special',
+                'description': 'Curated daily experiences',
+                'features': ['Meditation garden', 'Virtual travel', 'Art gallery', 'Nature sounds'],
+                'status': 'COMING SOON'
+            }
         ]
 
-        # Show 9 PXs at a time (3x3 grid)
-        visible_pxs = pxs[scroll_offset:scroll_offset + 9]
-
-        card_width = 280
-        card_height = 180
-        gap = 30
-        start_x = 80
+        # 2x3 grid layout - larger tiles
+        card_width = 380
+        card_height = 240
+        gap = 40
+        start_x = 60
         start_y = 180
 
-        for i, px in enumerate(visible_pxs):
-            row = i // 3
-            col = i % 3
+        # If preview is open, shift grid left and add preview panel
+        if preview_open:
+            start_x = 40
+            card_width = 320
+            gap = 30
+
+        for i, px in enumerate(pxs):
+            row = i // 2
+            col = i % 2
 
             x = start_x + col * (card_width + gap)
             y = start_y + row * (card_height + gap)
@@ -826,77 +867,171 @@ class MotiBeamOS:
 
             # Highlight selected
             if i == selected:
-                pygame.draw.rect(self.screen, (255, 255, 255), card_rect.inflate(6, 6), 3, border_radius=12)
+                pygame.draw.rect(self.screen, (100, 180, 255), card_rect.inflate(6, 6), 4, border_radius=12)
 
             pygame.draw.rect(self.screen, (35, 30, 55), card_rect, border_radius=12)
 
             # PX emoji - use emoji font
-            icon_font = load_emoji_font(101)
+            icon_font = load_emoji_font(80)
             icon = icon_font.render(px['emoji'], True, (100, 200, 255))
-            self.screen.blit(icon, (x + 15, y + 15))
+            self.screen.blit(icon, (x + 20, y + 20))
 
             # PX name
-            name_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
+            name_font = pygame.font.SysFont(None, 48, bold=True)
             name = name_font.render(px['name'], True, (255, 255, 255))
-            self.screen.blit(name, (x + 90, y + 20))
+            self.screen.blit(name, (x + 110, y + 30))
 
             # Category
-            cat_font = pygame.font.SysFont(None, 28)  # Was 20
+            cat_font = pygame.font.SysFont(None, 30)
             cat = cat_font.render(px['category'], True, (180, 160, 200))
-            self.screen.blit(cat, (x + 90, y + 50))
+            self.screen.blit(cat, (x + 110, y + 65))
 
-            # Price
-            price_font = pygame.font.SysFont(None, 50, bold=True)  # Was 36
-            price = price_font.render(px['price'], True, (100, 255, 150))
-            self.screen.blit(price, (x + 15, y + 115))
+            # Description (shorter for compact view)
+            desc_font = pygame.font.SysFont(None, 26)
+            desc = desc_font.render(px['description'][:45] + '...', True, (150, 150, 170))
+            self.screen.blit(desc, (x + 20, y + 130))
 
-            # Rating
-            rating_font = pygame.font.SysFont(None, 31)  # Was 22
-            rating = rating_font.render(px['rating'], True, (255, 200, 50))
-            self.screen.blit(rating, (x + 15, y + 150))
+            # Status badge
+            status = px['status']
+            if status == 'INSTALLED':
+                badge_color = (100, 255, 150)
+                badge_bg = (20, 80, 40)
+            elif status == 'COMING SOON':
+                badge_color = (255, 200, 100)
+                badge_bg = (80, 60, 20)
+            else:  # AVAILABLE
+                badge_color = (100, 180, 255)
+                badge_bg = (20, 40, 80)
 
-        # Scroll indicator
-        if scroll_offset + 9 < len(pxs):
-            arrow_font = pygame.font.SysFont(None, 39)  # Was 28
-            arrow_down = arrow_font.render('v More PXs Below (Down Arrow)', True, (150, 150, 200))
-            self.screen.blit(arrow_down, (self.width // 2 - arrow_down.get_width() // 2, 680))
+            badge_font = pygame.font.SysFont(None, 28, bold=True)
+            badge_text = badge_font.render(status, True, badge_color)
+            badge_rect = pygame.Rect(x + 20, y + 180, badge_text.get_width() + 20, 35)
+            pygame.draw.rect(self.screen, badge_bg, badge_rect, border_radius=6)
+            self.screen.blit(badge_text, (x + 30, y + 187))
 
-        # Help
-        help_font = pygame.font.SysFont(None, 28)  # Was 20
-        help_text = help_font.render('Arrow Keys: Navigate | ENTER: Install | ESC: Back', True, (150, 160, 180))
-        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 720))
+        # Preview panel on right side
+        if preview_open:
+            selected_px = pxs[selected]
+            panel_x = 740
+            panel_y = 180
+            panel_width = 1120
+            panel_height = 800
+
+            # Panel background
+            panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+            pygame.draw.rect(self.screen, (25, 25, 45), panel_rect, border_radius=12)
+            pygame.draw.rect(self.screen, (100, 180, 255), panel_rect, 3, border_radius=12)
+
+            # Preview header
+            preview_title_font = pygame.font.SysFont(None, 56, bold=True)
+            preview_emoji_font = load_emoji_font(70)
+
+            preview_emoji = preview_emoji_font.render(selected_px['emoji'], True, (100, 200, 255))
+            self.screen.blit(preview_emoji, (panel_x + 30, panel_y + 30))
+
+            preview_title = preview_title_font.render(selected_px['name'], True, (255, 255, 255))
+            self.screen.blit(preview_title, (panel_x + 120, panel_y + 40))
+
+            # Category
+            preview_cat_font = pygame.font.SysFont(None, 34)
+            preview_cat = preview_cat_font.render(selected_px['category'], True, (180, 160, 200))
+            self.screen.blit(preview_cat, (panel_x + 120, panel_y + 85))
+
+            # Description
+            preview_desc_font = pygame.font.SysFont(None, 36)
+            preview_desc = preview_desc_font.render(selected_px['description'], True, (200, 200, 220))
+            self.screen.blit(preview_desc, (panel_x + 30, panel_y + 160))
+
+            # Features list
+            features_label_font = pygame.font.SysFont(None, 40, bold=True)
+            features_label = features_label_font.render('Features:', True, (100, 180, 255))
+            self.screen.blit(features_label, (panel_x + 30, panel_y + 230))
+
+            feature_font = pygame.font.SysFont(None, 32)
+            for i, feature in enumerate(selected_px['features']):
+                feature_text = feature_font.render(f'• {feature}', True, (180, 180, 200))
+                self.screen.blit(feature_text, (panel_x + 50, panel_y + 290 + i * 50))
+
+            # Status badge in preview
+            status_label_font = pygame.font.SysFont(None, 40, bold=True)
+            status_label = status_label_font.render('Status:', True, (100, 180, 255))
+            self.screen.blit(status_label, (panel_x + 30, panel_y + 520))
+
+            status = selected_px['status']
+            if status == 'INSTALLED':
+                status_color = (100, 255, 150)
+                status_bg = (20, 80, 40)
+            elif status == 'COMING SOON':
+                status_color = (255, 200, 100)
+                status_bg = (80, 60, 20)
+            else:
+                status_color = (100, 180, 255)
+                status_bg = (20, 40, 80)
+
+            status_font = pygame.font.SysFont(None, 38, bold=True)
+            status_text = status_font.render(status, True, status_color)
+            status_rect = pygame.Rect(panel_x + 30, panel_y + 580, status_text.get_width() + 30, 45)
+            pygame.draw.rect(self.screen, status_bg, status_rect, border_radius=8)
+            self.screen.blit(status_text, (panel_x + 45, panel_y + 590))
+
+            # Demo install hint
+            if status == 'AVAILABLE':
+                hint_font = pygame.font.SysFont(None, 32)
+                hint_text = hint_font.render('Press D to demo install', True, (100, 180, 255))
+                self.screen.blit(hint_text, (panel_x + 30, panel_y + 680))
+
+        # Footer help
+        help_font = pygame.font.SysFont(None, 28)
+        if preview_open:
+            help_text = help_font.render('← → Navigate | B Back to Grid | D Demo Install', True, (150, 160, 180))
+        else:
+            help_text = help_font.render('← → Navigate | Enter Preview | B Back | D Demo Install', True, (150, 160, 180))
+        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 1000))
 
     def handle_marketplace_input(self, key):
-        """Handle Marketplace input"""
+        """Handle Marketplace input - 2x3 grid with preview panel"""
         selected = self.realm_data['marketplace']['selected']
-        scroll_offset = self.realm_data['marketplace']['scroll']
+        preview_open = self.realm_data['marketplace']['preview_open']
+        installed_pxs = self.realm_data['marketplace']['installed_pxs']
 
-        total_pxs = 12  # Total in database
-        visible_count = 9  # Show 9 at a time
+        # PX names for reference
+        px_names = ['Sleep PX', 'Focus PX', 'Family PX', 'Education PX', 'Home PX', 'Featured Today']
+        total_pxs = 6  # 2x3 grid
 
+        # Navigation (works in both grid and preview modes)
         if key == pygame.K_LEFT:
-            if selected % 3 > 0:
+            if selected % 2 > 0:  # Can move left
                 self.realm_data['marketplace']['selected'] = selected - 1
         elif key == pygame.K_RIGHT:
-            if selected % 3 < 2 and selected < min(visible_count, total_pxs - scroll_offset) - 1:
+            if selected % 2 < 1 and selected < total_pxs - 1:  # Can move right
                 self.realm_data['marketplace']['selected'] = selected + 1
         elif key == pygame.K_UP:
-            if selected >= 3:
-                self.realm_data['marketplace']['selected'] = selected - 3
+            if selected >= 2:  # Can move up
+                self.realm_data['marketplace']['selected'] = selected - 2
         elif key == pygame.K_DOWN:
-            if selected + 3 < min(visible_count, total_pxs - scroll_offset):
-                self.realm_data['marketplace']['selected'] = selected + 3
-            elif scroll_offset + visible_count < total_pxs:
-                # Scroll down to next page
-                self.realm_data['marketplace']['scroll'] = min(scroll_offset + 3, total_pxs - visible_count)
-                self.realm_data['marketplace']['selected'] = 0
+            if selected + 2 < total_pxs:  # Can move down
+                self.realm_data['marketplace']['selected'] = selected + 2
+
+        # Toggle preview panel
         elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
-            px_names = ['Yoga Flow', 'Focus Timer', 'Jazz Lounge', 'HIIT Workout', 'Story Time',
-                       'Ocean Sounds', 'Brain Training', 'Art Gallery', 'Coffee Shop',
-                       'Starfield', 'Goal Tracker', 'Forest Walk']
-            actual_index = scroll_offset + selected
-            if actual_index < len(px_names):
-                print(f"[MARKETPLACE] Installing {px_names[actual_index]}...")
+            self.realm_data['marketplace']['preview_open'] = not preview_open
+
+        # Back button - close preview if open, otherwise go back to home
+        elif key == pygame.K_b:
+            if preview_open:
+                self.realm_data['marketplace']['preview_open'] = False
+            # If preview is closed, ESC will handle going back to home
+
+        # Demo install with 'D' key
+        elif key == pygame.K_d:
+            selected_px = px_names[selected]
+            # Only install if AVAILABLE (not already installed or coming soon)
+            if selected_px not in installed_pxs and selected_px != 'Featured Today':
+                installed_pxs.add(selected_px)
+                # Update ticker with install message
+                install_msg = f"→ Installing {selected_px}... → {selected_px} installed successfully! → "
+                self.ticker_text = install_msg + self.ticker_text
+                print(f"[MARKETPLACE] Demo install: {selected_px}")
 
     def render_home_realm(self):
         """Home - Smart home control"""
