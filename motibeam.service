@@ -8,7 +8,9 @@ User=motibeam
 WorkingDirectory=/home/motibeam/motibeam-spatial-os
 Environment="DISPLAY=:0"
 Environment="SDL_VIDEODRIVER="
-ExecStart=/usr/bin/python3 /home/motibeam/motibeam-spatial-os/spatial_os.py
+ExecStart=/bin/bash /home/motibeam/motibeam-spatial-os/run.sh
+StandardOutput=null
+StandardError=null
 Restart=always
 RestartSec=10
 
