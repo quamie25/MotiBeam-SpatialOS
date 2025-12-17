@@ -15,3 +15,14 @@ venv/
 *.swo
 *~
 .DS_Store
+
+# Backup files
+*.backup
+*.backup.*
+*.good_backup_*
+*.PRODUCTION_*
+*.old
+*.save
+*.broken
+*.BROKEN
+*.OLD
