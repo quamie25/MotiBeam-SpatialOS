@@ -200,6 +200,9 @@ class MotiBeamOS:
         self.width = width
         self.height = height
 
+        # Show boot splash screen on projector
+        self.show_boot_splash()
+
         # Fonts (projection friendly – large, 40% larger for 10-15ft viewing)
         # Use system fonts for crisp rendering quality
         self.font_header = pygame.font.SysFont(None, 59)  # Was 42
@@ -288,6 +291,50 @@ class MotiBeamOS:
         if current_time - self.weather_last_update > 600:
             self.weather = fetch_weather()
             self.weather_last_update = current_time
+
+    def show_boot_splash(self):
+        """Show professional boot splash on projector for 2 seconds"""
+        # Fill background
+        self.screen.fill((15, 20, 30))
+
+        # Create fonts for splash
+        logo_font = pygame.font.SysFont(None, 120, bold=True)
+        subtitle_font = pygame.font.SysFont(None, 48)
+        version_font = pygame.font.SysFont(None, 36)
+
+        # MOTIBEAM text
+        moti_text = logo_font.render("MOTIBEAM", True, (100, 180, 255))
+        moti_rect = moti_text.get_rect(center=(self.width // 2, self.height // 2 - 80))
+        self.screen.blit(moti_text, moti_rect)
+
+        # SPATIAL OS text
+        spatial_text = subtitle_font.render("SPATIAL OS", True, (180, 200, 220))
+        spatial_rect = spatial_text.get_rect(center=(self.width // 2, self.height // 2 + 20))
+        self.screen.blit(spatial_text, spatial_rect)
+
+        # Version and tagline
+        version_text = version_font.render("v1.0 • Human-Centered Computing Platform", True, (120, 140, 160))
+        version_rect = version_text.get_rect(center=(self.width // 2, self.height // 2 + 80))
+        self.screen.blit(version_text, version_rect)
+
+        # Loading bar
+        bar_width = 400
+        bar_height = 8
+        bar_x = (self.width - bar_width) // 2
+        bar_y = self.height // 2 + 140
+
+        # Background bar
+        pygame.draw.rect(self.screen, (40, 50, 70), (bar_x, bar_y, bar_width, bar_height), border_radius=4)
+
+        # Animated loading bar
+        for i in range(0, 101, 5):
+            fill_width = int(bar_width * i / 100)
+            pygame.draw.rect(self.screen, (100, 180, 255), (bar_x, bar_y, fill_width, bar_height), border_radius=4)
+            pygame.display.flip()
+            pygame.time.wait(20)  # Total animation: 20ms * 20 steps = 400ms
+
+        # Hold final screen for a moment
+        pygame.time.wait(1600)  # Total splash time: 400ms + 1600ms = 2 seconds
 
     def draw_alert_banner(self):
         """Draw rotating alert banner at top of screen (toggle with 'A' key)"""
