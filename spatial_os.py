@@ -207,7 +207,11 @@ class MotiBeamOS:
         # Realm-specific state data
         self.realm_data = {
             'circlebeam': {'selected': 0, 'action_feedback': None, 'action_time': 0},
-            'marketplace': {'selected': 0, 'preview_open': False, 'installed_pxs': set()},
+            'marketplace': {
+                'selected': 0,
+                'preview_open': False,
+                'installed': set(),   # demo-only, resets on restart
+            },
             'home_realm': {
                 'selected': 0,
                 'devices': {
@@ -777,10 +781,13 @@ class MotiBeamOS:
             print(f"[CIRCLEBEAM] {actions[selected]} {circles[selected]}...")
 
     def render_marketplace(self):
-        """Marketplace - Investor-ready PX Store (2x3 grid, no commerce language)"""
+        """Marketplace - Investor-ready PX Store (2 rows × 3 cols, no commerce language)"""
         selected = self.realm_data['marketplace']['selected']
         preview_open = self.realm_data['marketplace']['preview_open']
-        installed_pxs = self.realm_data['marketplace']['installed_pxs']
+        installed = self.realm_data['marketplace']['installed']
+
+        # Debug confirmation - Marketplace V2 active
+        print("MARKETPLACE V2 ACTIVE")
 
         # Header
         title_font = pygame.font.SysFont(None, 90, bold=True)
@@ -791,7 +798,7 @@ class MotiBeamOS:
         subtitle = subtitle_font.render('Projection Experiences', True, (200, 180, 255))
         self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 115))
 
-        # PX Database - 6 investor-focused items
+        # PX Database - 6 investor-focused items (2 rows × 3 cols)
         pxs = [
             {
                 'emoji': '🌙',
@@ -799,7 +806,7 @@ class MotiBeamOS:
                 'category': 'Wellness',
                 'description': 'Guided relaxation and sleep routines',
                 'features': ['Calming visuals', 'Breathing exercises', 'Sleep timer', 'Ambient sounds'],
-                'status': 'AVAILABLE'
+                'status': 'INSTALLED' if 'Sleep PX' in installed else 'AVAILABLE'
             },
             {
                 'emoji': '🎯',
@@ -807,7 +814,7 @@ class MotiBeamOS:
                 'category': 'Productivity',
                 'description': 'Distraction-free work environment',
                 'features': ['Pomodoro timer', 'Focus music', 'Task tracking', 'Progress visualization'],
-                'status': 'AVAILABLE'
+                'status': 'INSTALLED' if 'Focus PX' in installed else 'AVAILABLE'
             },
             {
                 'emoji': '👨‍👩‍👧',
@@ -815,7 +822,7 @@ class MotiBeamOS:
                 'category': 'Social',
                 'description': 'Shared experiences for families',
                 'features': ['Story time', 'Game night', 'Family calendar', 'Photo memories'],
-                'status': 'INSTALLED' if 'Family PX' in installed_pxs else 'AVAILABLE'
+                'status': 'INSTALLED' if 'Family PX' in installed else 'AVAILABLE'
             },
             {
                 'emoji': '📚',
@@ -823,7 +830,7 @@ class MotiBeamOS:
                 'category': 'Learning',
                 'description': 'Interactive learning experiences',
                 'features': ['Language lessons', 'Science demos', 'History tours', 'Math games'],
-                'status': 'AVAILABLE'
+                'status': 'INSTALLED' if 'Education PX' in installed else 'AVAILABLE'
             },
             {
                 'emoji': '🏠',
@@ -831,7 +838,7 @@ class MotiBeamOS:
                 'category': 'Lifestyle',
                 'description': 'Smart home visualization',
                 'features': ['Energy dashboard', 'Device control', 'Security feed', 'Climate zones'],
-                'status': 'AVAILABLE'
+                'status': 'INSTALLED' if 'Home PX' in installed else 'COMING SOON'
             },
             {
                 'emoji': '⭐',
@@ -843,7 +850,7 @@ class MotiBeamOS:
             }
         ]
 
-        # 2x3 grid layout - larger tiles
+        # 2 rows × 3 cols grid layout - larger tiles
         card_width = 380
         card_height = 240
         gap = 40
@@ -857,8 +864,8 @@ class MotiBeamOS:
             gap = 30
 
         for i, px in enumerate(pxs):
-            row = i // 2
-            col = i % 2
+            row = i // 3  # 3 columns per row
+            col = i % 3   # columns: 0, 1, 2
 
             x = start_x + col * (card_width + gap)
             y = start_y + row * (card_height + gap)
@@ -988,29 +995,38 @@ class MotiBeamOS:
             help_text = help_font.render('← → Navigate | Enter Preview | B Back | D Demo Install', True, (150, 160, 180))
         self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 1000))
 
+        # Debug indicator - Marketplace v2
+        debug_font = pygame.font.SysFont(None, 24)
+        debug_text = debug_font.render('Marketplace v2', True, (80, 100, 120))
+        self.screen.blit(debug_text, (10, self.height - 30))
+
     def handle_marketplace_input(self, key):
-        """Handle Marketplace input - 2x3 grid with preview panel"""
+        """Handle Marketplace input - 2 rows × 3 cols grid with preview panel"""
         selected = self.realm_data['marketplace']['selected']
         preview_open = self.realm_data['marketplace']['preview_open']
-        installed_pxs = self.realm_data['marketplace']['installed_pxs']
+        installed = self.realm_data['marketplace']['installed']
 
-        # PX names for reference
+        # PX names for reference (matches order in pxs list)
         px_names = ['Sleep PX', 'Focus PX', 'Family PX', 'Education PX', 'Home PX', 'Featured Today']
-        total_pxs = 6  # 2x3 grid
+        total_pxs = 6  # 2 rows × 3 cols = 6 tiles
+        cols = 3
+        rows = 2
 
         # Navigation (works in both grid and preview modes)
+        # Grid layout: [0][1][2]
+        #              [3][4][5]
         if key == pygame.K_LEFT:
-            if selected % 2 > 0:  # Can move left
+            if selected % cols > 0:  # Can move left (not in leftmost column)
                 self.realm_data['marketplace']['selected'] = selected - 1
         elif key == pygame.K_RIGHT:
-            if selected % 2 < 1 and selected < total_pxs - 1:  # Can move right
+            if selected % cols < cols - 1 and selected < total_pxs - 1:  # Can move right
                 self.realm_data['marketplace']['selected'] = selected + 1
         elif key == pygame.K_UP:
-            if selected >= 2:  # Can move up
-                self.realm_data['marketplace']['selected'] = selected - 2
+            if selected >= cols:  # Can move up (not in top row)
+                self.realm_data['marketplace']['selected'] = selected - cols
         elif key == pygame.K_DOWN:
-            if selected + 2 < total_pxs:  # Can move down
-                self.realm_data['marketplace']['selected'] = selected + 2
+            if selected + cols < total_pxs:  # Can move down (not in bottom row)
+                self.realm_data['marketplace']['selected'] = selected + cols
 
         # Toggle preview panel
         elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
@@ -1026,8 +1042,8 @@ class MotiBeamOS:
         elif key == pygame.K_d:
             selected_px = px_names[selected]
             # Only install if AVAILABLE (not already installed or coming soon)
-            if selected_px not in installed_pxs and selected_px != 'Featured Today':
-                installed_pxs.add(selected_px)
+            if selected_px not in installed and selected_px != 'Featured Today':
+                installed.add(selected_px)
                 # Update ticker with install message
                 install_msg = f"→ Installing {selected_px}... → {selected_px} installed successfully! → "
                 self.ticker_text = install_msg + self.ticker_text
