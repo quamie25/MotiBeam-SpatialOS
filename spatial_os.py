@@ -326,15 +326,15 @@ class MotiBeamOS:
         # Background bar
         pygame.draw.rect(self.screen, (40, 50, 70), (bar_x, bar_y, bar_width, bar_height), border_radius=4)
 
-        # Animated loading bar
-        for i in range(0, 101, 5):
+        # Animated loading bar (slower, more visible)
+        for i in range(0, 101, 2):
             fill_width = int(bar_width * i / 100)
             pygame.draw.rect(self.screen, (100, 180, 255), (bar_x, bar_y, fill_width, bar_height), border_radius=4)
             pygame.display.flip()
-            pygame.time.wait(20)  # Total animation: 20ms * 20 steps = 400ms
+            pygame.time.wait(30)  # Total animation: 30ms * 50 steps = 1500ms
 
-        # Hold final screen for a moment
-        pygame.time.wait(1600)  # Total splash time: 400ms + 1600ms = 2 seconds
+        # Hold final screen longer for visibility
+        pygame.time.wait(2500)  # Total splash time: 1500ms + 2500ms = 4 seconds
 
     def draw_alert_banner(self):
         """Draw rotating alert banner at top of screen (toggle with 'A' key)"""

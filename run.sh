@@ -2,7 +2,5 @@
 
 cd "$(dirname "$0")"
 
-# Show professional boot splash instead of terminal text
-./boot_splash.sh
-
+# Launch directly - pygame splash handles the boot screen
 python3 spatial_os.py
