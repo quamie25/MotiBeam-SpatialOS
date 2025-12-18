@@ -264,7 +264,7 @@ class MotiBeamOS:
 
         # Precompute grid cell sizes (adjusted for alert banner and ticker)
         self.grid_top = 180  # Was 140, pushed down for alert banner
-        self.grid_bottom = self.height - 140  # Adjusted for ticker
+        self.grid_bottom = self.height - 161  # Adjusted for ticker (60px footer + 56px ticker + 45px margin)
         available_height = self.grid_bottom - self.grid_top
         available_width = self.width - 120
 
@@ -388,7 +388,7 @@ class MotiBeamOS:
 
     def draw_ticker(self):
         """Draw scrolling ticker above footer"""
-        ticker_height = 35
+        ticker_height = 56  # Increased from 35 for better readability (+60%)
         # Position ticker ABOVE footer (footer is 60px at bottom)
         ticker_y = self.height - 60 - ticker_height
 
@@ -397,7 +397,7 @@ class MotiBeamOS:
         pygame.draw.rect(self.screen, (25, 30, 45), ticker_rect)
 
         # Scrolling text (using system font for crisp rendering)
-        ticker_font = pygame.font.SysFont(None, 24)
+        ticker_font = pygame.font.SysFont(None, 44)  # Increased from 24 for wall projection (+83%)
         ticker_surf = ticker_font.render(self.ticker_text, True, (180, 200, 220))
 
         # Update offset for scrolling effect
@@ -405,7 +405,7 @@ class MotiBeamOS:
         if self.ticker_offset < -ticker_surf.get_width():
             self.ticker_offset = self.width
 
-        self.screen.blit(ticker_surf, (self.ticker_offset, ticker_y + 7))
+        self.screen.blit(ticker_surf, (self.ticker_offset, ticker_y + 12))  # Adjusted vertical centering
 
     def draw_header(self):
         # Left: title (pushed down to account for alert banner)
