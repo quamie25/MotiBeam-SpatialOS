@@ -90,7 +90,7 @@ TEXT_PRIMARY = (245, 248, 255)
 TEXT_SECONDARY = (170, 175, 190)
 
 REALMS = [
-    {"name": "CircleBeam", "subtitle": "Living relationships", "emoji": "👥"},
+    {"name": "CircleBeam", "subtitle": "Family presence", "emoji": "👥"},
     {"name": "LegacyBeam", "subtitle": "Memory & legacy",      "emoji": "📖"},
     {"name": "LockboxBeam", "subtitle": "Secure vault",        "emoji": "🔐"},
     {"name": "Marketplace", "subtitle": "Wellness & goods",    "emoji": "🛒"},
@@ -238,9 +238,10 @@ class MotiBeamOS:
         self.call_caller = {
             'name': 'Mom',
             'emoji': '👩',
-            'status': 'CircleBeam Call',
+            'status': 'Incoming Presence Call',
             'location': 'Home'
         }
+        self.missed_presence = False  # Tracks if there's a missed presence notification
 
         # Alert system (professional features) - shorter messages to prevent overlap
         self.alerts = [
@@ -255,7 +256,7 @@ class MotiBeamOS:
         self.alert_pulse = 0  # For pulsing effect on critical alerts
 
         # Ticker system (scrolling updates at bottom)
-        self.ticker_text = "→ Scheduling CircleBeam → Listing schematica → Missed call from Dad → Traffic alert: I-45 delay 15min → Weather update: Clear skies → "
+        self.ticker_text = "→ Scheduling CircleBeam → Listing schematica → Missed presence from Dad → Traffic alert: I-45 delay 15min → Weather update: Clear skies → "
         self.ticker_offset = 0
         self.ticker_speed = 2  # pixels per frame
 
@@ -446,7 +447,7 @@ class MotiBeamOS:
         )
 
     def draw_call_overlay(self):
-        """Draw incoming call simulation overlay"""
+        """Draw incoming presence call overlay (CircleBeam v1.1)"""
         if not self.call_active:
             return
 
@@ -457,8 +458,8 @@ class MotiBeamOS:
         self.screen.blit(overlay, (0, 0))
 
         # Call card
-        card_width = 600
-        card_height = 400
+        card_width = 640
+        card_height = 480
         card_x = (self.width - card_width) // 2
         card_y = (self.height - card_height) // 2
 
@@ -466,41 +467,47 @@ class MotiBeamOS:
         pygame.draw.rect(self.screen, (35, 40, 55), card_rect, border_radius=20)
         pygame.draw.rect(self.screen, (100, 180, 255), card_rect, width=4, border_radius=20)
 
+        # Header text
+        header_font = pygame.font.SysFont(None, 42, bold=True)
+        header_surf = header_font.render('Incoming Presence Call', True, (100, 180, 255))
+        header_x = card_x + (card_width - header_surf.get_width()) // 2
+        self.screen.blit(header_surf, (header_x, card_y + 30))
+
         # Caller emoji (large) - use emoji font for proper rendering
-        caller_emoji_font = load_emoji_font(252)
+        caller_emoji_font = load_emoji_font(180)
         caller_emoji = caller_emoji_font.render(self.call_caller['emoji'], True, (255, 255, 255))
         emoji_x = card_x + (card_width - caller_emoji.get_width()) // 2
-        self.screen.blit(caller_emoji, (emoji_x, card_y + 40))
+        self.screen.blit(caller_emoji, (emoji_x, card_y + 100))
 
         # Caller name
-        name_font = pygame.font.SysFont(None, 67, bold=True)  # Was 48
+        name_font = pygame.font.SysFont(None, 72, bold=True)
         name_surf = name_font.render(self.call_caller['name'], True, (255, 255, 255))
         name_x = card_x + (card_width - name_surf.get_width()) // 2
-        self.screen.blit(name_surf, (name_x, card_y + 230))
+        self.screen.blit(name_surf, (name_x, card_y + 260))
 
-        # Call status
-        status_font = pygame.font.SysFont(None, 39)  # Was 28
-        status_surf = status_font.render(self.call_caller['status'], True, (150, 200, 255))
-        status_x = card_x + (card_width - status_surf.get_width()) // 2
-        self.screen.blit(status_surf, (status_x, card_y + 275))
+        # Subtext
+        subtext_font = pygame.font.SysFont(None, 36)
+        subtext_surf = subtext_font.render('Tap to connect or dismiss', True, (180, 200, 220))
+        subtext_x = card_x + (card_width - subtext_surf.get_width()) // 2
+        self.screen.blit(subtext_surf, (subtext_x, card_y + 320))
 
         # Action buttons
-        button_y = card_y + 320
+        button_y = card_y + 380
 
         # Accept button
-        accept_rect = pygame.Rect(card_x + 80, button_y, 200, 50)
+        accept_rect = pygame.Rect(card_x + 100, button_y, 200, 56)
         pygame.draw.rect(self.screen, (50, 200, 100), accept_rect, border_radius=10)
-        accept_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
-        accept_text = accept_font.render('📞 Accept (A)', True, (255, 255, 255))
+        accept_font = pygame.font.SysFont(None, 42, bold=True)
+        accept_text = accept_font.render('Accept (A)', True, (255, 255, 255))
         accept_x = accept_rect.centerx - accept_text.get_width() // 2
         accept_y = accept_rect.centery - accept_text.get_height() // 2
         self.screen.blit(accept_text, (accept_x, accept_y))
 
         # Decline button
-        decline_rect = pygame.Rect(card_x + 320, button_y, 200, 50)
+        decline_rect = pygame.Rect(card_x + 340, button_y, 200, 56)
         pygame.draw.rect(self.screen, (200, 50, 50), decline_rect, border_radius=10)
-        decline_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
-        decline_text = decline_font.render('❌ Decline (D)', True, (255, 255, 255))
+        decline_font = pygame.font.SysFont(None, 42, bold=True)
+        decline_text = decline_font.render('Decline (D)', True, (255, 255, 255))
         decline_x = decline_rect.centerx - decline_text.get_width() // 2
         decline_y = decline_rect.centery - decline_text.get_height() // 2
         self.screen.blit(decline_text, (decline_x, decline_y))
@@ -561,6 +568,20 @@ class MotiBeamOS:
             sy = ty + title_surf.get_height() + 4
             self.screen.blit(subtitle_surf, (sx, sy))
 
+            # Missed presence badge for CircleBeam (index 0)
+            if i == 0 and self.missed_presence:
+                badge_size = 24
+                badge_x = card_rect.right - badge_size - 12
+                badge_y = card_rect.top + 12
+                # Draw badge circle
+                pygame.draw.circle(self.screen, (255, 100, 100), (badge_x, badge_y), badge_size // 2)
+                # Draw dot emoji in badge
+                dot_font = load_emoji_font(16)
+                dot_text = dot_font.render('●', True, (255, 255, 255))
+                dot_x = badge_x - dot_text.get_width() // 2
+                dot_y = badge_y - dot_text.get_height() // 2
+                self.screen.blit(dot_text, (dot_x, dot_y))
+
     def move_selection(self, dx, dy):
         index = self.selected_index
         row = index // GRID_COLS
@@ -578,6 +599,10 @@ class MotiBeamOS:
         self.navigation_stack.append(realm_name)
         self.state = realm_name
         print(f"[NAVIGATE] Entered {realm_name}")
+
+        # Clear missed presence indicator when entering CircleBeam
+        if realm_name == 'circlebeam':
+            self.missed_presence = False
 
     def go_back(self):
         """Navigate back one level"""
@@ -619,13 +644,19 @@ class MotiBeamOS:
             return
 
         if key == pygame.K_a and self.call_active:
-            print("[CALL] Call accepted")
+            print("[PRESENCE] Presence call accepted")
             self.call_active = False
+            # Could add ticker message for accepted call if desired
             return
 
         if key == pygame.K_d and self.call_active:
-            print("[CALL] Call declined")
+            print("[PRESENCE] Presence call declined")
             self.call_active = False
+            # Add missed presence indicator
+            self.missed_presence = True
+            # Add ticker message
+            missed_msg = f"→ Missed presence from {self.call_caller['name']} → "
+            self.ticker_text = missed_msg + self.ticker_text
             return
 
         # Route to state-specific handlers
@@ -678,107 +709,125 @@ class MotiBeamOS:
     # ==================== REALM IMPLEMENTATIONS ====================
 
     def render_circlebeam(self):
-        """CircleBeam - Family telepresence"""
+        """CircleBeam - Family Presence Layer (v1.1)"""
         selected = self.realm_data['circlebeam']['selected']
 
         # Header
-        title_font = pygame.font.SysFont(None, 90, bold=True)  # Was 64
+        title_font = pygame.font.SysFont(None, 90, bold=True)
         title = title_font.render('👥 CIRCLEBEAM', True, (100, 180, 255))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 60))
 
-        subtitle_font = pygame.font.SysFont(None, 45)  # Was 32
-        subtitle = subtitle_font.render('Stay Connected, Always', True, (180, 200, 220))
+        subtitle_font = pygame.font.SysFont(None, 45)
+        subtitle = subtitle_font.render('Family Presence', True, (180, 200, 220))
         self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 130))
 
-        # Three circle members
+        # Circle members - presence focused (max 6, showing 5 for demo)
         circles = [
-            {'name': 'Mom', 'status': 'Available', 'emoji': '👩', 'color': (50, 255, 100)},
-            {'name': 'Dad', 'status': 'Away', 'emoji': '👨', 'color': (255, 200, 50)},
-            {'name': 'Sister', 'status': 'Do Not Disturb', 'emoji': '👧', 'color': (255, 100, 100)}
+            {'name': 'Mom', 'status': 'available', 'emoji': '👩', 'status_text': 'Available', 'dot': '🟢'},
+            {'name': 'Dad', 'status': 'quiet', 'emoji': '👨', 'status_text': 'Quiet mode', 'dot': '🌙'},
+            {'name': 'Sister', 'status': 'offline', 'emoji': '👧', 'status_text': 'Offline', 'dot': '⚪'},
+            {'name': 'Brother', 'status': 'available', 'emoji': '👦', 'status_text': 'Available', 'dot': '🟢'},
+            {'name': 'Grandma', 'status': 'away', 'emoji': '👵', 'status_text': 'Away', 'dot': '⏰'}
         ]
 
-        # Card layout
-        card_width = 250
-        card_height = 320
-        gap = 50
-        start_x = self.width // 2 - (3 * card_width + 2 * gap) // 2
-        y = 220
+        # Status colors
+        status_colors = {
+            'available': (100, 255, 150),
+            'quiet': (180, 160, 220),
+            'offline': (120, 130, 150),
+            'away': (255, 200, 100)
+        }
+
+        # Card layout - 3 columns, 2 rows for up to 6 members
+        card_width = 280
+        card_height = 280
+        gap = 60
+        cols = 3
+        rows = 2
+
+        # Center the grid
+        grid_width = cols * card_width + (cols - 1) * gap
+        start_x = (self.width - grid_width) // 2
+        start_y = 220
 
         for i, circle in enumerate(circles):
-            x = start_x + i * (card_width + gap)
+            row = i // cols
+            col = i % cols
+
+            x = start_x + col * (card_width + gap)
+            y = start_y + row * (card_height + gap)
+
             card_rect = pygame.Rect(x, y, card_width, card_height)
 
             # Highlight if selected
             if i == selected:
-                pygame.draw.rect(self.screen, (255, 255, 255), card_rect.inflate(8, 8), 4, border_radius=15)
+                pygame.draw.rect(self.screen, (100, 180, 255), card_rect.inflate(8, 8), 4, border_radius=15)
 
             # Card background
             pygame.draw.rect(self.screen, (30, 35, 50), card_rect, border_radius=15)
 
-            # Circle emoji (large, colored by status) - use emoji font
-            icon_font = load_emoji_font(168)
-            icon = icon_font.render(circle['emoji'], True, circle['color'])
+            # Member emoji - use emoji font
+            icon_font = load_emoji_font(120)
+            icon = icon_font.render(circle['emoji'], True, (255, 255, 255))
             self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 30))
 
             # Name
-            name_font = pygame.font.SysFont(None, 56, bold=True)  # Was 40
+            name_font = pygame.font.SysFont(None, 52, bold=True)
             name = name_font.render(circle['name'], True, (255, 255, 255))
-            self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 140))
+            self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 150))
 
-            # Status with colored dot
-            status_font = pygame.font.SysFont(None, 34)  # Was 24
-            status = status_font.render(circle['status'], True, circle['color'])
-            self.screen.blit(status, (x + card_width // 2 - status.get_width() // 2, y + 190))
+            # Status dot + text
+            status_color = status_colors[circle['status']]
 
-            # Action button
-            button_text = '📞 CALL' if circle['status'] != 'Do Not Disturb' else '✉️ MESSAGE'
-            button_font = pygame.font.SysFont(None, 39, bold=True)  # Was 28
-            button = button_font.render(button_text, True, (200, 220, 255))
-            self.screen.blit(button, (x + card_width // 2 - button.get_width() // 2, y + 240))
+            # Status dot emoji
+            dot_font = load_emoji_font(36)
+            dot = dot_font.render(circle['dot'], True, status_color)
 
-        # Emergency button at bottom
-        emergency_rect = pygame.Rect(self.width // 2 - 200, 600, 400, 60)
-        pygame.draw.rect(self.screen, (120, 30, 30), emergency_rect, border_radius=10)
-        emergency_font = pygame.font.SysFont(None, 50, bold=True)  # Was 36
-        emergency = emergency_font.render('🚨 EMERGENCY CONTACT', True, (255, 80, 80))
-        self.screen.blit(emergency, (self.width // 2 - emergency.get_width() // 2, 615))
+            # Status text
+            status_font = pygame.font.SysFont(None, 32)
+            status = status_font.render(circle['status_text'], True, status_color)
+
+            # Center the status line (dot + text)
+            status_width = dot.get_width() + 8 + status.get_width()
+            status_x = x + (card_width - status_width) // 2
+
+            self.screen.blit(dot, (status_x, y + 205))
+            self.screen.blit(status, (status_x + dot.get_width() + 8, y + 210))
+
+        # Presence philosophy text
+        philosophy_font = pygame.font.SysFont(None, 34)
+        philosophy = philosophy_font.render('Presence is shared without requiring interaction.', True, (150, 170, 200))
+        self.screen.blit(philosophy, (self.width // 2 - philosophy.get_width() // 2, 830))
 
         # Help text
-        help_font = pygame.font.SysFont(None, 31)  # Was 22
-        help_text = help_font.render('Arrow Keys: Select | ENTER: Call/Message | ESC: Back', True, (150, 160, 180))
-        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 710))
-
-        # Show action feedback (calling/messaging notification)
-        import time
-        feedback_text = self.realm_data['circlebeam']['action_feedback']
-        feedback_time = self.realm_data['circlebeam']['action_time']
-        if feedback_text and time.time() - feedback_time < 2.5:  # Show for 2.5 seconds
-            feedback_font = pygame.font.SysFont(None, 48, bold=True)
-            feedback_surf = feedback_font.render(feedback_text, True, (100, 255, 200))
-            # Draw semi-transparent overlay
-            overlay_rect = pygame.Rect(self.width // 2 - 220, 770, 440, 70)
-            overlay = pygame.Surface((440, 70), pygame.SRCALPHA)
-            overlay.fill((20, 25, 35, 220))
-            self.screen.blit(overlay, (overlay_rect.x, overlay_rect.y))
-            pygame.draw.rect(self.screen, (100, 255, 200), overlay_rect, 3, border_radius=12)
-            self.screen.blit(feedback_surf, (self.width // 2 - feedback_surf.get_width() // 2, 785))
+        help_font = pygame.font.SysFont(None, 31)
+        help_text = help_font.render('← → Navigate | I Incoming | ESC Home', True, (150, 160, 180))
+        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 880))
 
     def handle_circlebeam_input(self, key):
-        """Handle CircleBeam input"""
+        """Handle CircleBeam input - 3 cols × 2 rows grid (5 members)"""
         selected = self.realm_data['circlebeam']['selected']
+        total_members = 5
+        cols = 3
 
+        # Grid navigation: [0][1][2]
+        #                  [3][4]
         if key == pygame.K_LEFT:
-            self.realm_data['circlebeam']['selected'] = max(0, selected - 1)
+            if selected % cols > 0:  # Can move left
+                self.realm_data['circlebeam']['selected'] = selected - 1
         elif key == pygame.K_RIGHT:
-            self.realm_data['circlebeam']['selected'] = min(2, selected + 1)
+            if selected % cols < cols - 1 and selected < total_members - 1:  # Can move right
+                self.realm_data['circlebeam']['selected'] = selected + 1
+        elif key == pygame.K_UP:
+            if selected >= cols:  # Can move up
+                self.realm_data['circlebeam']['selected'] = selected - cols
+        elif key == pygame.K_DOWN:
+            if selected + cols < total_members:  # Can move down
+                self.realm_data['circlebeam']['selected'] = selected + cols
         elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
-            circles = ['Mom', 'Dad', 'Sister']
-            actions = ['Calling', 'Calling', 'Messaging']
-            # Set visual feedback
-            import time
-            self.realm_data['circlebeam']['action_feedback'] = f"{actions[selected]} {circles[selected]}..."
-            self.realm_data['circlebeam']['action_time'] = time.time()
-            print(f"[CIRCLEBEAM] {actions[selected]} {circles[selected]}...")
+            # ENTER just highlights - no action in presence mode
+            # This is intentionally minimal - presence, not interaction
+            pass
 
     def render_marketplace(self):
         """Marketplace - Investor-ready PX Store (2 rows × 3 cols, no commerce language)"""
