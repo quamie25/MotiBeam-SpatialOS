@@ -95,7 +95,7 @@ REALMS = [
     {"name": "LockboxBeam", "subtitle": "Secure vault",        "emoji": "🔐"},
     {"name": "Marketplace", "subtitle": "Wellness & goods",    "emoji": "🛒"},
     {"name": "Home",       "subtitle": "Smart home",           "emoji": "🏠"},
-    {"name": "Clinical",   "subtitle": "Health & wellness",    "emoji": "🏥"},
+    {"name": "Health & Wellness",   "subtitle": "Daily wellbeing, calmly supported",    "emoji": "🌿"},
     {"name": "Education",  "subtitle": "Learning hub",         "emoji": "📚"},
     {"name": "Emergency",  "subtitle": "Crisis response",      "emoji": "🚨"},
     {"name": "Transport",  "subtitle": "Automotive HUD",       "emoji": "🚗"},
@@ -224,7 +224,7 @@ class MotiBeamOS:
                     'garage': False
                 }
             },
-            'clinical': {'selected': 0},
+            'health_wellness': {'selected': 0, 'panel_open': False},
             'education': {
                 'selected': 0,
                 'panel_open': False,
@@ -679,8 +679,8 @@ class MotiBeamOS:
             self.handle_marketplace_input(key)
         elif self.state == "home_realm":
             self.handle_home_realm_input(key)
-        elif self.state == "clinical":
-            self.handle_clinical_input(key)
+        elif self.state == "health_wellness":
+            self.handle_health_wellness_input(key)
         elif self.state == "education":
             self.handle_education_input(key)
         elif self.state == "transport":
@@ -702,7 +702,7 @@ class MotiBeamOS:
                 0: "circlebeam",
                 3: "marketplace",
                 4: "home_realm",
-                5: "clinical",
+                5: "health_wellness",
                 6: "education",
                 8: "transport"
             }
@@ -1319,134 +1319,268 @@ class MotiBeamOS:
                 state_str = "ON" if devices_state[device_id] else "OFF"
                 print(f"[HOME] {device_names[selected]} turned {state_str}")
 
-    def render_clinical(self):
-        """Clinical - Health monitoring dashboard"""
+    def render_health_wellness(self):
+        """Health & Wellness - Calm support for daily wellbeing"""
+        selected = self.realm_data['health_wellness']['selected']
+        panel_open = self.realm_data['health_wellness']['panel_open']
+
+        # Wellness activity definitions
+        activities = [
+            {'emoji': '🧘', 'name': 'Calm', 'desc': 'Breathing, grounding, stillness', 'status': 'ACTIVE'},
+            {'emoji': '😴', 'name': 'Sleep', 'desc': 'Wind-down cues, night reminders', 'status': 'OFF'},
+            {'emoji': '💊', 'name': 'Routines', 'desc': 'Daily habits & reminders', 'status': 'ON'},
+            {'emoji': '🚶', 'name': 'Movement', 'desc': 'Gentle activity nudges', 'status': 'OFF'},
+            {'emoji': '🧠', 'name': 'Mindfulness', 'desc': 'Focus, presence, reflection', 'status': 'OFF'},
+            {'emoji': '🌤️', 'name': 'Daily Check-In', 'desc': 'How today feels', 'status': 'OFF'}
+        ]
+
         # Header
-        title_font = pygame.font.SysFont(None, 90, bold=True)  # Was 64
-        title = title_font.render('🏥 CLINICAL MONITOR', True, (255, 120, 140))
-        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 35))
+        title_font = pygame.font.SysFont(None, 90, bold=True)
+        title = title_font.render('🌿 HEALTH & WELLNESS', True, (120, 200, 160))
+        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 45))
 
-        # === VITALS SECTION ===
-        vitals_y = 100
-        vitals = [
-            {'emoji': '❤️', 'label': 'Heart Rate', 'value': '72 bpm', 'color': (100, 255, 150)},
-            {'emoji': '🩸', 'label': 'Blood Pressure', 'value': '120/80', 'color': (100, 255, 150)},
-            {'emoji': '🫁', 'label': 'O2 Saturation', 'value': '98%', 'color': (100, 255, 150)},
-            {'emoji': '🌡️', 'label': 'Temperature', 'value': '98.6°F', 'color': (100, 255, 150)}
-        ]
+        subtitle_font = pygame.font.SysFont(None, 42)
+        subtitle = subtitle_font.render('Daily wellbeing, calmly supported', True, (160, 190, 170))
+        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 110))
 
-        vital_width = 220
-        vital_gap = 20
-        vital_start_x = self.width // 2 - (4 * vital_width + 3 * vital_gap) // 2
+        # 2×3 grid layout
+        grid_cols = 3
+        grid_rows = 2
+        card_width = 320
+        card_height = 220
+        gap_x = 30
+        gap_y = 30
 
-        for i, vital in enumerate(vitals):
-            x = vital_start_x + i * (vital_width + vital_gap)
-            card_rect = pygame.Rect(x, vitals_y, vital_width, 85)
-            pygame.draw.rect(self.screen, (25, 30, 40), card_rect, border_radius=10)
+        grid_width = grid_cols * card_width + (grid_cols - 1) * gap_x
+        grid_start_x = (self.width - grid_width) // 2
+        grid_start_y = 180
 
-            # Emoji - use emoji font
-            icon_font = load_emoji_font(56)
-            icon = icon_font.render(vital['emoji'], True, vital['color'])
-            self.screen.blit(icon, (x + 10, vitals_y + 10))
+        for i, activity in enumerate(activities):
+            row = i // grid_cols
+            col = i % grid_cols
+            x = grid_start_x + col * (card_width + gap_x)
+            y = grid_start_y + row * (card_height + gap_y)
 
-            # Label
-            label_font = pygame.font.SysFont(None, 25)  # Was 18
-            label = label_font.render(vital['label'], True, (180, 190, 200))
-            self.screen.blit(label, (x + 65, vitals_y + 15))
+            # Determine if selected
+            is_selected = (i == selected)
 
-            # Value
-            value_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
-            value = value_font.render(vital['value'], True, vital['color'])
-            self.screen.blit(value, (x + 65, vitals_y + 45))
+            # Card background - dim unselected
+            if is_selected:
+                card_color = (30, 40, 50)
+            else:
+                # Dim to 70%
+                card_color = (int(30 * 0.7), int(40 * 0.7), int(50 * 0.7))
 
-        # === MEDICATION SECTION ===
-        med_y = 220
-        med_title_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
-        med_title = med_title_font.render('Medication Schedule', True, (200, 210, 220))
-        self.screen.blit(med_title, (50, med_y))
+            card_rect = pygame.Rect(x, y, card_width, card_height)
+            pygame.draw.rect(self.screen, card_color, card_rect, border_radius=12)
 
-        medications = [
-            {'name': 'Metformin', 'dose': '500mg', 'time': '08:00 AM', 'taken': True},
-            {'name': 'Lisinopril', 'dose': '10mg', 'time': '08:00 AM', 'taken': True},
-            {'name': 'Metformin', 'dose': '500mg', 'time': '06:00 PM', 'taken': False},
-            {'name': 'Atorvastatin', 'dose': '20mg', 'time': '09:00 PM', 'taken': False}
-        ]
+            # Selection glow
+            if is_selected:
+                glow_rect = pygame.Rect(x - 4, y - 4, card_width + 8, card_height + 8)
+                pygame.draw.rect(self.screen, (100, 200, 160), glow_rect, width=3, border_radius=14)
 
-        for i, med in enumerate(medications):
-            y = med_y + 45 + i * 45
+            # Emoji icon
+            icon_font = load_emoji_font(72)
+            icon_color = (255, 255, 255) if is_selected else (int(255 * 0.7), int(255 * 0.7), int(255 * 0.7))
+            icon = icon_font.render(activity['emoji'], True, icon_color)
+            icon_x = x + card_width // 2 - icon.get_width() // 2
+            self.screen.blit(icon, (icon_x, y + 20))
 
-            # Status emoji - use emoji font
-            status_icon = '✅' if med['taken'] else '⏰'
-            icon_font = load_emoji_font(39)
-            icon_color = (100, 255, 100) if med['taken'] else (150, 150, 150)
-            icon = icon_font.render(status_icon, True, icon_color)
-            self.screen.blit(icon, (70, y))
+            # Activity name
+            name_font = pygame.font.SysFont(None, 48, bold=True)
+            name_color = (255, 255, 255) if is_selected else (int(255 * 0.7), int(255 * 0.7), int(255 * 0.7))
+            name_surf = name_font.render(activity['name'], True, name_color)
+            name_x = x + card_width // 2 - name_surf.get_width() // 2
+            self.screen.blit(name_surf, (name_x, y + 110))
 
-            # Med name
-            name_font = pygame.font.SysFont(None, 39, bold=True)  # Was 28
-            name = name_font.render(med['name'], True, (255, 255, 255))
-            self.screen.blit(name, (110, y))
+            # Description
+            desc_font = pygame.font.SysFont(None, 26)
+            desc_color = (180, 190, 200) if is_selected else (int(180 * 0.7), int(190 * 0.7), int(200 * 0.7))
+            desc_surf = desc_font.render(activity['desc'], True, desc_color)
+            desc_x = x + card_width // 2 - desc_surf.get_width() // 2
+            self.screen.blit(desc_surf, (desc_x, y + 150))
 
-            # Dose
-            dose_font = pygame.font.SysFont(None, 31)  # Was 22
-            dose = dose_font.render(med['dose'], True, (180, 200, 220))
-            self.screen.blit(dose, (260, y + 4))
+            # Status pill
+            status = activity['status']
+            if status == 'ACTIVE':
+                pill_bg = (80, 180, 120)
+                pill_fg = (255, 255, 255)
+            elif status == 'ON':
+                pill_bg = (50, 180, 80)
+                pill_fg = (255, 255, 255)
+            else:  # OFF
+                pill_bg = (60, 70, 85)
+                pill_fg = (160, 170, 180)
 
-            # Time
-            time_font = pygame.font.SysFont(None, 34)  # Was 24
-            time_surf = time_font.render(med['time'], True, (100, 180, 255))
-            self.screen.blit(time_surf, (360, y + 2))
+            pill_font = pygame.font.SysFont(None, 28, bold=True)
+            pill_surf = pill_font.render(status, True, pill_fg)
+            pill_width = pill_surf.get_width() + 20
+            pill_height = 30
+            pill_x = x + card_width // 2 - pill_width // 2
+            pill_y = y + 180
+            pill_rect = pygame.Rect(pill_x, pill_y, pill_width, pill_height)
+            pygame.draw.rect(self.screen, pill_bg, pill_rect, border_radius=8)
+            self.screen.blit(pill_surf, (pill_x + 10, pill_y + 5))
 
-        # === CDI SECTION ===
-        cdi_y = 480
-        cdi_title_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
-        cdi_title = cdi_title_font.render('Clinical Deterioration Index', True, (200, 210, 220))
-        self.screen.blit(cdi_title, (50, cdi_y))
+        # Preview panel (if open)
+        if panel_open:
+            self._render_health_wellness_panel(activities[selected])
 
-        # CDI Score (Low risk = 2)
-        cdi_score = 2
-        cdi_status = 'LOW RISK'
-        cdi_color = (100, 255, 100)
-        cdi_emoji = '✅'
+        # Compliance footer
+        footer_font = pygame.font.SysFont(None, 24)
+        footer_text = footer_font.render('Designed for general wellness and daily routines. Not a medical device.', True, (120, 130, 140))
+        self.screen.blit(footer_text, (self.width // 2 - footer_text.get_width() // 2, 720))
 
-        cdi_font = pygame.font.SysFont(None, 90, bold=True)  # Was 64
-        cdi_display = cdi_font.render(f'{cdi_emoji} {cdi_status}', True, cdi_color)
-        self.screen.blit(cdi_display, (50, cdi_y + 45))
+        # Help text
+        help_font = pygame.font.SysFont(None, 28)
+        if panel_open:
+            help_text = help_font.render('ENTER: Close preview  •  ESC: Back to Home', True, (150, 160, 180))
+        else:
+            help_text = help_font.render('ENTER: Preview  •  Arrows: Navigate  •  ESC: Back to Home', True, (150, 160, 180))
+        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 755))
 
-        # Guardian contact button
-        guardian_btn = pygame.Rect(550, cdi_y + 35, 400, 70)
-        pygame.draw.rect(self.screen, (50, 100, 200), guardian_btn, border_radius=12)
-        btn_font = pygame.font.SysFont(None, 50, bold=True)  # Was 36
-        btn_text = btn_font.render('📞 Contact Guardian', True, (255, 255, 255))
-        self.screen.blit(btn_text, (guardian_btn.centerx - btn_text.get_width() // 2, guardian_btn.centery - 18))
+    def _render_health_wellness_panel(self, activity):
+        """Render preview panel for selected wellness activity"""
+        # Right-side panel (matching Education realm pattern)
+        panel_x = 1040
+        panel_width = 820
+        panel_height = 680
+        panel_y = 140
 
-        # === CHART VISUALIZATION (simple bars) ===
-        chart_y = 600
-        chart_title_font = pygame.font.SysFont(None, 34, bold=True)  # Was 24
-        chart_title = chart_title_font.render('24-Hour Vital Trends', True, (180, 190, 200))
-        self.screen.blit(chart_title, (50, chart_y))
+        # Panel background
+        panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+        pygame.draw.rect(self.screen, (25, 35, 45), panel_rect, border_radius=12)
+        pygame.draw.rect(self.screen, (80, 160, 120), panel_rect, width=3, border_radius=12)
 
-        # Simple bar chart representation
-        bars = [75, 80, 72, 68, 71, 73, 75, 72]  # Heart rate trend
-        bar_width = 40
-        bar_gap = 15
-        bar_start_x = 60
+        # Activity title with emoji
+        title_font = pygame.font.SysFont(None, 56, bold=True)
+        title_text = f"{activity['emoji']} {activity['name']}"
+        title_surf = title_font.render(title_text, True, (120, 200, 160))
+        self.screen.blit(title_surf, (panel_x + 30, panel_y + 30))
 
-        for i, height in enumerate(bars):
-            x = bar_start_x + i * (bar_width + bar_gap)
-            bar_height = int(height * 0.8)  # Scale for display
-            bar_rect = pygame.Rect(x, chart_y + 80 - bar_height, bar_width, bar_height)
-            pygame.draw.rect(self.screen, (100, 180, 255), bar_rect, border_radius=4)
+        # "What this supports" section
+        section_y = panel_y + 110
+        section_font = pygame.font.SysFont(None, 38, bold=True)
+        section_surf = section_font.render('What this supports:', True, (200, 210, 220))
+        self.screen.blit(section_surf, (panel_x + 30, section_y))
 
-        # Help
-        help_font = pygame.font.SysFont(None, 28)  # Was 20
-        help_text = help_font.render('ESC: Back to Home', True, (150, 160, 180))
-        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 735))
+        # Activity-specific content
+        content_y = section_y + 50
+        content_font = pygame.font.SysFont(None, 32)
+        line_height = 45
 
-    def handle_clinical_input(self, key):
-        """Handle Clinical input (read-only for demo)"""
-        # Clinical is a dashboard view - no interactive elements needed for demo
-        pass
+        # Define compliant content for each activity
+        supports_content = {
+            'Calm': [
+                '• Encourages moments of stillness',
+                '• Supports breathing awareness',
+                '• Optional grounding reminders',
+                '• Designed for calm environments'
+            ],
+            'Sleep': [
+                '• Gentle wind-down cues',
+                '• Optional bedtime reminders',
+                '• Supports rest routines',
+                '• Calm, non-intrusive nudges'
+            ],
+            'Routines': [
+                '• Daily habit reminders',
+                '• Morning and evening cues',
+                '• Supports consistency',
+                '• Helps you stay aware of routines'
+            ],
+            'Movement': [
+                '• Gentle activity nudges',
+                '• Encourages light movement',
+                '• Optional stretch reminders',
+                '• Supports active living'
+            ],
+            'Mindfulness': [
+                '• Focus and presence cues',
+                '• Reflection prompts',
+                '• Supports awareness practice',
+                '• Calm, ambient support'
+            ],
+            'Daily Check-In': [
+                '• Simple daily reflection',
+                '• How today feels',
+                '• Non-scored, non-diagnostic',
+                '• Supports self-awareness'
+            ]
+        }
+
+        lines = supports_content.get(activity['name'], ['• General wellbeing support'])
+        for i, line in enumerate(lines):
+            line_surf = content_font.render(line, True, (180, 190, 200))
+            self.screen.blit(line_surf, (panel_x + 50, content_y + i * line_height))
+
+        # "Example uses" section
+        examples_y = content_y + len(lines) * line_height + 60
+        examples_title_surf = section_font.render('Example uses:', True, (200, 210, 220))
+        self.screen.blit(examples_title_surf, (panel_x + 30, examples_y))
+
+        # Example content
+        examples_content = {
+            'Calm': [
+                '• "Take a calm moment" reminder at 3pm',
+                '• Brief breathing awareness cue',
+                '• Grounding prompt when needed'
+            ],
+            'Sleep': [
+                '• "Time to wind down" at 9:30pm',
+                '• Gentle bedtime reminder',
+                '• Calm transition to night mode'
+            ],
+            'Routines': [
+                '• Morning routine reminder at 7am',
+                '• Evening routine cue at 8pm',
+                '• Daily habit check-ins'
+            ],
+            'Movement': [
+                '• "Gentle stretch" reminder hourly',
+                '• Movement nudge after sitting',
+                '• Activity encouragement'
+            ],
+            'Mindfulness': [
+                '• Presence check-in mid-day',
+                '• Focus reminder when needed',
+                '• Reflection prompt in evening'
+            ],
+            'Daily Check-In': [
+                '• "How does today feel?" prompt',
+                '• Simple reflection moment',
+                '• Self-awareness support'
+            ]
+        }
+
+        examples_y_content = examples_y + 50
+        example_lines = examples_content.get(activity['name'], ['• Daily wellbeing support'])
+        for i, line in enumerate(example_lines):
+            line_surf = content_font.render(line, True, (160, 180, 200))
+            self.screen.blit(line_surf, (panel_x + 50, examples_y_content + i * line_height))
+
+    def handle_health_wellness_input(self, key):
+        """Handle Health & Wellness input"""
+        data = self.realm_data['health_wellness']
+        selected = data['selected']
+        panel_open = data['panel_open']
+
+        # 2×3 grid navigation (3 columns)
+        if key == pygame.K_LEFT:
+            if selected % 3 > 0:  # Not in leftmost column
+                data['selected'] -= 1
+        elif key == pygame.K_RIGHT:
+            if selected % 3 < 2 and selected < 5:  # Not in rightmost column and within bounds
+                data['selected'] += 1
+        elif key == pygame.K_UP:
+            if selected >= 3:  # Not in top row
+                data['selected'] -= 3
+        elif key == pygame.K_DOWN:
+            if selected < 3:  # Not in bottom row
+                data['selected'] += 3
+        elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
+            # Toggle preview panel
+            data['panel_open'] = not data['panel_open']
 
     def get_education_questions(self):
         """Get hardcoded Q&A content for each subject"""
@@ -1958,8 +2092,8 @@ class MotiBeamOS:
                 self.render_marketplace()
             elif self.state == "home_realm":
                 self.render_home_realm()
-            elif self.state == "clinical":
-                self.render_clinical()
+            elif self.state == "health_wellness":
+                self.render_health_wellness()
             elif self.state == "education":
                 self.render_education()
             elif self.state == "transport":
