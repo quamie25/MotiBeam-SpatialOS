@@ -1216,41 +1216,61 @@ class MotiBeamOS:
                 pygame.draw.rect(self.screen, pill_bg, pill_rect, border_radius=14)
                 self.screen.blit(pill_surf, (pill_x + 12, pill_y + 4))
 
-        # Help text
+        # Help text - changes based on thermostat selection
         help_font = pygame.font.SysFont(None, 30)
         if devices[selected]['type'] == 'adjust':
-            help_text = help_font.render('← → ↑ ↓ Navigate   |   Enter Toggle   |   ESC Back', True, (150, 160, 180))
+            # Thermostat selected - show temperature controls
+            help_text = help_font.render('↑ ↓ Navigate   |   ← → Adjust Temp   |   ESC Back', True, (150, 160, 180))
         else:
+            # Regular device selected
             help_text = help_font.render('← → ↑ ↓ Navigate   |   Enter Toggle   |   ESC Back', True, (150, 160, 180))
         self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 880))
 
     def handle_home_realm_input(self, key):
-        """Handle Home realm input"""
+        """Handle Home realm input with thermostat LEFT/RIGHT controls"""
         selected = self.realm_data['home_realm']['selected']
         devices_state = self.realm_data['home_realm']['devices']
 
         device_ids = ['living_lights', 'bedroom_lights', 'temp', 'security', 'door', 'garage']
         device_names = ['Living Room Lights', 'Bedroom Lights', 'Thermostat', 'Security System', 'Front Door Lock', 'Garage Door']
 
+        # Special handling for thermostat (index 2)
+        is_thermostat_selected = (selected == 2)
+
         if key == pygame.K_LEFT:
-            if selected % 3 > 0:
+            if is_thermostat_selected:
+                # Decrease temperature
+                current_temp = devices_state['temp']
+                devices_state['temp'] = max(60, current_temp - 1)
+                print(f"[HOME] Thermostat adjusted to {devices_state['temp']}°F")
+            elif selected % 3 > 0:
+                # Navigate left
                 self.realm_data['home_realm']['selected'] = selected - 1
+
         elif key == pygame.K_RIGHT:
-            if selected % 3 < 2 and selected < 5:
+            if is_thermostat_selected:
+                # Increase temperature
+                current_temp = devices_state['temp']
+                devices_state['temp'] = min(85, current_temp + 1)
+                print(f"[HOME] Thermostat adjusted to {devices_state['temp']}°F")
+            elif selected % 3 < 2 and selected < 5:
+                # Navigate right
                 self.realm_data['home_realm']['selected'] = selected + 1
+
         elif key == pygame.K_UP:
             if selected >= 3:
                 self.realm_data['home_realm']['selected'] = selected - 3
+
         elif key == pygame.K_DOWN:
             if selected < 3:
                 self.realm_data['home_realm']['selected'] = selected + 3
+
         elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
             device_id = device_ids[selected]
             if device_id == 'temp':
-                # Adjust temperature up by 1
-                current_temp = devices_state[device_id]
-                devices_state[device_id] = min(85, current_temp + 1)
-                print(f"[HOME] {device_names[selected]} adjusted to {devices_state[device_id]}°F")
+                # For thermostat, ENTER does nothing (temp controlled by LEFT/RIGHT)
+                # Could add mode toggle here if desired, but keeping it simple
+                print(f"[HOME] Thermostat: Use ← → to adjust temperature")
             else:
                 # Toggle device
                 devices_state[device_id] = not devices_state[device_id]
