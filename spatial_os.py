@@ -654,9 +654,10 @@ class MotiBeamOS:
             self.call_active = False
             # Add missed presence indicator
             self.missed_presence = True
-            # Add ticker message
+            # Add ticker message (de-duped to prevent spam)
             missed_msg = f"→ Missed presence from {self.call_caller['name']} → "
-            self.ticker_text = missed_msg + self.ticker_text
+            if not self.ticker_text.startswith(missed_msg):
+                self.ticker_text = missed_msg + self.ticker_text
             return
 
         # Route to state-specific handlers
@@ -1099,14 +1100,19 @@ class MotiBeamOS:
                 print(f"[MARKETPLACE] Demo install: {selected_px}")
 
     def render_home_realm(self):
-        """Home - Smart home control"""
+        """Home - Ambient Control (polished for wall projection)"""
         selected = self.realm_data['home_realm']['selected']
         devices_state = self.realm_data['home_realm']['devices']
 
         # Header
-        title_font = pygame.font.SysFont(None, 90, bold=True)  # Was 64
-        title = title_font.render('🏠 HOME CONTROL', True, (100, 255, 150))
+        title_font = pygame.font.SysFont(None, 90, bold=True)
+        title = title_font.render('🏠 HOME', True, (100, 255, 150))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 50))
+
+        # Subtitle
+        subtitle_font = pygame.font.SysFont(None, 42)
+        subtitle = subtitle_font.render('Ambient Control', True, (180, 220, 200))
+        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 120))
 
         # Device configurations
         devices = [
@@ -1119,10 +1125,10 @@ class MotiBeamOS:
         ]
 
         card_width = 280
-        card_height = 220
+        card_height = 230
         gap = 40
         start_x = 120
-        start_y = 160
+        start_y = 200
 
         for i, device in enumerate(devices):
             row = i // 3
@@ -1133,45 +1139,90 @@ class MotiBeamOS:
 
             card_rect = pygame.Rect(x, y, card_width, card_height)
 
-            # Highlight selected
-            if i == selected:
-                pygame.draw.rect(self.screen, (255, 255, 255), card_rect.inflate(6, 6), 3, border_radius=15)
-
-            # Color based on state
+            # Get device state
             state = devices_state[device['id']]
+
+            # Background color - dimmed for unselected
             if device['type'] == 'toggle':
                 bg_color = (50, 100, 50) if state else (50, 50, 60)
             else:  # adjust (thermostat)
                 bg_color = (60, 80, 120)
 
+            # Dim unselected tiles
+            if i != selected:
+                bg_color = tuple(int(c * 0.7) for c in bg_color)
+
             pygame.draw.rect(self.screen, bg_color, card_rect, border_radius=15)
 
+            # Selection styling - thicker outline with subtle glow
+            if i == selected:
+                # Outer glow
+                pygame.draw.rect(self.screen, (100, 255, 150, 80), card_rect.inflate(12, 12), 6, border_radius=18)
+                # Main border
+                pygame.draw.rect(self.screen, (100, 255, 150), card_rect.inflate(6, 6), 4, border_radius=15)
+
             # Emoji - use emoji font
-            icon_font = load_emoji_font(134)
+            icon_font = load_emoji_font(110)
             icon = icon_font.render(device['emoji'], True, (255, 255, 255))
-            self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 20))
+            self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 15))
 
-            # Name
-            name_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
+            # Device name - larger and bolder
+            name_font = pygame.font.SysFont(None, 52, bold=True)
             name = name_font.render(device['name'], True, (255, 255, 255))
-            self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 110))
+            self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 105))
 
-            # State display
+            # Status pill at bottom
+            pill_y = y + card_height - 40
+
             if device['type'] == 'toggle':
-                state_text = 'ON' if state else 'OFF'
-                state_color = (100, 255, 100) if state else (150, 150, 150)
-            else:  # adjust (temperature)
-                state_text = f"{state}°F"
-                state_color = (100, 200, 255)
+                # ON/OFF status pill
+                if state:
+                    pill_text = 'ON'
+                    pill_bg = (50, 180, 80)
+                    pill_fg = (255, 255, 255)
+                else:
+                    pill_text = 'OFF'
+                    pill_bg = (60, 70, 85)
+                    pill_fg = (160, 170, 180)
 
-            state_font = pygame.font.SysFont(None, 59, bold=True)  # Was 42
-            state_surf = state_font.render(state_text, True, state_color)
-            self.screen.blit(state_surf, (x + card_width // 2 - state_surf.get_width() // 2, y + 155))
+                pill_font = pygame.font.SysFont(None, 36, bold=True)
+                pill_surf = pill_font.render(pill_text, True, pill_fg)
+                pill_width = pill_surf.get_width() + 30
+                pill_height = 32
+                pill_x = x + (card_width - pill_width) // 2
+                pill_rect = pygame.Rect(pill_x, pill_y, pill_width, pill_height)
 
-        # Help
-        help_font = pygame.font.SysFont(None, 28)  # Was 20
-        help_text = help_font.render('Arrow Keys: Navigate | ENTER: Toggle/Adjust | ESC: Back', True, (150, 160, 180))
-        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 720))
+                pygame.draw.rect(self.screen, pill_bg, pill_rect, border_radius=16)
+                self.screen.blit(pill_surf, (pill_x + 15, pill_y + 6))
+
+            else:  # Thermostat - special display
+                # Large temperature
+                temp_font = pygame.font.SysFont(None, 64, bold=True)
+                temp_surf = temp_font.render(f"{state}°F", True, (100, 200, 255))
+                self.screen.blit(temp_surf, (x + card_width // 2 - temp_surf.get_width() // 2, y + 145))
+
+                # Mode pill
+                mode_text = 'AUTO'
+                pill_bg = (40, 80, 120)
+                pill_fg = (150, 200, 255)
+
+                pill_font = pygame.font.SysFont(None, 30, bold=True)
+                pill_surf = pill_font.render(mode_text, True, pill_fg)
+                pill_width = pill_surf.get_width() + 24
+                pill_height = 28
+                pill_x = x + (card_width - pill_width) // 2
+                pill_rect = pygame.Rect(pill_x, pill_y, pill_width, pill_height)
+
+                pygame.draw.rect(self.screen, pill_bg, pill_rect, border_radius=14)
+                self.screen.blit(pill_surf, (pill_x + 12, pill_y + 4))
+
+        # Help text
+        help_font = pygame.font.SysFont(None, 30)
+        if devices[selected]['type'] == 'adjust':
+            help_text = help_font.render('← → ↑ ↓ Navigate   |   Enter Toggle   |   ESC Back', True, (150, 160, 180))
+        else:
+            help_text = help_font.render('← → ↑ ↓ Navigate   |   Enter Toggle   |   ESC Back', True, (150, 160, 180))
+        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 880))
 
     def handle_home_realm_input(self, key):
         """Handle Home realm input"""
