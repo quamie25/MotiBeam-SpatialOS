@@ -225,7 +225,16 @@ class MotiBeamOS:
                 }
             },
             'clinical': {'selected': 0},
-            'education': {'selected': 0},
+            'education': {
+                'selected': 0,
+                'panel_open': False,
+                'in_session': False,
+                'subject_index': 0,
+                'q_index': 0,
+                'session_start_time': 0,
+                'answered_correctly': False,
+                'last_ticker_msg': ''
+            },
             'transport': {'selected': 0}
         }
 
@@ -1439,34 +1448,77 @@ class MotiBeamOS:
         # Clinical is a dashboard view - no interactive elements needed for demo
         pass
 
+    def get_education_questions(self):
+        """Get hardcoded Q&A content for each subject"""
+        return {
+            0: [  # Mathematics
+                {'q': 'What is 7 × 8?', 'a': '56', 'b': '54', 'c': '64', 'correct': 'a'},
+                {'q': 'What is 15 + 27?', 'a': '41', 'b': '42', 'c': '43', 'correct': 'b'},
+                {'q': 'What is 100 - 37?', 'a': '73', 'b': '63', 'c': '67', 'correct': 'b'}
+            ],
+            1: [  # Reading
+                {'q': 'A synonym for "happy" is:', 'a': 'Sad', 'b': 'Joyful', 'c': 'Angry', 'correct': 'b'},
+                {'q': 'Which is a noun?', 'a': 'Run', 'b': 'Quickly', 'c': 'Table', 'correct': 'c'},
+                {'q': 'An antonym for "hot" is:', 'a': 'Warm', 'b': 'Cold', 'c': 'Sunny', 'correct': 'b'}
+            ],
+            2: [  # Science
+                {'q': 'Water freezes at:', 'a': '0°C', 'b': '100°C', 'c': '50°C', 'correct': 'a'},
+                {'q': 'Plants make food using:', 'a': 'Soil', 'b': 'Sunlight', 'c': 'Wind', 'correct': 'b'},
+                {'q': 'Earth has how many moons?', 'a': 'Two', 'b': 'None', 'c': 'One', 'correct': 'c'}
+            ],
+            3: [  # History
+                {'q': 'Who invented the lightbulb?', 'a': 'Tesla', 'b': 'Edison', 'c': 'Bell', 'correct': 'b'},
+                {'q': 'The Great Wall is in:', 'a': 'Japan', 'b': 'India', 'c': 'China', 'correct': 'c'},
+                {'q': 'First man on the moon:', 'a': 'Armstrong', 'b': 'Aldrin', 'c': 'Collins', 'correct': 'a'}
+            ],
+            4: [  # Geography
+                {'q': 'Largest ocean:', 'a': 'Atlantic', 'b': 'Pacific', 'c': 'Indian', 'correct': 'b'},
+                {'q': 'Capital of France:', 'a': 'London', 'b': 'Berlin', 'c': 'Paris', 'correct': 'c'},
+                {'q': 'How many continents?', 'a': 'Five', 'b': 'Six', 'c': 'Seven', 'correct': 'c'}
+            ],
+            5: [  # Creative/Art
+                {'q': 'Primary colors include:', 'a': 'Green', 'b': 'Red', 'c': 'Purple', 'correct': 'b'},
+                {'q': 'Who painted Mona Lisa?', 'a': 'Picasso', 'b': 'Da Vinci', 'c': 'Monet', 'correct': 'b'},
+                {'q': 'A sculpture is:', 'a': '2D art', 'b': '3D art', 'c': 'Music', 'correct': 'b'}
+            ]
+        }
+
     def render_education(self):
-        """Education - Interactive learning hub"""
+        """Education v1.0 - Interactive learning sessions with Q&A"""
         selected = self.realm_data['education']['selected']
+        panel_open = self.realm_data['education']['panel_open']
+        in_session = self.realm_data['education']['in_session']
+
+        # Subject definitions
+        subjects = [
+            {'emoji': '🔢', 'name': 'Mathematics', 'desc': 'Math practice and problem solving'},
+            {'emoji': '📖', 'name': 'Reading', 'desc': 'Vocabulary and comprehension'},
+            {'emoji': '🔬', 'name': 'Science', 'desc': 'Science facts and concepts'},
+            {'emoji': '🏛️', 'name': 'History', 'desc': 'Historical events and figures'},
+            {'emoji': '🌍', 'name': 'Geography', 'desc': 'World geography and landmarks'},
+            {'emoji': '🎨', 'name': 'Creative', 'desc': 'Art and creative thinking'}
+        ]
+
+        # If in session mode, show full overlay
+        if in_session:
+            self._render_education_session(subjects)
+            return
 
         # Header
-        title_font = pygame.font.SysFont(None, 90, bold=True)  # Was 64
+        title_font = pygame.font.SysFont(None, 90, bold=True)
         title = title_font.render('📚 EDUCATION', True, (255, 180, 50))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 45))
 
-        subtitle_font = pygame.font.SysFont(None, 39)  # Was 28
+        subtitle_font = pygame.font.SysFont(None, 42)
         subtitle = subtitle_font.render('Interactive Learning Sessions', True, (220, 200, 150))
         self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 110))
 
-        # Subjects
-        subjects = [
-            {'emoji': '🔢', 'name': 'Mathematics', 'progress': 75, 'level': 'Grade 5'},
-            {'emoji': '📖', 'name': 'Reading', 'progress': 82, 'level': 'Advanced'},
-            {'emoji': '🔬', 'name': 'Science', 'progress': 68, 'level': 'Grade 5'},
-            {'emoji': '🗺️', 'name': 'History', 'progress': 55, 'level': 'Grade 4'},
-            {'emoji': '🌍', 'name': 'Geography', 'progress': 90, 'level': 'Grade 5'},
-            {'emoji': '🎨', 'name': 'Art', 'progress': 45, 'level': 'Beginner'}
-        ]
-
-        card_width = 280
+        # 2×3 grid layout
+        card_width = 320 if panel_open else 380
         card_height = 240
-        gap = 40
-        start_x = 120
-        start_y = 175
+        gap = 30 if panel_open else 40
+        start_x = 40 if panel_open else 60
+        start_y = 200
 
         for i, subject in enumerate(subjects):
             row = i // 3
@@ -1477,57 +1529,262 @@ class MotiBeamOS:
 
             card_rect = pygame.Rect(x, y, card_width, card_height)
 
-            # Highlight selected
+            # Background - dimmed if not selected
+            bg_color = (30, 35, 50)
+            if i != selected:
+                bg_color = tuple(int(c * 0.7) for c in bg_color)
+
+            pygame.draw.rect(self.screen, bg_color, card_rect, border_radius=15)
+
+            # Selection styling
             if i == selected:
-                pygame.draw.rect(self.screen, (255, 255, 255), card_rect.inflate(6, 6), 3, border_radius=15)
+                pygame.draw.rect(self.screen, (255, 180, 50, 80), card_rect.inflate(12, 12), 6, border_radius=18)
+                pygame.draw.rect(self.screen, (255, 180, 50), card_rect.inflate(6, 6), 4, border_radius=15)
 
-            pygame.draw.rect(self.screen, (30, 35, 50), card_rect, border_radius=15)
-
-            # Emoji - use emoji font
-            icon_font = load_emoji_font(118)
-            icon = icon_font.render(subject['emoji'], True, (100, 200, 255))
-            self.screen.blit(icon, (x + 20, y + 20))
+            # Emoji
+            icon_font = load_emoji_font(100)
+            icon = icon_font.render(subject['emoji'], True, (255, 255, 255))
+            self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 20))
 
             # Subject name
-            name_font = pygame.font.SysFont(None, 48, bold=True)  # Was 34
+            name_font = pygame.font.SysFont(None, 52, bold=True)
             name = name_font.render(subject['name'], True, (255, 255, 255))
-            self.screen.blit(name, (x + 95, y + 28))
+            self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 120))
 
-            # Level
-            level_font = pygame.font.SysFont(None, 28)  # Was 20
-            level = level_font.render(subject['level'], True, (180, 190, 200))
-            self.screen.blit(level, (x + 95, y + 62))
+            # "Start Session" pill
+            pill_text = 'Start Session'
+            pill_font = pygame.font.SysFont(None, 30, bold=True)
+            pill_surf = pill_font.render(pill_text, True, (180, 220, 180))
+            pill_width = pill_surf.get_width() + 24
+            pill_height = 28
+            pill_x = x + (card_width - pill_width) // 2
+            pill_y = y + card_height - 45
+            pill_rect = pygame.Rect(pill_x, pill_y, pill_width, pill_height)
 
-            # Progress bar background
-            progress_bg = pygame.Rect(x + 20, y + 115, card_width - 40, 28)
-            pygame.draw.rect(self.screen, (50, 55, 70), progress_bg, border_radius=6)
+            pygame.draw.rect(self.screen, (40, 80, 40), pill_rect, border_radius=14)
+            self.screen.blit(pill_surf, (pill_x + 12, pill_y + 4))
 
-            # Progress bar fill
-            progress_fill_width = int((card_width - 40) * subject['progress'] / 100)
-            progress_fill = pygame.Rect(x + 20, y + 115, progress_fill_width, 28)
-            pygame.draw.rect(self.screen, (100, 200, 255), progress_fill, border_radius=6)
+        # Preview panel (right side)
+        if panel_open:
+            selected_subject = subjects[selected]
+            panel_x = 1040
+            panel_y = 180
+            panel_width = 820
+            panel_height = 800
 
-            # Progress text
-            progress_font = pygame.font.SysFont(None, 28, bold=True)  # Was 20
-            progress_text = progress_font.render(f"{subject['progress']}%", True, (255, 255, 255))
-            self.screen.blit(progress_text, (x + card_width // 2 - progress_text.get_width() // 2, y + 119))
+            panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+            pygame.draw.rect(self.screen, (25, 25, 45), panel_rect, border_radius=12)
+            pygame.draw.rect(self.screen, (255, 180, 50), panel_rect, 3, border_radius=12)
 
-            # Start button
-            btn_font = pygame.font.SysFont(None, 36, bold=True)  # Was 26
-            btn_text = btn_font.render('▶️ Start Session', True, (150, 220, 150))
-            self.screen.blit(btn_text, (x + card_width // 2 - btn_text.get_width() // 2, y + 175))
+            # Panel header
+            preview_emoji_font = load_emoji_font(70)
+            preview_emoji = preview_emoji_font.render(selected_subject['emoji'], True, (255, 180, 50))
+            self.screen.blit(preview_emoji, (panel_x + 30, panel_y + 30))
 
-        # Help
-        help_font = pygame.font.SysFont(None, 28)  # Was 20
-        help_text = help_font.render('Arrow Keys: Navigate | ENTER: Start Session | ESC: Back', True, (150, 160, 180))
-        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 720))
+            preview_title_font = pygame.font.SysFont(None, 56, bold=True)
+            preview_title = preview_title_font.render(selected_subject['name'], True, (255, 255, 255))
+            self.screen.blit(preview_title, (panel_x + 120, panel_y + 40))
+
+            # Description
+            desc_font = pygame.font.SysFont(None, 34)
+            desc = desc_font.render(selected_subject['desc'], True, (200, 200, 220))
+            self.screen.blit(desc, (panel_x + 30, panel_y + 120))
+
+            # "Today's Session"
+            session_label_font = pygame.font.SysFont(None, 40, bold=True)
+            session_label = session_label_font.render("Today's Session:", True, (255, 180, 50))
+            self.screen.blit(session_label, (panel_x + 30, panel_y + 200))
+
+            # What you'll do bullets
+            bullet_font = pygame.font.SysFont(None, 32)
+            bullets = [
+                '• Answer 3 questions',
+                '• Test your knowledge',
+                '• Track your progress'
+            ]
+            for i, bullet in enumerate(bullets):
+                bullet_surf = bullet_font.render(bullet, True, (180, 180, 200))
+                self.screen.blit(bullet_surf, (panel_x + 50, panel_y + 270 + i * 50))
+
+            # Start hint
+            start_font = pygame.font.SysFont(None, 48, bold=True)
+            start_text = start_font.render('Press S to Start', True, (180, 220, 180))
+            self.screen.blit(start_text, (panel_x + 30, panel_y + 500))
+
+            # Close hint
+            close_font = pygame.font.SysFont(None, 32)
+            close_text = close_font.render('Press B to close panel', True, (150, 160, 180))
+            self.screen.blit(close_text, (panel_x + 30, panel_y + 680))
+
+        # Help text
+        help_font = pygame.font.SysFont(None, 30)
+        if panel_open:
+            help_text = help_font.render('S Start | B Back | ESC Home', True, (150, 160, 180))
+        else:
+            help_text = help_font.render('← → ↑ ↓ Navigate | ENTER Preview | ESC Home', True, (150, 160, 180))
+        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 880))
+
+    def _render_education_session(self, subjects):
+        """Render the Q&A session overlay"""
+        subject_index = self.realm_data['education']['subject_index']
+        q_index = self.realm_data['education']['q_index']
+        session_start_time = self.realm_data['education']['session_start_time']
+        answered_correctly = self.realm_data['education']['answered_correctly']
+
+        subject = subjects[subject_index]
+        questions = self.get_education_questions()
+        current_q = questions[subject_index][q_index]
+
+        # Semi-transparent overlay
+        overlay = pygame.Surface((self.width, self.height))
+        overlay.set_alpha(220)
+        overlay.fill((15, 20, 30))
+        self.screen.blit(overlay, (0, 0))
+
+        # Session card
+        card_width = 1200
+        card_height = 700
+        card_x = (self.width - card_width) // 2
+        card_y = (self.height - card_height) // 2
+
+        card_rect = pygame.Rect(card_x, card_y, card_width, card_height)
+        pygame.draw.rect(self.screen, (35, 40, 55), card_rect, border_radius=20)
+        pygame.draw.rect(self.screen, (255, 180, 50), card_rect, 4, border_radius=20)
+
+        # Subject header
+        header_emoji_font = load_emoji_font(60)
+        header_emoji = header_emoji_font.render(subject['emoji'], True, (255, 180, 50))
+        self.screen.blit(header_emoji, (card_x + 40, card_y + 30))
+
+        header_font = pygame.font.SysFont(None, 56, bold=True)
+        header_text = header_font.render(subject['name'], True, (255, 255, 255))
+        self.screen.blit(header_text, (card_x + 120, card_y + 40))
+
+        # Timer
+        import time
+        elapsed = int(time.time() - session_start_time)
+        minutes = elapsed // 60
+        seconds = elapsed % 60
+        timer_font = pygame.font.SysFont(None, 40)
+        timer_text = timer_font.render(f"Time: {minutes:02d}:{seconds:02d}", True, (180, 200, 220))
+        self.screen.blit(timer_text, (card_x + card_width - 200, card_y + 45))
+
+        # Progress indicator
+        progress_font = pygame.font.SysFont(None, 36)
+        progress_text = progress_font.render(f"Question {q_index + 1}/3", True, (200, 200, 220))
+        self.screen.blit(progress_text, (card_x + 40, card_y + 110))
+
+        # Question
+        question_font = pygame.font.SysFont(None, 52, bold=True)
+        question_text = question_font.render(current_q['q'], True, (255, 255, 255))
+        self.screen.blit(question_text, (card_x + 40, card_y + 200))
+
+        # Answer options
+        answers = [
+            {'key': 'A', 'text': current_q['a'], 'y_offset': 0},
+            {'key': 'B', 'text': current_q['b'], 'y_offset': 100},
+            {'key': 'C', 'text': current_q['c'], 'y_offset': 200}
+        ]
+
+        for answer in answers:
+            ans_y = card_y + 300 + answer['y_offset']
+            ans_rect = pygame.Rect(card_x + 60, ans_y, card_width - 120, 70)
+
+            pygame.draw.rect(self.screen, (50, 55, 70), ans_rect, border_radius=10)
+            pygame.draw.rect(self.screen, (100, 110, 130), ans_rect, 2, border_radius=10)
+
+            key_font = pygame.font.SysFont(None, 48, bold=True)
+            key_text = key_font.render(answer['key'], True, (255, 180, 50))
+            self.screen.blit(key_text, (ans_rect.x + 20, ans_rect.y + 18))
+
+            ans_font = pygame.font.SysFont(None, 42)
+            ans_text = ans_font.render(answer['text'], True, (255, 255, 255))
+            self.screen.blit(ans_text, (ans_rect.x + 80, ans_rect.y + 20))
+
+        # Feedback (if answered)
+        if answered_correctly:
+            feedback_font = pygame.font.SysFont(None, 48, bold=True)
+            feedback_text = feedback_font.render('Correct! ✅ Press N for next', True, (100, 255, 150))
+            self.screen.blit(feedback_text, (card_x + 40, card_y + 620))
+
+        # Controls hint
+        controls_font = pygame.font.SysFont(None, 32)
+        if not answered_correctly:
+            controls_text = controls_font.render('A/B/C Answer | ESC Exit', True, (150, 160, 180))
+        else:
+            controls_text = controls_font.render('N Next | ESC Exit', True, (150, 160, 180))
+        self.screen.blit(controls_text, (card_x + card_width - 400, card_y + 620))
 
     def handle_education_input(self, key):
-        """Handle Education input"""
+        """Handle Education input - grid, panel, session modes"""
         selected = self.realm_data['education']['selected']
+        panel_open = self.realm_data['education']['panel_open']
+        in_session = self.realm_data['education']['in_session']
 
-        subject_names = ['Mathematics', 'Reading', 'Science', 'History', 'Geography', 'Art']
+        subject_names = ['Mathematics', 'Reading', 'Science', 'History', 'Geography', 'Creative']
 
+        # Session mode controls
+        if in_session:
+            q_index = self.realm_data['education']['q_index']
+            subject_index = self.realm_data['education']['subject_index']
+            answered_correctly = self.realm_data['education']['answered_correctly']
+            questions = self.get_education_questions()
+            current_q = questions[subject_index][q_index]
+
+            # Answer selection (A/B/C)
+            if not answered_correctly:
+                if key == pygame.K_a:
+                    if current_q['correct'] == 'a':
+                        self.realm_data['education']['answered_correctly'] = True
+                        print("[EDUCATION] Correct answer!")
+                    else:
+                        print("[EDUCATION] Try again")
+                elif key == pygame.K_b:
+                    if current_q['correct'] == 'b':
+                        self.realm_data['education']['answered_correctly'] = True
+                        print("[EDUCATION] Correct answer!")
+                    else:
+                        print("[EDUCATION] Try again")
+                elif key == pygame.K_c:
+                    if current_q['correct'] == 'c':
+                        self.realm_data['education']['answered_correctly'] = True
+                        print("[EDUCATION] Correct answer!")
+                    else:
+                        print("[EDUCATION] Try again")
+
+            # Next question (N)
+            elif key == pygame.K_n:
+                if q_index < 2:
+                    # Move to next question
+                    self.realm_data['education']['q_index'] = q_index + 1
+                    self.realm_data['education']['answered_correctly'] = False
+                    print(f"[EDUCATION] Question {q_index + 2}/3")
+                else:
+                    # Session complete
+                    import time
+                    elapsed = int(time.time() - self.realm_data['education']['session_start_time'])
+                    minutes = elapsed // 60
+                    seconds = elapsed % 60
+
+                    self.realm_data['education']['in_session'] = False
+                    self.realm_data['education']['panel_open'] = False
+
+                    # Add completion ticker message (de-duped)
+                    complete_msg = f"→ Session complete: {subject_names[subject_index]} ({minutes:02d}:{seconds:02d}) →"
+                    if not self.ticker_text.startswith(complete_msg):
+                        self.ticker_text = complete_msg + self.ticker_text
+
+                    print(f"[EDUCATION] Session complete! Time: {minutes:02d}:{seconds:02d}")
+
+            # Exit session
+            if key == pygame.K_ESCAPE:
+                self.realm_data['education']['in_session'] = False
+                self.realm_data['education']['panel_open'] = False
+                print("[EDUCATION] Exited session")
+
+            return
+
+        # Grid navigation (when not in session)
         if key == pygame.K_LEFT:
             if selected % 3 > 0:
                 self.realm_data['education']['selected'] = selected - 1
@@ -1540,8 +1797,34 @@ class MotiBeamOS:
         elif key == pygame.K_DOWN:
             if selected < 3:
                 self.realm_data['education']['selected'] = selected + 3
+
+        # Toggle preview panel
         elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
-            print(f"[EDUCATION] Starting {subject_names[selected]} session...")
+            self.realm_data['education']['panel_open'] = not panel_open
+            print(f"[EDUCATION] Preview panel {'opened' if not panel_open else 'closed'}")
+
+        # Close panel
+        elif key == pygame.K_b:
+            if panel_open:
+                self.realm_data['education']['panel_open'] = False
+                print("[EDUCATION] Panel closed")
+
+        # Start session (S key)
+        elif key == pygame.K_s:
+            if panel_open:
+                import time
+                self.realm_data['education']['in_session'] = True
+                self.realm_data['education']['subject_index'] = selected
+                self.realm_data['education']['q_index'] = 0
+                self.realm_data['education']['session_start_time'] = time.time()
+                self.realm_data['education']['answered_correctly'] = False
+
+                # Add ticker message (de-duped)
+                start_msg = f"→ Starting {subject_names[selected]} session →"
+                if not self.ticker_text.startswith(start_msg):
+                    self.ticker_text = start_msg + self.ticker_text
+
+                print(f"[EDUCATION] Starting {subject_names[selected]} session")
 
     def render_transport(self):
         """Transport - Mobility and navigation"""
