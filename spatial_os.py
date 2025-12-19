@@ -214,6 +214,7 @@ class MotiBeamOS:
             },
             'home_realm': {
                 'selected': 0,
+                'temp_changed_time': 0,  # Track last temp change for visual feedback
                 'devices': {
                     'living_lights': True,
                     'bedroom_lights': False,
@@ -1111,7 +1112,7 @@ class MotiBeamOS:
 
         # Subtitle
         subtitle_font = pygame.font.SysFont(None, 42)
-        subtitle = subtitle_font.render('Ambient Control', True, (180, 220, 200))
+        subtitle = subtitle_font.render('Calm Home Awareness', True, (180, 220, 200))
         self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 120))
 
         # Device configurations
@@ -1175,13 +1176,15 @@ class MotiBeamOS:
             pill_y = y + card_height - 40
 
             if device['type'] == 'toggle':
-                # ON/OFF status pill
+                # Status pill - use OPEN/CLOSED for door/garage, ON/OFF for others
+                is_door_or_garage = device['id'] in ['door', 'garage']
+
                 if state:
-                    pill_text = 'ON'
+                    pill_text = 'OPEN' if is_door_or_garage else 'ON'
                     pill_bg = (50, 180, 80)
                     pill_fg = (255, 255, 255)
                 else:
-                    pill_text = 'OFF'
+                    pill_text = 'CLOSED' if is_door_or_garage else 'OFF'
                     pill_bg = (60, 70, 85)
                     pill_fg = (160, 170, 180)
 
@@ -1199,7 +1202,29 @@ class MotiBeamOS:
                 # Large temperature
                 temp_font = pygame.font.SysFont(None, 64, bold=True)
                 temp_surf = temp_font.render(f"{state}°F", True, (100, 200, 255))
-                self.screen.blit(temp_surf, (x + card_width // 2 - temp_surf.get_width() // 2, y + 145))
+                temp_x = x + card_width // 2 - temp_surf.get_width() // 2
+                temp_y = y + 145
+                self.screen.blit(temp_surf, (temp_x, temp_y))
+
+                # Micro-feedback: brief pulse when temp changes
+                import time
+                temp_changed_time = self.realm_data['home_realm']['temp_changed_time']
+                time_since_change = time.time() - temp_changed_time
+                pulse_duration = 0.6  # 600ms pulse
+
+                if time_since_change < pulse_duration:
+                    # Fade out glow over pulse duration
+                    fade_progress = time_since_change / pulse_duration
+                    alpha = int(120 * (1 - fade_progress))  # Fade from 120 to 0
+
+                    # Draw subtle glow around temperature
+                    glow_rect = pygame.Rect(temp_x - 10, temp_y - 5, temp_surf.get_width() + 20, temp_surf.get_height() + 10)
+                    glow_surface = pygame.Surface((glow_rect.width, glow_rect.height), pygame.SRCALPHA)
+                    glow_surface.fill((100, 200, 255, alpha))
+                    self.screen.blit(glow_surface, (glow_rect.x, glow_rect.y))
+
+                    # Re-draw temperature on top of glow
+                    self.screen.blit(temp_surf, (temp_x, temp_y))
 
                 # Mode pill
                 mode_text = 'AUTO'
@@ -1240,8 +1265,12 @@ class MotiBeamOS:
         if key == pygame.K_LEFT:
             if is_thermostat_selected:
                 # Decrease temperature
+                import time
                 current_temp = devices_state['temp']
-                devices_state['temp'] = max(60, current_temp - 1)
+                new_temp = max(60, current_temp - 1)
+                if new_temp != current_temp:  # Only update if temp actually changed
+                    devices_state['temp'] = new_temp
+                    self.realm_data['home_realm']['temp_changed_time'] = time.time()
                 print(f"[HOME] Thermostat adjusted to {devices_state['temp']}°F")
             elif selected % 3 > 0:
                 # Navigate left
@@ -1250,8 +1279,12 @@ class MotiBeamOS:
         elif key == pygame.K_RIGHT:
             if is_thermostat_selected:
                 # Increase temperature
+                import time
                 current_temp = devices_state['temp']
-                devices_state['temp'] = min(85, current_temp + 1)
+                new_temp = min(85, current_temp + 1)
+                if new_temp != current_temp:  # Only update if temp actually changed
+                    devices_state['temp'] = new_temp
+                    self.realm_data['home_realm']['temp_changed_time'] = time.time()
                 print(f"[HOME] Thermostat adjusted to {devices_state['temp']}°F")
             elif selected % 3 < 2 and selected < 5:
                 # Navigate right
