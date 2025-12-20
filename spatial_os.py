@@ -13,6 +13,7 @@ MotiBeam Spatial OS - Clean Pygame Launcher (Framebuffer-Friendly)
 
 import os
 import sys
+import time
 import pygame
 import requests
 import json
@@ -237,7 +238,10 @@ class MotiBeamOS:
             },
             'productivity': {
                 'selected': 0,
-                'panel_open': False
+                'panel_open': False,
+                'active_module': None,      # None or 0-5 (which module is active)
+                'timer_start': 0.0,         # For Pomodoro timer
+                'timer_seconds': 25 * 60    # Default 25 minutes
             },
             'transport': {'selected': 0}
         }
@@ -2073,19 +2077,25 @@ class MotiBeamOS:
     # ==================== PRODUCTIVITY REALM ====================
 
     def render_productivity(self):
-        """Productivity - Licensing-first ambient workflow demo"""
+        """Productivity v1.2 - Licensing-first demo with overlays"""
         data = self.realm_data['productivity']
         selected = data['selected']
         panel_open = data['panel_open']
+        active_module = data['active_module']
+
+        # If a module is active, show its overlay instead of grid
+        if active_module is not None:
+            self._render_productivity_overlay(active_module)
+            return
 
         # Workflow tile definitions (licensing-first, ambient)
         tiles = [
-            {'emoji': '⏱️', 'name': 'Focus Sprint', 'desc': 'Pomodoro timer', 'status': 'READY'},
-            {'emoji': '✅', 'name': 'Task Board', 'desc': 'Top priorities', 'status': 'READY'},
-            {'emoji': '📋', 'name': 'Meeting Mode', 'desc': 'Agenda & presence', 'status': 'READY'},
-            {'emoji': '📅', 'name': 'Daily Brief', 'desc': 'Schedule & key signals', 'status': 'READY'},
-            {'emoji': '📊', 'name': 'Ops Dashboard', 'desc': 'Operational awareness', 'status': 'READY'},
-            {'emoji': '🎵', 'name': 'Deep Work Audio', 'desc': 'Focus soundscapes', 'status': 'READY'}
+            {'emoji': '⏱️', 'name': 'Focus Sprint', 'desc': 'Pomodoro timer'},
+            {'emoji': '✅', 'name': 'Task Board', 'desc': 'Top priorities'},
+            {'emoji': '📋', 'name': 'Meeting Mode', 'desc': 'Agenda & presence'},
+            {'emoji': '📅', 'name': 'Daily Brief', 'desc': 'Schedule & key signals'},
+            {'emoji': '📊', 'name': 'Ops Dashboard', 'desc': 'Operational awareness'},
+            {'emoji': '🎵', 'name': 'Deep Work Audio', 'desc': 'Focus soundscapes'}
         ]
 
         # Header
@@ -2153,10 +2163,15 @@ class MotiBeamOS:
             desc_x = x + card_width // 2 - desc_surf.get_width() // 2
             self.screen.blit(desc_surf, (desc_x, y + 150))
 
-            # Status pill (READY)
-            status = tile['status']
-            pill_bg = (60, 100, 160)
-            pill_fg = (200, 220, 255)
+            # Status pill (READY / ACTIVE)
+            if active_module == i:
+                status = 'ACTIVE'
+                pill_bg = (50, 180, 80)
+                pill_fg = (255, 255, 255)
+            else:
+                status = 'READY'
+                pill_bg = (60, 100, 160)
+                pill_fg = (200, 220, 255)
 
             pill_font = pygame.font.SysFont(None, 28, bold=True)
             pill_surf = pill_font.render(status, True, pill_fg)
@@ -2182,11 +2197,11 @@ class MotiBeamOS:
         if panel_open:
             help_text = help_font.render('ENTER: Close  •  ESC: Home', True, (150, 160, 180))
         else:
-            help_text = help_font.render('← → ↑ ↓: Navigate  •  ENTER: Preview  •  ESC: Home', True, (150, 160, 180))
+            help_text = help_font.render('S: Start  •  ENTER: Preview  •  Arrows: Navigate  •  ESC: Home', True, (150, 160, 180))
         self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 755))
 
     def _render_productivity_panel(self, tile):
-        """Render preview panel for selected workflow tile"""
+        """Render preview panel - Ambient Workflow Layer (licensing-first)"""
         # Right-side panel
         panel_x = 1040
         panel_width = 820
@@ -2198,90 +2213,234 @@ class MotiBeamOS:
         pygame.draw.rect(self.screen, (25, 35, 45), panel_rect, border_radius=12)
         pygame.draw.rect(self.screen, (100, 150, 255), panel_rect, width=3, border_radius=12)
 
-        # Tile title
+        # Main title: "Ambient Workflow Layer"
         title_font = pygame.font.SysFont(None, 56, bold=True)
-        title_text = f"{tile['emoji']} {tile['name']}"
-        title_surf = title_font.render(title_text, True, (100, 150, 255))
+        title_surf = title_font.render('Ambient Workflow Layer', True, (100, 150, 255))
         self.screen.blit(title_surf, (panel_x + 30, panel_y + 30))
 
-        # "What this supports" section
-        section_y = panel_y + 110
+        # Section 1: "What it enables"
+        section_y = panel_y + 100
         section_font = pygame.font.SysFont(None, 38, bold=True)
-        section_surf = section_font.render('What this supports:', True, (200, 210, 220))
+        section_surf = section_font.render('What it enables:', True, (200, 210, 220))
         self.screen.blit(section_surf, (panel_x + 30, section_y))
 
-        # Content
-        content_y = section_y + 50
-        content_font = pygame.font.SysFont(None, 32)
-        line_height = 45
+        content_y = section_y + 45
+        content_font = pygame.font.SysFont(None, 30)
+        line_height = 40
 
-        # Tile-specific content
-        support_content = {
-            'Focus Sprint': [
-                '• Keeps work intervals visible',
-                '• Shows break timing',
-                '• Supports sustained focus',
-                '• Helps maintain work rhythm'
-            ],
-            'Task Board': [
-                '• Shows top priorities always',
-                '• Keeps key work visible',
-                '• Supports daily planning',
-                '• Helps stay on track'
-            ],
-            'Meeting Mode': [
-                '• Shows agenda and presence',
-                '• Keeps meeting structure visible',
-                '• Supports time awareness',
-                '• Helps stay on topic'
-            ],
-            'Daily Brief': [
-                '• Shows schedule at a glance',
-                '• Keeps key signals visible',
-                '• Supports day planning',
-                '• Helps anticipate needs'
-            ],
-            'Ops Dashboard': [
-                '• Shows operational state',
-                '• Keeps status visible',
-                '• Supports situational awareness',
-                '• Helps teams stay aligned'
-            ],
-            'Deep Work Audio': [
-                '• Provides focus soundscapes',
-                '• Supports concentration',
-                '• Keeps ambient sound consistent',
-                '• Helps reduce distractions'
-            ]
-        }
+        enables_lines = [
+            '• Always-visible workflow context',
+            '• Ambient awareness of priorities',
+            '• Gentle timing and pacing cues',
+            '• Non-intrusive status display'
+        ]
 
-        support_lines = support_content.get(tile['name'], ['• General workflow support'])
-        for i, line in enumerate(support_lines):
+        for i, line in enumerate(enables_lines):
             line_surf = content_font.render(line, True, (180, 190, 200))
             self.screen.blit(line_surf, (panel_x + 50, content_y + i * line_height))
 
-        # "Example environments" section
-        examples_y = content_y + len(support_lines) * line_height + 60
-        examples_title_surf = section_font.render('Example environments:', True, (200, 210, 220))
-        self.screen.blit(examples_title_surf, (panel_x + 30, examples_y))
+        # Section 2: "OEM / Partner hooks"
+        hooks_y = content_y + len(enables_lines) * line_height + 50
+        hooks_title_surf = section_font.render('OEM / Partner hooks:', True, (200, 210, 220))
+        self.screen.blit(hooks_title_surf, (panel_x + 30, hooks_y))
 
-        # Example environments (same for all)
-        examples_y_content = examples_y + 50
-        environment_lines = [
-            '• Offices',
-            '• Home offices',
-            '• Shared workspaces',
-            '• Command centers'
+        hooks_content_y = hooks_y + 45
+        hooks_lines = [
+            '• Calendar sync (Outlook, Google)',
+            '• Teams / Slack status integration',
+            '• MDM & kiosk mode support',
+            '• Smart office sensors (occupancy, sound)',
+            '• White-label customization'
         ]
 
-        for i, line in enumerate(environment_lines):
+        for i, line in enumerate(hooks_lines):
             line_surf = content_font.render(line, True, (160, 180, 200))
-            self.screen.blit(line_surf, (panel_x + 50, examples_y_content + i * line_height))
+            self.screen.blit(line_surf, (panel_x + 50, hooks_content_y + i * line_height))
+
+        # Section 3: "Demo script (10 seconds)"
+        demo_y = hooks_content_y + len(hooks_lines) * line_height + 50
+        demo_title_surf = section_font.render('Demo script (10 seconds):', True, (200, 210, 220))
+        self.screen.blit(demo_title_surf, (panel_x + 30, demo_y))
+
+        demo_content_y = demo_y + 45
+        demo_font = pygame.font.SysFont(None, 28, italic=True)
+        demo_text = '"This is the ambient workflow layer—always visible, never intrusive. Great for smart offices, enterprise rollout, and device partners."'
+
+        # Word wrap the demo script
+        words = demo_text.split()
+        lines = []
+        current_line = []
+        max_width = panel_width - 100
+
+        for word in words:
+            test_line = ' '.join(current_line + [word])
+            test_surf = demo_font.render(test_line, True, (150, 170, 190))
+            if test_surf.get_width() <= max_width:
+                current_line.append(word)
+            else:
+                if current_line:
+                    lines.append(' '.join(current_line))
+                current_line = [word]
+        if current_line:
+            lines.append(' '.join(current_line))
+
+        for i, line in enumerate(lines):
+            line_surf = demo_font.render(line, True, (150, 170, 190))
+            self.screen.blit(line_surf, (panel_x + 50, demo_content_y + i * 35))
+
+    def _render_productivity_overlay(self, active_module):
+        """Render full-screen overlay for active productivity module"""
+        data = self.realm_data['productivity']
+
+        # Fill screen with dark background
+        self.screen.fill((15, 20, 25))
+
+        if active_module == 0:
+            # Focus Sprint (Pomodoro timer)
+            # Calculate elapsed time
+            elapsed = time.time() - data['timer_start']
+            remaining = max(0, data['timer_seconds'] - int(elapsed))
+            minutes = remaining // 60
+            seconds = remaining % 60
+
+            # Big timer display
+            timer_font = pygame.font.SysFont(None, 240, bold=True)
+            timer_text = f"{minutes:02d}:{seconds:02d}"
+            timer_surf = timer_font.render(timer_text, True, (100, 200, 255))
+            timer_x = self.width // 2 - timer_surf.get_width() // 2
+            timer_y = self.height // 2 - timer_surf.get_height() // 2 - 60
+            self.screen.blit(timer_surf, (timer_x, timer_y))
+
+            # Subtitle
+            subtitle_font = pygame.font.SysFont(None, 56)
+            subtitle = subtitle_font.render('Deep focus mode', True, (150, 180, 220))
+            subtitle_x = self.width // 2 - subtitle.get_width() // 2
+            self.screen.blit(subtitle, (subtitle_x, timer_y + 250))
+
+            # Controls hint
+            hint_font = pygame.font.SysFont(None, 36)
+            hint = hint_font.render('S: Pause/Resume  •  R: Reset  •  ESC: Back', True, (120, 140, 160))
+            hint_x = self.width // 2 - hint.get_width() // 2
+            self.screen.blit(hint, (hint_x, self.height - 100))
+
+        elif active_module == 2:
+            # Meeting Mode
+            # Big header
+            header_font = pygame.font.SysFont(None, 140, bold=True)
+            header = header_font.render('📋 Meeting Mode', True, (100, 200, 255))
+            header_x = self.width // 2 - header.get_width() // 2
+            self.screen.blit(header, (header_x, 120))
+
+            # Agenda bullets
+            agenda_y = 320
+            bullet_font = pygame.font.SysFont(None, 64, bold=True)
+            line_height = 100
+
+            agenda_items = [
+                '1. Project status update (5 min)',
+                '2. Q2 planning discussion (15 min)',
+                '3. Decision: Resource allocation'
+            ]
+
+            for i, item in enumerate(agenda_items):
+                bullet_surf = bullet_font.render(item, True, (200, 220, 240))
+                bullet_x = self.width // 2 - bullet_surf.get_width() // 2
+                self.screen.blit(bullet_surf, (bullet_x, agenda_y + i * line_height))
+
+            # Auto-silence line
+            silence_font = pygame.font.SysFont(None, 48)
+            silence = silence_font.render('🔕 Auto-silence notifications', True, (150, 180, 220))
+            silence_x = self.width // 2 - silence.get_width() // 2
+            self.screen.blit(silence, (silence_x, agenda_y + len(agenda_items) * line_height + 80))
+
+            # Controls hint
+            hint_font = pygame.font.SysFont(None, 36)
+            hint = hint_font.render('S: Stop  •  ESC: Back', True, (120, 140, 160))
+            hint_x = self.width // 2 - hint.get_width() // 2
+            self.screen.blit(hint, (hint_x, self.height - 100))
+
+        elif active_module == 3:
+            # Daily Brief
+            # "Today" header
+            header_font = pygame.font.SysFont(None, 120, bold=True)
+            header = header_font.render('📅 Today', True, (100, 200, 255))
+            header_x = self.width // 2 - header.get_width() // 2
+            self.screen.blit(header, (header_x, 120))
+
+            # Brief items
+            brief_y = 300
+            item_font = pygame.font.SysFont(None, 60, bold=True)
+            line_height = 90
+
+            brief_items = [
+                '• Team standup at 9:30 AM',
+                '• Focus block: Q2 planning (10:00-12:00)',
+                '• Client presentation at 2:00 PM'
+            ]
+
+            for i, item in enumerate(brief_items):
+                item_surf = item_font.render(item, True, (200, 220, 240))
+                item_x = self.width // 2 - item_surf.get_width() // 2
+                self.screen.blit(item_surf, (item_x, brief_y + i * line_height))
+
+            # Next up line
+            next_y = brief_y + len(brief_items) * line_height + 100
+            next_font = pygame.font.SysFont(None, 52)
+            next_surf = next_font.render('⏰ Next up in 18 min', True, (150, 220, 180))
+            next_x = self.width // 2 - next_surf.get_width() // 2
+            self.screen.blit(next_surf, (next_x, next_y))
+
+            # Controls hint
+            hint_font = pygame.font.SysFont(None, 36)
+            hint = hint_font.render('S: Stop  •  ESC: Back', True, (120, 140, 160))
+            hint_x = self.width // 2 - hint.get_width() // 2
+            self.screen.blit(hint, (hint_x, self.height - 100))
+
+        else:
+            # Generic overlay for other modules (Task Board, Ops Dashboard, Deep Work Audio)
+            module_names = ['Focus Sprint', 'Task Board', 'Meeting Mode', 'Daily Brief', 'Ops Dashboard', 'Deep Work Audio']
+            module_emojis = ['⏱️', '✅', '📋', '📅', '📊', '🎵']
+
+            # Big header
+            header_font = pygame.font.SysFont(None, 140, bold=True)
+            header_text = f"{module_emojis[active_module]} {module_names[active_module]}"
+            header = header_font.render(header_text, True, (100, 200, 255))
+            header_x = self.width // 2 - header.get_width() // 2
+            self.screen.blit(header, (header_x, self.height // 2 - 100))
+
+            # Status line
+            status_font = pygame.font.SysFont(None, 56)
+            status = status_font.render('Active', True, (150, 220, 180))
+            status_x = self.width // 2 - status.get_width() // 2
+            self.screen.blit(status, (status_x, self.height // 2 + 50))
+
+            # Controls hint
+            hint_font = pygame.font.SysFont(None, 36)
+            hint = hint_font.render('S: Stop  •  ESC: Back', True, (120, 140, 160))
+            hint_x = self.width // 2 - hint.get_width() // 2
+            self.screen.blit(hint, (hint_x, self.height - 100))
 
     def handle_productivity_input(self, key):
         """Handle Productivity realm input (ambient, minimal interaction)"""
         data = self.realm_data['productivity']
         selected = data['selected']
+        active_module = data['active_module']
+
+        # If we're in overlay mode (module is active)
+        if active_module is not None:
+            if key == pygame.K_ESCAPE:
+                # Exit overlay, return to grid
+                data['active_module'] = None
+                data['panel_open'] = False
+            elif key == pygame.K_s:
+                # S key: stop the active module
+                data['active_module'] = None
+                data['panel_open'] = False
+            elif key == pygame.K_r and active_module == 0:
+                # R key: reset timer (Focus Sprint only)
+                data['timer_start'] = time.time()
+                data['timer_seconds'] = 25 * 60
+            return
 
         # Grid navigation (2x3 grid, 3 columns)
         if key == pygame.K_LEFT:
@@ -2299,6 +2458,34 @@ class MotiBeamOS:
         elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
             # Toggle preview panel
             data['panel_open'] = not data['panel_open']
+        elif key == pygame.K_s:
+            # S key: start the selected module
+            tile_names = ['Focus Sprint', 'Task Board', 'Meeting Mode', 'Daily Brief', 'Ops Dashboard', 'Deep Work Audio']
+            module_name = tile_names[selected]
+
+            # Start the module
+            data['active_module'] = selected
+            data['panel_open'] = False
+
+            # Initialize timer for Focus Sprint
+            if selected == 0:
+                data['timer_start'] = time.time()
+                data['timer_seconds'] = 25 * 60
+
+            # Push ticker message
+            ticker_messages = {
+                0: '⏱️ Focus Sprint started — Deep focus mode',
+                1: '✅ Task Board active — Top priorities visible',
+                2: '📋 Meeting Mode active — Agenda & presence',
+                3: '📅 Daily Brief active — Schedule & signals',
+                4: '📊 Ops Dashboard active — Status overview',
+                5: '🎵 Deep Work Audio active — Focus soundscape'
+            }
+            msg = ticker_messages.get(selected, f'{module_name} started')
+
+            # Add to ticker if not already present
+            if not self.ticker.startswith(msg):
+                self.ticker = msg + ' • ' + self.ticker
 
     # ==================== MAIN LOOP ====================
 
