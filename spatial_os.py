@@ -2073,19 +2073,19 @@ class MotiBeamOS:
     # ==================== PRODUCTIVITY REALM ====================
 
     def render_productivity(self):
-        """Productivity - Ambient focus & awareness (enterprise licensing demo)"""
+        """Productivity - Licensing-first ambient workflow demo"""
         data = self.realm_data['productivity']
         selected = data['selected']
         panel_open = data['panel_open']
 
-        # Focus mode definitions (ambient, non-interactive)
-        modes = [
-            {'emoji': '🧠', 'name': 'Focus Mode', 'desc': 'Distraction-free visual cues', 'status': 'AVAILABLE'},
-            {'emoji': '⏱', 'name': 'Time Awareness', 'desc': 'Gentle time progression', 'status': 'AVAILABLE'},
-            {'emoji': '📊', 'name': 'Status Board', 'desc': 'Shared awareness for teams', 'status': 'PREVIEW'},
-            {'emoji': '🔕', 'name': 'Do Not Disturb', 'desc': 'Visual boundary setting', 'status': 'AVAILABLE'},
-            {'emoji': '📅', 'name': 'Schedule View', 'desc': 'What matters now', 'status': 'AVAILABLE'},
-            {'emoji': '🏢', 'name': 'Workspace Mode', 'desc': 'Office & enterprise', 'status': 'PREVIEW'}
+        # Workflow tile definitions (licensing-first, ambient)
+        tiles = [
+            {'emoji': '⏱️', 'name': 'Focus Sprint', 'desc': 'Pomodoro timer', 'status': 'READY'},
+            {'emoji': '✅', 'name': 'Task Board', 'desc': 'Top priorities', 'status': 'READY'},
+            {'emoji': '📋', 'name': 'Meeting Mode', 'desc': 'Agenda & presence', 'status': 'READY'},
+            {'emoji': '📅', 'name': 'Daily Brief', 'desc': 'Schedule & key signals', 'status': 'READY'},
+            {'emoji': '📊', 'name': 'Ops Dashboard', 'desc': 'Operational awareness', 'status': 'READY'},
+            {'emoji': '🎵', 'name': 'Deep Work Audio', 'desc': 'Focus soundscapes', 'status': 'READY'}
         ]
 
         # Header
@@ -2094,7 +2094,7 @@ class MotiBeamOS:
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 45))
 
         subtitle_font = pygame.font.SysFont(None, 42)
-        subtitle = subtitle_font.render('Focus & Awareness', True, (150, 180, 220))
+        subtitle = subtitle_font.render('Focus & workflow', True, (150, 180, 220))
         self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 110))
 
         # 2×3 grid layout
@@ -2109,7 +2109,7 @@ class MotiBeamOS:
         grid_start_x = (self.width - grid_width) // 2
         grid_start_y = 180
 
-        for i, mode in enumerate(modes):
+        for i, tile in enumerate(tiles):
             row = i // grid_cols
             col = i % grid_cols
             x = grid_start_x + col * (card_width + gap_x)
@@ -2118,7 +2118,7 @@ class MotiBeamOS:
             # Determine if selected
             is_selected = (i == selected)
 
-            # Card background - dim unselected
+            # Card background - dim unselected to 70%
             if is_selected:
                 card_color = (30, 40, 50)
             else:
@@ -2127,7 +2127,7 @@ class MotiBeamOS:
             card_rect = pygame.Rect(x, y, card_width, card_height)
             pygame.draw.rect(self.screen, card_color, card_rect, border_radius=12)
 
-            # Selection glow
+            # Selection glow (soft)
             if is_selected:
                 glow_rect = pygame.Rect(x - 4, y - 4, card_width + 8, card_height + 8)
                 pygame.draw.rect(self.screen, (100, 150, 255), glow_rect, width=3, border_radius=14)
@@ -2135,35 +2135,28 @@ class MotiBeamOS:
             # Emoji icon
             icon_font = load_emoji_font(72)
             icon_color = (255, 255, 255) if is_selected else (int(255 * 0.7), int(255 * 0.7), int(255 * 0.7))
-            icon = icon_font.render(mode['emoji'], True, icon_color)
+            icon = icon_font.render(tile['emoji'], True, icon_color)
             icon_x = x + card_width // 2 - icon.get_width() // 2
             self.screen.blit(icon, (icon_x, y + 20))
 
-            # Mode name
+            # Tile name
             name_font = pygame.font.SysFont(None, 48, bold=True)
             name_color = (255, 255, 255) if is_selected else (int(255 * 0.7), int(255 * 0.7), int(255 * 0.7))
-            name_surf = name_font.render(mode['name'], True, name_color)
+            name_surf = name_font.render(tile['name'], True, name_color)
             name_x = x + card_width // 2 - name_surf.get_width() // 2
             self.screen.blit(name_surf, (name_x, y + 110))
 
             # Description
             desc_font = pygame.font.SysFont(None, 26)
             desc_color = (180, 190, 200) if is_selected else (int(180 * 0.7), int(190 * 0.7), int(200 * 0.7))
-            desc_surf = desc_font.render(mode['desc'], True, desc_color)
+            desc_surf = desc_font.render(tile['desc'], True, desc_color)
             desc_x = x + card_width // 2 - desc_surf.get_width() // 2
             self.screen.blit(desc_surf, (desc_x, y + 150))
 
-            # Status pill
-            status = mode['status']
-            if status == 'AVAILABLE':
-                pill_bg = (60, 120, 100)
-                pill_fg = (200, 255, 220)
-            elif status == 'PREVIEW':
-                pill_bg = (100, 80, 140)
-                pill_fg = (220, 200, 255)
-            else:  # ACTIVE
-                pill_bg = (60, 140, 200)
-                pill_fg = (200, 240, 255)
+            # Status pill (READY)
+            status = tile['status']
+            pill_bg = (60, 100, 160)
+            pill_fg = (200, 220, 255)
 
             pill_font = pygame.font.SysFont(None, 28, bold=True)
             pill_surf = pill_font.render(status, True, pill_fg)
@@ -2177,11 +2170,11 @@ class MotiBeamOS:
 
         # Preview panel (if open)
         if panel_open:
-            self._render_productivity_panel(modes[selected])
+            self._render_productivity_panel(tiles[selected])
 
         # Compliance disclaimer
         disclaimer_font = pygame.font.SysFont(None, 24)
-        disclaimer_text = disclaimer_font.render('Designed to support focus and awareness. Not a monitoring or productivity enforcement system.', True, (120, 130, 140))
+        disclaimer_text = disclaimer_font.render('Designed for general productivity and workflow awareness. Not a monitoring or tracking system.', True, (120, 130, 140))
         self.screen.blit(disclaimer_text, (self.width // 2 - disclaimer_text.get_width() // 2, 720))
 
         # Help text
@@ -2192,8 +2185,8 @@ class MotiBeamOS:
             help_text = help_font.render('← → ↑ ↓: Navigate  •  ENTER: Preview  •  ESC: Home', True, (150, 160, 180))
         self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 755))
 
-    def _render_productivity_panel(self, mode):
-        """Render preview panel for selected focus mode"""
+    def _render_productivity_panel(self, tile):
+        """Render preview panel for selected workflow tile"""
         # Right-side panel
         panel_x = 1040
         panel_width = 820
@@ -2205,9 +2198,9 @@ class MotiBeamOS:
         pygame.draw.rect(self.screen, (25, 35, 45), panel_rect, border_radius=12)
         pygame.draw.rect(self.screen, (100, 150, 255), panel_rect, width=3, border_radius=12)
 
-        # Mode title
+        # Tile title
         title_font = pygame.font.SysFont(None, 56, bold=True)
-        title_text = "Focus Mode"
+        title_text = f"{tile['emoji']} {tile['name']}"
         title_surf = title_font.render(title_text, True, (100, 150, 255))
         self.screen.blit(title_surf, (panel_x + 30, panel_y + 30))
 
@@ -2222,14 +2215,47 @@ class MotiBeamOS:
         content_font = pygame.font.SysFont(None, 32)
         line_height = 45
 
-        # Ambient, supportive content
-        support_lines = [
-            '• Reduced screen checking',
-            '• Shared situational awareness',
-            '• Calm, glanceable information',
-            '• Environmental focus cues'
-        ]
+        # Tile-specific content
+        support_content = {
+            'Focus Sprint': [
+                '• Keeps work intervals visible',
+                '• Shows break timing',
+                '• Supports sustained focus',
+                '• Helps maintain work rhythm'
+            ],
+            'Task Board': [
+                '• Shows top priorities always',
+                '• Keeps key work visible',
+                '• Supports daily planning',
+                '• Helps stay on track'
+            ],
+            'Meeting Mode': [
+                '• Shows agenda and presence',
+                '• Keeps meeting structure visible',
+                '• Supports time awareness',
+                '• Helps stay on topic'
+            ],
+            'Daily Brief': [
+                '• Shows schedule at a glance',
+                '• Keeps key signals visible',
+                '• Supports day planning',
+                '• Helps anticipate needs'
+            ],
+            'Ops Dashboard': [
+                '• Shows operational state',
+                '• Keeps status visible',
+                '• Supports situational awareness',
+                '• Helps teams stay aligned'
+            ],
+            'Deep Work Audio': [
+                '• Provides focus soundscapes',
+                '• Supports concentration',
+                '• Keeps ambient sound consistent',
+                '• Helps reduce distractions'
+            ]
+        }
 
+        support_lines = support_content.get(tile['name'], ['• General workflow support'])
         for i, line in enumerate(support_lines):
             line_surf = content_font.render(line, True, (180, 190, 200))
             self.screen.blit(line_surf, (panel_x + 50, content_y + i * line_height))
@@ -2239,26 +2265,18 @@ class MotiBeamOS:
         examples_title_surf = section_font.render('Example environments:', True, (200, 210, 220))
         self.screen.blit(examples_title_surf, (panel_x + 30, examples_y))
 
-        # Example environments
+        # Example environments (same for all)
         examples_y_content = examples_y + 50
         environment_lines = [
             '• Offices',
-            '• Home workspaces',
-            '• Control rooms',
-            '• Shared work floors'
+            '• Home offices',
+            '• Shared workspaces',
+            '• Command centers'
         ]
 
         for i, line in enumerate(environment_lines):
             line_surf = content_font.render(line, True, (160, 180, 200))
             self.screen.blit(line_surf, (panel_x + 50, examples_y_content + i * line_height))
-
-        # Footer disclaimer
-        footer_y = panel_y + panel_height - 60
-        footer_font = pygame.font.SysFont(None, 24)
-        footer_text = footer_font.render('Designed to support focus and awareness.', True, (120, 130, 140))
-        self.screen.blit(footer_text, (panel_x + 30, footer_y))
-        footer_text2 = footer_font.render('Not a monitoring or productivity enforcement system.', True, (120, 130, 140))
-        self.screen.blit(footer_text2, (panel_x + 30, footer_y + 30))
 
     def handle_productivity_input(self, key):
         """Handle Productivity realm input (ambient, minimal interaction)"""
