@@ -91,7 +91,7 @@ TEXT_SECONDARY = (170, 175, 190)
 
 REALMS = [
     {"name": "CircleBeam", "subtitle": "Family presence", "emoji": "👥"},
-    {"name": "Productivity", "subtitle": "Focus & workflow",      "emoji": "🎯"},
+    {"name": "Productivity", "subtitle": "Focus & Awareness",      "emoji": "🎯"},
     {"name": "LockboxBeam", "subtitle": "Secure vault",        "emoji": "🔐"},
     {"name": "Marketplace", "subtitle": "Wellness & goods",    "emoji": "🛒"},
     {"name": "Home",       "subtitle": "Smart home",           "emoji": "🏠"},
@@ -237,17 +237,7 @@ class MotiBeamOS:
             },
             'productivity': {
                 'selected': 0,
-                'panel_open': False,
-                'mode': None,              # None | 'pomodoro' | 'meeting' | 'tasks' | 'brief' | 'kpi' | 'music'
-                'timer_running': False,
-                'timer_start': 0.0,
-                'timer_seconds': 25*60,    # default Pomodoro
-                'timer_paused_at': 0,      # for pause/resume
-                'task_done': set(),        # demo completion
-                'kpi_variant': 0,          # allows cycling KPI screens
-                'audio_volume': 70,        # demo volume for Deep Work Audio
-                'meeting_start': 0.0,      # meeting timer
-                'last_ticker_msg': ''      # for de-duplication
+                'panel_open': False
             },
             'transport': {'selected': 0}
         }
@@ -2083,27 +2073,19 @@ class MotiBeamOS:
     # ==================== PRODUCTIVITY REALM ====================
 
     def render_productivity(self):
-        """Productivity v1.0 - Business/enterprise demo realm"""
-        import time
-
+        """Productivity - Ambient focus & awareness (enterprise licensing demo)"""
         data = self.realm_data['productivity']
         selected = data['selected']
         panel_open = data['panel_open']
-        mode = data['mode']
 
-        # If in a mode, render the mode overlay instead of grid
-        if mode:
-            self._render_productivity_mode(mode)
-            return
-
-        # Activity definitions
-        activities = [
-            {'emoji': '⏱️', 'name': 'Focus Sprint', 'desc': 'Pomodoro timer', 'mode': 'pomodoro'},
-            {'emoji': '✅', 'name': 'Task Board', 'desc': 'Top 3 priorities', 'mode': 'tasks'},
-            {'emoji': '📋', 'name': 'Meeting Mode', 'desc': 'Agenda + timer', 'mode': 'meeting'},
-            {'emoji': '📅', 'name': 'Daily Brief', 'desc': 'Schedule + priorities', 'mode': 'brief'},
-            {'emoji': '📊', 'name': 'KPI Wall', 'desc': 'Ops dashboard', 'mode': 'kpi'},
-            {'emoji': '🎵', 'name': 'Deep Work Audio', 'desc': 'Focus music', 'mode': 'music'}
+        # Focus mode definitions (ambient, non-interactive)
+        modes = [
+            {'emoji': '🧠', 'name': 'Focus Mode', 'desc': 'Distraction-free visual cues', 'status': 'AVAILABLE'},
+            {'emoji': '⏱', 'name': 'Time Awareness', 'desc': 'Gentle time progression', 'status': 'AVAILABLE'},
+            {'emoji': '📊', 'name': 'Status Board', 'desc': 'Shared awareness for teams', 'status': 'PREVIEW'},
+            {'emoji': '🔕', 'name': 'Do Not Disturb', 'desc': 'Visual boundary setting', 'status': 'AVAILABLE'},
+            {'emoji': '📅', 'name': 'Schedule View', 'desc': 'What matters now', 'status': 'AVAILABLE'},
+            {'emoji': '🏢', 'name': 'Workspace Mode', 'desc': 'Office & enterprise', 'status': 'PREVIEW'}
         ]
 
         # Header
@@ -2112,7 +2094,7 @@ class MotiBeamOS:
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 45))
 
         subtitle_font = pygame.font.SysFont(None, 42)
-        subtitle = subtitle_font.render('Focus & workflow', True, (150, 180, 220))
+        subtitle = subtitle_font.render('Focus & Awareness', True, (150, 180, 220))
         self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 110))
 
         # 2×3 grid layout
@@ -2127,7 +2109,7 @@ class MotiBeamOS:
         grid_start_x = (self.width - grid_width) // 2
         grid_start_y = 180
 
-        for i, activity in enumerate(activities):
+        for i, mode in enumerate(modes):
             row = i // grid_cols
             col = i % grid_cols
             x = grid_start_x + col * (card_width + gap_x)
@@ -2153,28 +2135,35 @@ class MotiBeamOS:
             # Emoji icon
             icon_font = load_emoji_font(72)
             icon_color = (255, 255, 255) if is_selected else (int(255 * 0.7), int(255 * 0.7), int(255 * 0.7))
-            icon = icon_font.render(activity['emoji'], True, icon_color)
+            icon = icon_font.render(mode['emoji'], True, icon_color)
             icon_x = x + card_width // 2 - icon.get_width() // 2
             self.screen.blit(icon, (icon_x, y + 20))
 
-            # Activity name
+            # Mode name
             name_font = pygame.font.SysFont(None, 48, bold=True)
             name_color = (255, 255, 255) if is_selected else (int(255 * 0.7), int(255 * 0.7), int(255 * 0.7))
-            name_surf = name_font.render(activity['name'], True, name_color)
+            name_surf = name_font.render(mode['name'], True, name_color)
             name_x = x + card_width // 2 - name_surf.get_width() // 2
             self.screen.blit(name_surf, (name_x, y + 110))
 
             # Description
             desc_font = pygame.font.SysFont(None, 26)
             desc_color = (180, 190, 200) if is_selected else (int(180 * 0.7), int(190 * 0.7), int(200 * 0.7))
-            desc_surf = desc_font.render(activity['desc'], True, desc_color)
+            desc_surf = desc_font.render(mode['desc'], True, desc_color)
             desc_x = x + card_width // 2 - desc_surf.get_width() // 2
             self.screen.blit(desc_surf, (desc_x, y + 150))
 
-            # Status pill - READY or ACTIVE
-            status = 'READY'
-            pill_bg = (60, 100, 160)
-            pill_fg = (200, 220, 255)
+            # Status pill
+            status = mode['status']
+            if status == 'AVAILABLE':
+                pill_bg = (60, 120, 100)
+                pill_fg = (200, 255, 220)
+            elif status == 'PREVIEW':
+                pill_bg = (100, 80, 140)
+                pill_fg = (220, 200, 255)
+            else:  # ACTIVE
+                pill_bg = (60, 140, 200)
+                pill_fg = (200, 240, 255)
 
             pill_font = pygame.font.SysFont(None, 28, bold=True)
             pill_surf = pill_font.render(status, True, pill_fg)
@@ -2188,18 +2177,23 @@ class MotiBeamOS:
 
         # Preview panel (if open)
         if panel_open:
-            self._render_productivity_panel(activities[selected])
+            self._render_productivity_panel(modes[selected])
+
+        # Compliance disclaimer
+        disclaimer_font = pygame.font.SysFont(None, 24)
+        disclaimer_text = disclaimer_font.render('Designed to support focus and awareness. Not a monitoring or productivity enforcement system.', True, (120, 130, 140))
+        self.screen.blit(disclaimer_text, (self.width // 2 - disclaimer_text.get_width() // 2, 720))
 
         # Help text
         help_font = pygame.font.SysFont(None, 28)
         if panel_open:
-            help_text = help_font.render('ENTER: Close  •  S: Start  •  ESC: Home', True, (150, 160, 180))
+            help_text = help_font.render('ENTER: Close  •  ESC: Home', True, (150, 160, 180))
         else:
-            help_text = help_font.render('← → ↑ ↓: Navigate  •  ENTER: Preview  •  S: Start  •  ESC: Home', True, (150, 160, 180))
+            help_text = help_font.render('← → ↑ ↓: Navigate  •  ENTER: Preview  •  ESC: Home', True, (150, 160, 180))
         self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 755))
 
-    def _render_productivity_panel(self, activity):
-        """Render preview panel for selected productivity activity"""
+    def _render_productivity_panel(self, mode):
+        """Render preview panel for selected focus mode"""
         # Right-side panel
         panel_x = 1040
         panel_width = 820
@@ -2211,9 +2205,9 @@ class MotiBeamOS:
         pygame.draw.rect(self.screen, (25, 35, 45), panel_rect, border_radius=12)
         pygame.draw.rect(self.screen, (100, 150, 255), panel_rect, width=3, border_radius=12)
 
-        # Activity title with emoji
+        # Mode title
         title_font = pygame.font.SysFont(None, 56, bold=True)
-        title_text = f"{activity['emoji']} {activity['name']}"
+        title_text = "Focus Mode"
         title_surf = title_font.render(title_text, True, (100, 150, 255))
         self.screen.blit(title_surf, (panel_x + 30, panel_y + 30))
 
@@ -2228,446 +2222,48 @@ class MotiBeamOS:
         content_font = pygame.font.SysFont(None, 32)
         line_height = 45
 
-        # Common content
-        common_lines = [
-            '• Hands-free focus timer',
-            '• Top priorities always visible',
-            '• Meeting agenda + notes',
-            '• Lightweight performance dashboard'
+        # Ambient, supportive content
+        support_lines = [
+            '• Reduced screen checking',
+            '• Shared situational awareness',
+            '• Calm, glanceable information',
+            '• Environmental focus cues'
         ]
 
-        for i, line in enumerate(common_lines):
+        for i, line in enumerate(support_lines):
             line_surf = content_font.render(line, True, (180, 190, 200))
             self.screen.blit(line_surf, (panel_x + 50, content_y + i * line_height))
 
-        # "Example uses" section
-        examples_y = content_y + len(common_lines) * line_height + 60
-        examples_title_surf = section_font.render('Example uses:', True, (200, 210, 220))
+        # "Example environments" section
+        examples_y = content_y + len(support_lines) * line_height + 60
+        examples_title_surf = section_font.render('Example environments:', True, (200, 210, 220))
         self.screen.blit(examples_title_surf, (panel_x + 30, examples_y))
 
-        # Example uses
+        # Example environments
         examples_y_content = examples_y + 50
-        example_lines = [
-            '• Workplace focus walls',
-            '• Operations displays',
-            '• Front desk / team room dashboards',
-            '• Executive briefings'
+        environment_lines = [
+            '• Offices',
+            '• Home workspaces',
+            '• Control rooms',
+            '• Shared work floors'
         ]
 
-        for i, line in enumerate(example_lines):
+        for i, line in enumerate(environment_lines):
             line_surf = content_font.render(line, True, (160, 180, 200))
             self.screen.blit(line_surf, (panel_x + 50, examples_y_content + i * line_height))
 
-        # Footer
+        # Footer disclaimer
         footer_y = panel_y + panel_height - 60
-        footer_font = pygame.font.SysFont(None, 26)
-        footer_text = footer_font.render('Designed for productivity and daily routines.', True, (120, 130, 140))
+        footer_font = pygame.font.SysFont(None, 24)
+        footer_text = footer_font.render('Designed to support focus and awareness.', True, (120, 130, 140))
         self.screen.blit(footer_text, (panel_x + 30, footer_y))
-
-    def _render_productivity_mode(self, mode):
-        """Render active productivity mode overlay"""
-        import time
-
-        data = self.realm_data['productivity']
-
-        if mode == 'pomodoro':
-            self._render_pomodoro_mode()
-        elif mode == 'tasks':
-            self._render_tasks_mode()
-        elif mode == 'meeting':
-            self._render_meeting_mode()
-        elif mode == 'brief':
-            self._render_brief_mode()
-        elif mode == 'kpi':
-            self._render_kpi_mode()
-        elif mode == 'music':
-            self._render_music_mode()
-
-    def _render_pomodoro_mode(self):
-        """Render Pomodoro Focus Sprint mode"""
-        import time
-
-        data = self.realm_data['productivity']
-
-        # Calculate time remaining
-        if data['timer_running']:
-            elapsed = time.time() - data['timer_start']
-            remaining = max(0, data['timer_seconds'] - int(elapsed))
-        else:
-            remaining = data['timer_seconds']
-
-        minutes = remaining // 60
-        seconds = remaining % 60
-
-        # Full overlay background
-        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        overlay.fill((15, 20, 30, 245))
-        self.screen.blit(overlay, (0, 0))
-
-        # Title
-        title_font = pygame.font.SysFont(None, 72, bold=True)
-        title = title_font.render('⏱️ FOCUS SPRINT', True, (100, 200, 255))
-        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 120))
-
-        # Big timer
-        timer_font = pygame.font.SysFont(None, 180, bold=True)
-        timer_text = f"{minutes:02d}:{seconds:02d}"
-        timer_surf = timer_font.render(timer_text, True, (255, 255, 255))
-        self.screen.blit(timer_surf, (self.width // 2 - timer_surf.get_width() // 2, 280))
-
-        # Status
-        status_font = pygame.font.SysFont(None, 42)
-        if data['timer_running']:
-            status_text = 'IN PROGRESS'
-            status_color = (100, 255, 150)
-        else:
-            status_text = 'PAUSED'
-            status_color = (255, 200, 100)
-
-        status_surf = status_font.render(status_text, True, status_color)
-        self.screen.blit(status_surf, (self.width // 2 - status_surf.get_width() // 2, 500))
-
-        # Next break info
-        info_font = pygame.font.SysFont(None, 36)
-        info_surf = info_font.render('Next: 5 min break', True, (180, 190, 200))
-        self.screen.blit(info_surf, (self.width // 2 - info_surf.get_width() // 2, 560))
-
-        # Controls
-        controls_font = pygame.font.SysFont(None, 32)
-        controls_text = 'P: Pause/Resume  •  R: Reset  •  ESC: Exit'
-        controls_surf = controls_font.render(controls_text, True, (150, 160, 180))
-        self.screen.blit(controls_surf, (self.width // 2 - controls_surf.get_width() // 2, 720))
-
-        # Check for completion
-        if data['timer_running'] and remaining == 0:
-            data['timer_running'] = False
-            # Add to ticker
-            msg = '→ Focus Sprint complete (25m) →'
-            if not self.ticker_text.startswith(msg):
-                self.ticker_text = msg + '   ' + self.ticker_text
-
-    def _render_tasks_mode(self):
-        """Render Task Board mode"""
-        data = self.realm_data['productivity']
-
-        # Full overlay background
-        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        overlay.fill((15, 20, 30, 245))
-        self.screen.blit(overlay, (0, 0))
-
-        # Title
-        title_font = pygame.font.SysFont(None, 72, bold=True)
-        title = title_font.render('✅ TASK BOARD', True, (100, 200, 255))
-        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 120))
-
-        # Tasks
-        tasks = [
-            {'id': 0, 'text': 'Review Q4 investor deck'},
-            {'id': 1, 'text': 'Finalize Kickstarter video script'},
-            {'id': 2, 'text': 'Test projection demo at 15ft'}
-        ]
-
-        task_y = 250
-        task_font = pygame.font.SysFont(None, 52)
-        checkbox_font = load_emoji_font(48)
-
-        for i, task in enumerate(tasks):
-            y = task_y + i * 100
-
-            # Checkbox
-            is_done = task['id'] in data['task_done']
-            checkbox = '✅' if is_done else '⬜'
-            checkbox_surf = checkbox_font.render(checkbox, True, (255, 255, 255))
-            self.screen.blit(checkbox_surf, (200, y))
-
-            # Task text
-            text_color = (120, 140, 160) if is_done else (255, 255, 255)
-            task_surf = task_font.render(task['text'], True, text_color)
-            self.screen.blit(task_surf, (280, y + 10))
-
-        # Progress
-        progress_y = 600
-        progress_font = pygame.font.SysFont(None, 42)
-        completed_count = len(data['task_done'])
-        progress_text = f'Progress: {completed_count}/3 complete'
-        progress_color = (100, 255, 150) if completed_count == 3 else (180, 190, 200)
-        progress_surf = progress_font.render(progress_text, True, progress_color)
-        self.screen.blit(progress_surf, (self.width // 2 - progress_surf.get_width() // 2, progress_y))
-
-        # Controls
-        controls_font = pygame.font.SysFont(None, 32)
-        controls_text = '↑↓: Select  •  ENTER: Toggle  •  ESC: Exit'
-        controls_surf = controls_font.render(controls_text, True, (150, 160, 180))
-        self.screen.blit(controls_surf, (self.width // 2 - controls_surf.get_width() // 2, 720))
-
-    def _render_meeting_mode(self):
-        """Render Meeting Mode"""
-        import time
-
-        data = self.realm_data['productivity']
-
-        # Full overlay background
-        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        overlay.fill((15, 20, 30, 245))
-        self.screen.blit(overlay, (0, 0))
-
-        # Title
-        title_font = pygame.font.SysFont(None, 72, bold=True)
-        title = title_font.render('📋 MEETING MODE', True, (100, 200, 255))
-        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 80))
-
-        # Timer (counts up)
-        if data['meeting_start'] > 0:
-            elapsed = int(time.time() - data['meeting_start'])
-        else:
-            elapsed = 0
-            data['meeting_start'] = time.time()
-
-        minutes = elapsed // 60
-        seconds = elapsed % 60
-        timer_font = pygame.font.SysFont(None, 64, bold=True)
-        timer_text = f"Duration: {minutes:02d}:{seconds:02d}"
-        timer_surf = timer_font.render(timer_text, True, (255, 200, 100))
-        self.screen.blit(timer_surf, (self.width // 2 - timer_surf.get_width() // 2, 180))
-
-        # Agenda
-        agenda_y = 280
-        agenda_title_font = pygame.font.SysFont(None, 48, bold=True)
-        agenda_title = agenda_title_font.render('Agenda:', True, (200, 210, 220))
-        self.screen.blit(agenda_title, (200, agenda_y))
-
-        agenda_items = [
-            '1. Kickstarter campaign status',
-            '2. Demo feedback from investors',
-            '3. Manufacturing timeline review'
-        ]
-
-        item_font = pygame.font.SysFont(None, 38)
-        for i, item in enumerate(agenda_items):
-            item_surf = item_font.render(item, True, (180, 190, 200))
-            self.screen.blit(item_surf, (220, agenda_y + 60 + i * 50))
-
-        # Notes
-        notes_y = 500
-        notes_title_font = pygame.font.SysFont(None, 48, bold=True)
-        notes_title = notes_title_font.render('Notes:', True, (200, 210, 220))
-        self.screen.blit(notes_title, (200, notes_y))
-
-        notes_lines = [
-            '• Campaign goes live Q2 2025',
-            '• Manufacturing lead time: 8-10 weeks'
-        ]
-
-        notes_font = pygame.font.SysFont(None, 36)
-        for i, note in enumerate(notes_lines):
-            note_surf = notes_font.render(note, True, (160, 180, 200))
-            self.screen.blit(note_surf, (220, notes_y + 60 + i * 45))
-
-        # Controls
-        controls_font = pygame.font.SysFont(None, 32)
-        controls_text = 'ESC: Exit (summary to ticker)'
-        controls_surf = controls_font.render(controls_text, True, (150, 160, 180))
-        self.screen.blit(controls_surf, (self.width // 2 - controls_surf.get_width() // 2, 720))
-
-    def _render_brief_mode(self):
-        """Render Daily Brief mode"""
-        # Full overlay background
-        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        overlay.fill((15, 20, 30, 245))
-        self.screen.blit(overlay, (0, 0))
-
-        # Title
-        title_font = pygame.font.SysFont(None, 72, bold=True)
-        title = title_font.render('📅 DAILY BRIEF', True, (100, 200, 255))
-        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 80))
-
-        # Today's date
-        import datetime
-        date_font = pygame.font.SysFont(None, 42)
-        date_str = datetime.datetime.now().strftime('%A, %B %d, %Y')
-        date_surf = date_font.render(date_str, True, (180, 190, 200))
-        self.screen.blit(date_surf, (self.width // 2 - date_surf.get_width() // 2, 170))
-
-        # Schedule
-        schedule_y = 250
-        schedule_title_font = pygame.font.SysFont(None, 48, bold=True)
-        schedule_title = schedule_title_font.render('Today:', True, (200, 210, 220))
-        self.screen.blit(schedule_title, (200, schedule_y))
-
-        schedule = [
-            {'time': '9:00 AM', 'event': 'Team standup'},
-            {'time': '11:00 AM', 'event': 'Investor call with Sequoia'},
-            {'time': '2:30 PM', 'event': 'Demo rehearsal'}
-        ]
-
-        event_font = pygame.font.SysFont(None, 38)
-        time_font = pygame.font.SysFont(None, 38, bold=True)
-        for i, item in enumerate(schedule):
-            y = schedule_y + 60 + i * 60
-            time_surf = time_font.render(item['time'], True, (100, 200, 255))
-            self.screen.blit(time_surf, (220, y))
-            event_surf = event_font.render(item['event'], True, (180, 190, 200))
-            self.screen.blit(event_surf, (380, y))
-
-        # Priorities
-        priorities_y = 520
-        priorities_title_font = pygame.font.SysFont(None, 48, bold=True)
-        priorities_title = priorities_title_font.render('Top Priority:', True, (100, 255, 150))
-        self.screen.blit(priorities_title, (200, priorities_y))
-
-        priority_font = pygame.font.SysFont(None, 42)
-        priority_text = 'Finalize Kickstarter video by EOD'
-        priority_surf = priority_font.render(priority_text, True, (255, 255, 255))
-        self.screen.blit(priority_surf, (220, priorities_y + 60))
-
-        # Avoid
-        avoid_y = 630
-        avoid_title_font = pygame.font.SysFont(None, 38)
-        avoid_title = avoid_title_font.render('One thing to avoid:', True, (255, 150, 100))
-        self.screen.blit(avoid_title, (200, avoid_y))
-
-        avoid_font = pygame.font.SysFont(None, 36)
-        avoid_text = 'Getting pulled into unscheduled meetings'
-        avoid_surf = avoid_font.render(avoid_text, True, (200, 180, 160))
-        self.screen.blit(avoid_surf, (220, avoid_y + 50))
-
-        # Controls
-        controls_font = pygame.font.SysFont(None, 32)
-        controls_text = 'ESC: Exit'
-        controls_surf = controls_font.render(controls_text, True, (150, 160, 180))
-        self.screen.blit(controls_surf, (self.width // 2 - controls_surf.get_width() // 2, 720))
-
-    def _render_kpi_mode(self):
-        """Render KPI Wall mode"""
-        data = self.realm_data['productivity']
-
-        # Full overlay background
-        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        overlay.fill((15, 20, 30, 245))
-        self.screen.blit(overlay, (0, 0))
-
-        # Title
-        title_font = pygame.font.SysFont(None, 72, bold=True)
-        title = title_font.render('📊 KPI WALL', True, (100, 200, 255))
-        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 80))
-
-        # Subtitle
-        subtitle_font = pygame.font.SysFont(None, 38)
-        subtitle = subtitle_font.render('Operations Dashboard', True, (180, 190, 200))
-        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 160))
-
-        # KPI tiles (2x2 grid)
-        variant = data['kpi_variant']
-
-        # Hardcoded demo KPIs with variants
-        kpis = [
-            {'name': 'On-time %', 'value': ['94%', '96%', '92%'][variant % 3], 'color': (100, 255, 150)},
-            {'name': 'Support Tickets', 'value': ['12', '8', '15'][variant % 3], 'color': (255, 200, 100)},
-            {'name': 'Sales (Today)', 'value': ['$47K', '$52K', '$39K'][variant % 3], 'color': (100, 200, 255)},
-            {'name': 'NPS Score', 'value': ['72', '75', '69'][variant % 3], 'color': (200, 150, 255)}
-        ]
-
-        kpi_start_x = 300
-        kpi_start_y = 260
-        kpi_width = 400
-        kpi_height = 180
-        kpi_gap_x = 60
-        kpi_gap_y = 40
-
-        for i, kpi in enumerate(kpis):
-            row = i // 2
-            col = i % 2
-            x = kpi_start_x + col * (kpi_width + kpi_gap_x)
-            y = kpi_start_y + row * (kpi_height + kpi_gap_y)
-
-            # KPI card
-            card_rect = pygame.Rect(x, y, kpi_width, kpi_height)
-            pygame.draw.rect(self.screen, (30, 40, 50), card_rect, border_radius=12)
-            pygame.draw.rect(self.screen, (80, 100, 130), card_rect, width=2, border_radius=12)
-
-            # KPI name
-            name_font = pygame.font.SysFont(None, 38)
-            name_surf = name_font.render(kpi['name'], True, (180, 190, 200))
-            self.screen.blit(name_surf, (x + 20, y + 20))
-
-            # KPI value
-            value_font = pygame.font.SysFont(None, 86, bold=True)
-            value_surf = value_font.render(kpi['value'], True, kpi['color'])
-            value_x = x + kpi_width // 2 - value_surf.get_width() // 2
-            self.screen.blit(value_surf, (value_x, y + 80))
-
-        # Controls
-        controls_font = pygame.font.SysFont(None, 32)
-        controls_text = 'C: Cycle variant  •  ESC: Exit'
-        controls_surf = controls_font.render(controls_text, True, (150, 160, 180))
-        self.screen.blit(controls_surf, (self.width // 2 - controls_surf.get_width() // 2, 720))
-
-    def _render_music_mode(self):
-        """Render Deep Work Audio mode"""
-        data = self.realm_data['productivity']
-
-        # Full overlay background
-        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        overlay.fill((15, 20, 30, 245))
-        self.screen.blit(overlay, (0, 0))
-
-        # Title
-        title_font = pygame.font.SysFont(None, 72, bold=True)
-        title = title_font.render('🎵 DEEP WORK AUDIO', True, (100, 200, 255))
-        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 120))
-
-        # Now Playing
-        playing_y = 280
-        playing_font = pygame.font.SysFont(None, 48)
-        playing_text = 'Now Playing:'
-        playing_surf = playing_font.render(playing_text, True, (180, 190, 200))
-        self.screen.blit(playing_surf, (self.width // 2 - playing_surf.get_width() // 2, playing_y))
-
-        # Track name
-        track_font = pygame.font.SysFont(None, 64, bold=True)
-        track_text = 'Focus Mix — Ambient Flow'
-        track_surf = track_font.render(track_text, True, (255, 255, 255))
-        self.screen.blit(track_surf, (self.width // 2 - track_surf.get_width() // 2, playing_y + 70))
-
-        # Volume
-        volume_y = 450
-        volume_font = pygame.font.SysFont(None, 52)
-        volume = data['audio_volume']
-        volume_text = f'Volume: {volume}%'
-        volume_surf = volume_font.render(volume_text, True, (100, 200, 255))
-        self.screen.blit(volume_surf, (self.width // 2 - volume_surf.get_width() // 2, volume_y))
-
-        # Volume bar
-        bar_y = volume_y + 80
-        bar_width = 600
-        bar_height = 30
-        bar_x = self.width // 2 - bar_width // 2
-
-        # Background bar
-        bar_rect = pygame.Rect(bar_x, bar_y, bar_width, bar_height)
-        pygame.draw.rect(self.screen, (40, 50, 60), bar_rect, border_radius=8)
-
-        # Filled portion
-        filled_width = int(bar_width * (volume / 100))
-        filled_rect = pygame.Rect(bar_x, bar_y, filled_width, bar_height)
-        pygame.draw.rect(self.screen, (100, 200, 255), filled_rect, border_radius=8)
-
-        # Controls
-        controls_font = pygame.font.SysFont(None, 32)
-        controls_text = '← →: Adjust volume  •  ESC: Exit'
-        controls_surf = controls_font.render(controls_text, True, (150, 160, 180))
-        self.screen.blit(controls_surf, (self.width // 2 - controls_surf.get_width() // 2, 720))
+        footer_text2 = footer_font.render('Not a monitoring or productivity enforcement system.', True, (120, 130, 140))
+        self.screen.blit(footer_text2, (panel_x + 30, footer_y + 30))
 
     def handle_productivity_input(self, key):
-        """Handle Productivity realm input"""
+        """Handle Productivity realm input (ambient, minimal interaction)"""
         data = self.realm_data['productivity']
         selected = data['selected']
-        mode = data['mode']
-
-        # If in a mode, handle mode-specific input
-        if mode:
-            self._handle_productivity_mode_input(key, mode)
-            return
 
         # Grid navigation (2x3 grid, 3 columns)
         if key == pygame.K_LEFT:
@@ -2685,87 +2281,6 @@ class MotiBeamOS:
         elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
             # Toggle preview panel
             data['panel_open'] = not data['panel_open']
-        elif key == pygame.K_s:
-            # Start selected mode
-            modes = ['pomodoro', 'tasks', 'meeting', 'brief', 'kpi', 'music']
-            data['mode'] = modes[selected]
-            data['panel_open'] = False
-
-            # Initialize mode-specific state
-            if data['mode'] == 'pomodoro':
-                import time
-                data['timer_running'] = True
-                data['timer_start'] = time.time()
-                data['timer_seconds'] = 25 * 60
-            elif data['mode'] == 'meeting':
-                import time
-                data['meeting_start'] = time.time()
-
-    def _handle_productivity_mode_input(self, key, mode):
-        """Handle input when in a specific productivity mode"""
-        import time
-
-        data = self.realm_data['productivity']
-
-        # ESC always exits mode
-        if key == pygame.K_ESCAPE:
-            # Add ticker message on exit for certain modes
-            if mode == 'meeting':
-                msg = '→ Meeting summary captured →'
-                if not self.ticker_text.startswith(msg):
-                    self.ticker_text = msg + '   ' + self.ticker_text
-
-            data['mode'] = None
-            data['meeting_start'] = 0.0
-            return
-
-        # Mode-specific controls
-        if mode == 'pomodoro':
-            if key == pygame.K_p:
-                # Pause/resume
-                data['timer_running'] = not data['timer_running']
-                if data['timer_running']:
-                    # Resume: adjust start time
-                    data['timer_start'] = time.time()
-            elif key == pygame.K_r:
-                # Reset
-                data['timer_seconds'] = 25 * 60
-                data['timer_running'] = False
-
-        elif mode == 'tasks':
-            # Task selection with up/down
-            if key == pygame.K_UP:
-                if data['selected'] > 0:
-                    data['selected'] -= 1
-            elif key == pygame.K_DOWN:
-                if data['selected'] < 2:
-                    data['selected'] += 1
-            elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
-                # Toggle task done
-                task_id = data['selected']
-                if task_id in data['task_done']:
-                    data['task_done'].remove(task_id)
-                else:
-                    data['task_done'].add(task_id)
-                    # Add ticker message
-                    tasks = ['Review Q4 investor deck', 'Finalize Kickstarter video script', 'Test projection demo at 15ft']
-                    msg = f'→ Task completed: {tasks[task_id]} →'
-                    if not self.ticker_text.startswith(msg):
-                        self.ticker_text = msg + '   ' + self.ticker_text
-
-        elif mode == 'kpi':
-            if key == pygame.K_c:
-                # Cycle KPI variant
-                data['kpi_variant'] = (data['kpi_variant'] + 1) % 3
-                msg = '→ KPI view updated →'
-                if not self.ticker_text.startswith(msg):
-                    self.ticker_text = msg + '   ' + self.ticker_text
-
-        elif mode == 'music':
-            if key == pygame.K_LEFT:
-                data['audio_volume'] = max(0, data['audio_volume'] - 10)
-            elif key == pygame.K_RIGHT:
-                data['audio_volume'] = min(100, data['audio_volume'] + 10)
 
     # ==================== MAIN LOOP ====================
 
