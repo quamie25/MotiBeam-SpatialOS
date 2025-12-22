@@ -2077,7 +2077,7 @@ class MotiBeamOS:
     # ==================== PRODUCTIVITY REALM ====================
 
     def render_productivity(self):
-        """Productivity v1.2 - Licensing-first demo with overlays"""
+        """Productivity - Projection-optimized ambient workflow layer"""
         data = self.realm_data['productivity']
         selected = data['selected']
         panel_open = data['panel_open']
@@ -2088,36 +2088,37 @@ class MotiBeamOS:
             self._render_productivity_overlay(active_module)
             return
 
-        # Workflow tile definitions (licensing-first, ambient)
+        # Workflow tile definitions (projection-first, enterprise)
         tiles = [
-            {'emoji': '⏱️', 'name': 'Focus Sprint', 'desc': 'Pomodoro timer'},
-            {'emoji': '✅', 'name': 'Task Board', 'desc': 'Top priorities'},
-            {'emoji': '📋', 'name': 'Meeting Mode', 'desc': 'Agenda & presence'},
-            {'emoji': '📅', 'name': 'Daily Brief', 'desc': 'Schedule & key signals'},
-            {'emoji': '📊', 'name': 'Ops Dashboard', 'desc': 'Operational awareness'},
-            {'emoji': '🎵', 'name': 'Deep Work Audio', 'desc': 'Focus soundscapes'}
+            {'emoji': '⏱️', 'name': 'Focus Sprint'},
+            {'emoji': '✅', 'name': 'Task Board'},
+            {'emoji': '📋', 'name': 'Meeting Mode'},
+            {'emoji': '📅', 'name': 'Daily Brief'},
+            {'emoji': '📊', 'name': 'Ops Dashboard'},
+            {'emoji': '🎵', 'name': 'Deep Work'}
         ]
 
-        # Header
-        title_font = pygame.font.SysFont(None, 90, bold=True)
+        # Header - 3x larger for projection
+        title_font = pygame.font.SysFont(None, 220, bold=True)
         title = title_font.render('🎯 PRODUCTIVITY', True, (100, 150, 255))
-        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 45))
+        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 30))
 
-        subtitle_font = pygame.font.SysFont(None, 42)
-        subtitle = subtitle_font.render('Focus & workflow', True, (150, 180, 220))
-        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 110))
+        # Subtitle - enterprise positioning
+        subtitle_font = pygame.font.SysFont(None, 48)
+        subtitle = subtitle_font.render('Ambient workflow layer for enterprise and workplace environments', True, (150, 180, 220))
+        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 200))
 
-        # 2×3 grid layout
+        # 2×3 grid layout - larger tiles, more spacing
         grid_cols = 3
         grid_rows = 2
-        card_width = 320
-        card_height = 220
-        gap_x = 30
-        gap_y = 30
+        card_width = 380
+        card_height = 240
+        gap_x = 50
+        gap_y = 40
 
         grid_width = grid_cols * card_width + (grid_cols - 1) * gap_x
         grid_start_x = (self.width - grid_width) // 2
-        grid_start_y = 180
+        grid_start_y = 280
 
         for i, tile in enumerate(tiles):
             row = i // grid_cols
@@ -2128,80 +2129,67 @@ class MotiBeamOS:
             # Determine if selected
             is_selected = (i == selected)
 
-            # Card background - dim unselected to 70%
+            # Card background - stronger contrast for projection
             if is_selected:
-                card_color = (30, 40, 50)
+                card_color = (35, 45, 60)
             else:
-                card_color = (int(30 * 0.7), int(40 * 0.7), int(50 * 0.7))
+                card_color = (int(35 * 0.5), int(45 * 0.5), int(60 * 0.5))
 
             card_rect = pygame.Rect(x, y, card_width, card_height)
-            pygame.draw.rect(self.screen, card_color, card_rect, border_radius=12)
+            pygame.draw.rect(self.screen, card_color, card_rect, border_radius=14)
 
-            # Selection glow (soft)
+            # Selection glow (brighter and thicker for projection)
             if is_selected:
-                glow_rect = pygame.Rect(x - 4, y - 4, card_width + 8, card_height + 8)
-                pygame.draw.rect(self.screen, (100, 150, 255), glow_rect, width=3, border_radius=14)
+                glow_rect = pygame.Rect(x - 6, y - 6, card_width + 12, card_height + 12)
+                pygame.draw.rect(self.screen, (120, 180, 255), glow_rect, width=5, border_radius=16)
 
-            # Emoji icon
-            icon_font = load_emoji_font(72)
-            icon_color = (255, 255, 255) if is_selected else (int(255 * 0.7), int(255 * 0.7), int(255 * 0.7))
+            # Show ACTIVE pill only when module is active
+            if active_module == i:
+                pill_bg = (50, 200, 100)
+                pill_fg = (255, 255, 255)
+                pill_font = pygame.font.SysFont(None, 38, bold=True)
+                pill_surf = pill_font.render('ACTIVE', True, pill_fg)
+                pill_width = pill_surf.get_width() + 30
+                pill_height = 40
+                pill_x = x + card_width - pill_width - 12
+                pill_y = y + 12
+                pill_rect = pygame.Rect(pill_x, pill_y, pill_width, pill_height)
+                pygame.draw.rect(self.screen, pill_bg, pill_rect, border_radius=10)
+                self.screen.blit(pill_surf, (pill_x + 15, pill_y + 8))
+
+            # Large emoji icon
+            icon_font = load_emoji_font(100)
+            icon_color = (255, 255, 255) if is_selected else (int(255 * 0.5), int(255 * 0.5), int(255 * 0.5))
             icon = icon_font.render(tile['emoji'], True, icon_color)
             icon_x = x + card_width // 2 - icon.get_width() // 2
-            self.screen.blit(icon, (icon_x, y + 20))
+            self.screen.blit(icon, (icon_x, y + 30))
 
-            # Tile name
-            name_font = pygame.font.SysFont(None, 48, bold=True)
-            name_color = (255, 255, 255) if is_selected else (int(255 * 0.7), int(255 * 0.7), int(255 * 0.7))
+            # Large tile name (projection-readable)
+            name_font = pygame.font.SysFont(None, 56, bold=True)
+            name_color = (255, 255, 255) if is_selected else (int(255 * 0.5), int(255 * 0.5), int(255 * 0.5))
             name_surf = name_font.render(tile['name'], True, name_color)
             name_x = x + card_width // 2 - name_surf.get_width() // 2
-            self.screen.blit(name_surf, (name_x, y + 110))
-
-            # Description
-            desc_font = pygame.font.SysFont(None, 26)
-            desc_color = (180, 190, 200) if is_selected else (int(180 * 0.7), int(190 * 0.7), int(200 * 0.7))
-            desc_surf = desc_font.render(tile['desc'], True, desc_color)
-            desc_x = x + card_width // 2 - desc_surf.get_width() // 2
-            self.screen.blit(desc_surf, (desc_x, y + 150))
-
-            # Status pill (READY / ACTIVE)
-            if active_module == i:
-                status = 'ACTIVE'
-                pill_bg = (50, 180, 80)
-                pill_fg = (255, 255, 255)
-            else:
-                status = 'READY'
-                pill_bg = (60, 100, 160)
-                pill_fg = (200, 220, 255)
-
-            pill_font = pygame.font.SysFont(None, 28, bold=True)
-            pill_surf = pill_font.render(status, True, pill_fg)
-            pill_width = pill_surf.get_width() + 20
-            pill_height = 30
-            pill_x = x + card_width // 2 - pill_width // 2
-            pill_y = y + 180
-            pill_rect = pygame.Rect(pill_x, pill_y, pill_width, pill_height)
-            pygame.draw.rect(self.screen, pill_bg, pill_rect, border_radius=8)
-            self.screen.blit(pill_surf, (pill_x + 10, pill_y + 5))
+            self.screen.blit(name_surf, (name_x, y + 160))
 
         # Preview panel (if open)
         if panel_open:
             self._render_productivity_panel(tiles[selected])
 
-        # Compliance disclaimer
-        disclaimer_font = pygame.font.SysFont(None, 24)
-        disclaimer_text = disclaimer_font.render('Designed for general productivity and workflow awareness. Not a monitoring or tracking system.', True, (120, 130, 140))
+        # Compliance disclaimer - larger for projection
+        disclaimer_font = pygame.font.SysFont(None, 32)
+        disclaimer_text = disclaimer_font.render('An ambient workflow layer for enterprise and workplace environments. Not a monitoring or tracking system.', True, (130, 145, 160))
         self.screen.blit(disclaimer_text, (self.width // 2 - disclaimer_text.get_width() // 2, 720))
 
-        # Help text
-        help_font = pygame.font.SysFont(None, 28)
+        # Help text - larger for projection
+        help_font = pygame.font.SysFont(None, 36)
         if panel_open:
-            help_text = help_font.render('ENTER: Close  •  ESC: Home', True, (150, 160, 180))
+            help_text = help_font.render('ENTER: Close  •  ESC: Home', True, (160, 170, 190))
         else:
-            help_text = help_font.render('S: Start  •  ENTER: Preview  •  Arrows: Navigate  •  ESC: Home', True, (150, 160, 180))
+            help_text = help_font.render('S: Start  •  ENTER: Preview  •  Arrows: Navigate  •  ESC: Home', True, (160, 170, 190))
         self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 755))
 
     def _render_productivity_panel(self, tile):
-        """Render preview panel - Ambient Workflow Layer (licensing-first)"""
+        """Render preview panel - Projection-optimized demo panel"""
         # Right-side panel
         panel_x = 1040
         panel_width = 820
@@ -2213,80 +2201,74 @@ class MotiBeamOS:
         pygame.draw.rect(self.screen, (25, 35, 45), panel_rect, border_radius=12)
         pygame.draw.rect(self.screen, (100, 150, 255), panel_rect, width=3, border_radius=12)
 
-        # Main title: "Ambient Workflow Layer"
-        title_font = pygame.font.SysFont(None, 56, bold=True)
-        title_surf = title_font.render('Ambient Workflow Layer', True, (100, 150, 255))
-        self.screen.blit(title_surf, (panel_x + 30, panel_y + 30))
+        # Module name - large and prominent
+        title_font = pygame.font.SysFont(None, 72, bold=True)
+        title_text = f"{tile['emoji']} {tile['name']}"
+        title_surf = title_font.render(title_text, True, (120, 180, 255))
+        self.screen.blit(title_surf, (panel_x + 40, panel_y + 40))
 
-        # Section 1: "What it enables"
-        section_y = panel_y + 100
-        section_font = pygame.font.SysFont(None, 38, bold=True)
-        section_surf = section_font.render('What it enables:', True, (200, 210, 220))
-        self.screen.blit(section_surf, (panel_x + 30, section_y))
+        # Key features - max 4 bullets, large text
+        features_y = panel_y + 160
+        feature_font = pygame.font.SysFont(None, 42)
+        line_height = 70
 
-        content_y = section_y + 45
-        content_font = pygame.font.SysFont(None, 30)
-        line_height = 40
+        # Tile-specific features (max 4)
+        features = {
+            'Focus Sprint': [
+                '• 25-minute focus intervals',
+                '• Visual timer always visible',
+                '• Break reminders',
+                '• Supports deep work sessions'
+            ],
+            'Task Board': [
+                '• Top 3 priorities displayed',
+                '• Always-visible context',
+                '• Reduces cognitive load',
+                '• Great for team spaces'
+            ],
+            'Meeting Mode': [
+                '• Agenda shown clearly',
+                '• Time-box awareness',
+                '• Status broadcast',
+                '• Conference room ready'
+            ],
+            'Daily Brief': [
+                '• Schedule at a glance',
+                '• Next meeting reminder',
+                '• Calendar integration',
+                '• Morning routine support'
+            ],
+            'Ops Dashboard': [
+                '• System status overview',
+                '• Team presence',
+                '• Operational awareness',
+                '• Command center display'
+            ],
+            'Deep Work': [
+                '• Focus soundscapes',
+                '• Ambient audio layer',
+                '• Concentration support',
+                '• Office environment ready'
+            ]
+        }
 
-        enables_lines = [
-            '• Always-visible workflow context',
-            '• Ambient awareness of priorities',
-            '• Gentle timing and pacing cues',
-            '• Non-intrusive status display'
+        feature_list = features.get(tile['name'], ['• Ambient workflow support'])
+        for i, feature in enumerate(feature_list):
+            feature_surf = feature_font.render(feature, True, (200, 215, 230))
+            self.screen.blit(feature_surf, (panel_x + 60, features_y + i * line_height))
+
+        # Demo line - simple, direct, licensing-focused
+        demo_y = features_y + len(feature_list) * line_height + 80
+        demo_font = pygame.font.SysFont(None, 36, italic=True)
+        demo_lines = [
+            'Perfect for enterprise deployments,',
+            'smart office installations, and',
+            'workplace environment displays.'
         ]
 
-        for i, line in enumerate(enables_lines):
-            line_surf = content_font.render(line, True, (180, 190, 200))
-            self.screen.blit(line_surf, (panel_x + 50, content_y + i * line_height))
-
-        # Section 2: "OEM / Partner hooks"
-        hooks_y = content_y + len(enables_lines) * line_height + 50
-        hooks_title_surf = section_font.render('OEM / Partner hooks:', True, (200, 210, 220))
-        self.screen.blit(hooks_title_surf, (panel_x + 30, hooks_y))
-
-        hooks_content_y = hooks_y + 45
-        hooks_lines = [
-            '• Calendar sync (Outlook, Google)',
-            '• Teams / Slack status integration',
-            '• MDM & kiosk mode support',
-            '• Smart office sensors (occupancy, sound)',
-            '• White-label customization'
-        ]
-
-        for i, line in enumerate(hooks_lines):
-            line_surf = content_font.render(line, True, (160, 180, 200))
-            self.screen.blit(line_surf, (panel_x + 50, hooks_content_y + i * line_height))
-
-        # Section 3: "Demo script (10 seconds)"
-        demo_y = hooks_content_y + len(hooks_lines) * line_height + 50
-        demo_title_surf = section_font.render('Demo script (10 seconds):', True, (200, 210, 220))
-        self.screen.blit(demo_title_surf, (panel_x + 30, demo_y))
-
-        demo_content_y = demo_y + 45
-        demo_font = pygame.font.SysFont(None, 28, italic=True)
-        demo_text = '"This is the ambient workflow layer—always visible, never intrusive. Great for smart offices, enterprise rollout, and device partners."'
-
-        # Word wrap the demo script
-        words = demo_text.split()
-        lines = []
-        current_line = []
-        max_width = panel_width - 100
-
-        for word in words:
-            test_line = ' '.join(current_line + [word])
-            test_surf = demo_font.render(test_line, True, (150, 170, 190))
-            if test_surf.get_width() <= max_width:
-                current_line.append(word)
-            else:
-                if current_line:
-                    lines.append(' '.join(current_line))
-                current_line = [word]
-        if current_line:
-            lines.append(' '.join(current_line))
-
-        for i, line in enumerate(lines):
-            line_surf = demo_font.render(line, True, (150, 170, 190))
-            self.screen.blit(line_surf, (panel_x + 50, demo_content_y + i * 35))
+        for i, line in enumerate(demo_lines):
+            line_surf = demo_font.render(line, True, (140, 160, 180))
+            self.screen.blit(line_surf, (panel_x + 60, demo_y + i * 45))
 
     def _render_productivity_overlay(self, active_module):
         """Render full-screen overlay for active productivity module"""
@@ -2397,8 +2379,8 @@ class MotiBeamOS:
             self.screen.blit(hint, (hint_x, self.height - 100))
 
         else:
-            # Generic overlay for other modules (Task Board, Ops Dashboard, Deep Work Audio)
-            module_names = ['Focus Sprint', 'Task Board', 'Meeting Mode', 'Daily Brief', 'Ops Dashboard', 'Deep Work Audio']
+            # Generic overlay for other modules (Task Board, Ops Dashboard, Deep Work)
+            module_names = ['Focus Sprint', 'Task Board', 'Meeting Mode', 'Daily Brief', 'Ops Dashboard', 'Deep Work']
             module_emojis = ['⏱️', '✅', '📋', '📅', '📊', '🎵']
 
             # Big header
@@ -2460,7 +2442,7 @@ class MotiBeamOS:
             data['panel_open'] = not data['panel_open']
         elif key == pygame.K_s:
             # S key: start the selected module
-            tile_names = ['Focus Sprint', 'Task Board', 'Meeting Mode', 'Daily Brief', 'Ops Dashboard', 'Deep Work Audio']
+            tile_names = ['Focus Sprint', 'Task Board', 'Meeting Mode', 'Daily Brief', 'Ops Dashboard', 'Deep Work']
             module_name = tile_names[selected]
 
             # Start the module
@@ -2479,7 +2461,7 @@ class MotiBeamOS:
                 2: '📋 Meeting Mode active — Agenda & presence',
                 3: '📅 Daily Brief active — Schedule & signals',
                 4: '📊 Ops Dashboard active — Status overview',
-                5: '🎵 Deep Work Audio active — Focus soundscape'
+                5: '🎵 Deep Work active — Focus soundscape'
             }
             msg = ticker_messages.get(selected, f'{module_name} started')
 
