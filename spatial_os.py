@@ -14,6 +14,7 @@ MotiBeam Spatial OS - Clean Pygame Launcher (Framebuffer-Friendly)
 import os
 import sys
 import pygame
+import time
 from datetime import datetime
 
 # ---------------------------
@@ -39,9 +40,9 @@ REALMS = [
     {"name": "LegacyBeam", "subtitle": "Memory & legacy",      "emoji": "📖"},
     {"name": "LockboxBeam", "subtitle": "Secure vault",        "emoji": "🔐"},
     {"name": "Marketplace", "subtitle": "Wellness & goods",    "emoji": "🛒"},
-    {"name": "Home",       "subtitle": "Smart home",           "emoji": "🏠"},
-    {"name": "Clinical",   "subtitle": "Health & wellness",    "emoji": "🏥"},
-    {"name": "Education",  "subtitle": "Learning hub",         "emoji": "📚"},
+    {"name": "Home",         "subtitle": "Smart home",           "emoji": "🏠"},
+    {"name": "Productivity", "subtitle": "Workflow layer",       "emoji": "⚡"},
+    {"name": "Education",    "subtitle": "Learning hub",         "emoji": "📚"},
     {"name": "Emergency",  "subtitle": "Crisis response",      "emoji": "🚨"},
     {"name": "Transport",  "subtitle": "Automotive HUD",       "emoji": "🚗"},
     {"name": "Security",   "subtitle": "Surveillance",         "emoji": "🛡️"},
@@ -137,6 +138,379 @@ def init_display(width, height):
 
     pygame.display.set_caption("MotiBeam Spatial OS")
     return screen
+
+
+# ---------------------------
+# Productivity Realm (Projection-Optimized)
+# ---------------------------
+
+class ProductivityRealm:
+    """Projection-readable Productivity realm with licensing-first content"""
+
+    # 2x3 grid of productivity modules
+    MODULES = [
+        {"name": "Focus Sprint",     "sublabel": "Pomodoro pacing",       "icon": "⏱️", "status": "READY"},
+        {"name": "Task Board",       "sublabel": "Top 3 priorities",      "icon": "✓",  "status": "READY"},
+        {"name": "Meeting Mode",     "sublabel": "Agenda + presence",     "icon": "👥", "status": "READY"},
+        {"name": "Daily Brief",      "sublabel": "Schedule + signals",    "icon": "📅", "status": "READY"},
+        {"name": "Ops Dashboard",    "sublabel": "Operational awareness", "icon": "📊", "status": "READY"},
+        {"name": "Deep Work Audio",  "sublabel": "Focus soundscapes",     "icon": "🎧", "status": "READY"},
+    ]
+
+    def __init__(self, screen, width, height):
+        self.screen = screen
+        self.width = width
+        self.height = height
+
+        # Projection-readable fonts (HUGE for 10-15 feet)
+        self.font_title = pygame.font.SysFont(None, 90)        # 84-96px: PRODUCTIVITY
+        self.font_subtitle = pygame.font.SysFont(None, 44)     # 40-48px: Ambient Workflow Layer
+        self.font_tile_name = pygame.font.SysFont(None, 58)    # 52-64px: Module names
+        self.font_tile_sublabel = pygame.font.SysFont(None, 38) # 34-42px: Module sublabels
+        self.font_tile_icon = pygame.font.SysFont(None, 76)    # Big module icons
+        self.font_panel_headline = pygame.font.SysFont(None, 64) # 56-72px: Panel headlines
+        self.font_panel_bullet = pygame.font.SysFont(None, 40)   # 38-44px: Panel bullets
+        self.font_controls = pygame.font.SysFont(None, 32)       # 30-36px: Footer controls
+        self.font_status_pill = pygame.font.SysFont(None, 30)    # Status pills
+        self.font_demo_timer = pygame.font.SysFont(None, 190)    # 160-220px: HUGE demo timer
+
+        # State
+        self.selected_module = 0
+        self.show_preview_panel = False
+        self.demo_mode = False
+        self.demo_timer = 30  # 30 second demo
+        self.demo_paused = False
+        self.demo_start_time = None
+        self.running = True
+
+    def handle_input(self):
+        """Handle keyboard input for Productivity realm"""
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                return "quit"
+
+            if event.type == pygame.KEYDOWN:
+                # ESC - exit demo or return to home
+                if event.key == pygame.K_ESCAPE:
+                    if self.demo_mode:
+                        self.demo_mode = False
+                        self.demo_paused = False
+                    else:
+                        return "home"
+
+                # Navigation (only when not in demo mode)
+                elif not self.demo_mode:
+                    if event.key == pygame.K_LEFT:
+                        if self.selected_module % 2 > 0:
+                            self.selected_module -= 1
+                    elif event.key == pygame.K_RIGHT:
+                        if self.selected_module % 2 < 1 and self.selected_module < 5:
+                            self.selected_module += 1
+                    elif event.key == pygame.K_UP:
+                        if self.selected_module >= 2:
+                            self.selected_module -= 2
+                    elif event.key == pygame.K_DOWN:
+                        if self.selected_module + 2 < 6:
+                            self.selected_module += 2
+
+                    # ENTER - toggle preview panel
+                    elif event.key == pygame.K_RETURN:
+                        self.show_preview_panel = not self.show_preview_panel
+
+                    # S - start demo mode
+                    elif event.key == pygame.K_s:
+                        self.demo_mode = True
+                        self.demo_start_time = time.time()
+                        self.demo_timer = 30
+                        self.demo_paused = False
+
+                # Demo mode controls
+                elif self.demo_mode:
+                    if event.key == pygame.K_SPACE:
+                        self.demo_paused = not self.demo_paused
+                        if not self.demo_paused:
+                            self.demo_start_time = time.time() - (30 - self.demo_timer)
+                    elif event.key == pygame.K_r:
+                        self.demo_timer = 30
+                        self.demo_start_time = time.time()
+                        self.demo_paused = False
+
+        return None
+
+    def update(self):
+        """Update demo timer"""
+        if self.demo_mode and not self.demo_paused and self.demo_start_time:
+            elapsed = time.time() - self.demo_start_time
+            self.demo_timer = max(0, 30 - int(elapsed))
+
+    def draw(self):
+        """Main draw function"""
+        self.screen.fill((10, 12, 20))  # Dark background
+
+        if self.demo_mode:
+            self.draw_demo_overlay()
+        else:
+            self.draw_main_view()
+
+        pygame.display.flip()
+
+    def draw_main_view(self):
+        """Draw main productivity view"""
+        # Title (HUGE for projection)
+        title_surf = self.font_title.render("PRODUCTIVITY", True, (245, 248, 255))
+        self.screen.blit(title_surf, (40, 30))
+
+        # Subtitle
+        subtitle_surf = self.font_subtitle.render("Ambient Workflow Layer", True, (170, 175, 190))
+        self.screen.blit(subtitle_surf, (40, 125))
+
+        # Calculate grid area
+        if self.show_preview_panel:
+            grid_width = int(self.width * 0.58)  # 58% for grid, 40% for panel
+        else:
+            grid_width = self.width - 80
+
+        grid_start_y = 190
+        grid_height = self.height - grid_start_y - 100
+
+        # Draw module grid
+        self.draw_module_grid(40, grid_start_y, grid_width, grid_height)
+
+        # Draw preview panel if active
+        if self.show_preview_panel:
+            panel_x = grid_width + 60
+            panel_width = self.width - panel_x - 40
+            self.draw_preview_panel(panel_x, grid_start_y, panel_width, grid_height)
+
+        # Controls footer
+        self.draw_controls_footer()
+
+    def draw_module_grid(self, x, y, width, height):
+        """Draw 2x3 grid of productivity modules"""
+        spacing = 20
+        tile_width = (width - spacing) // 2
+        tile_height = (height - spacing * 2) // 3
+
+        for idx, module in enumerate(self.MODULES):
+            row = idx // 2
+            col = idx % 2
+
+            tile_x = x + col * (tile_width + spacing)
+            tile_y = y + row * (tile_height + spacing)
+
+            self.draw_module_tile(module, tile_x, tile_y, tile_width, tile_height,
+                                 idx == self.selected_module)
+
+    def draw_module_tile(self, module, x, y, width, height, is_selected):
+        """Draw a single module tile with huge text"""
+        tile_rect = pygame.Rect(x, y, width, height)
+
+        # Background (dimmed if not selected)
+        if is_selected:
+            bg_color = (35, 40, 60)
+        else:
+            bg_color = (18, 21, 34)  # 70% dimmed
+
+        pygame.draw.rect(self.screen, bg_color, tile_rect, border_radius=18)
+
+        # Border with glow for selected
+        if is_selected:
+            # Thick yellow border
+            pygame.draw.rect(self.screen, (255, 200, 80), tile_rect,
+                           width=5, border_radius=18)
+            # Inner glow
+            glow_rect = pygame.Rect(x + 6, y + 6, width - 12, height - 12)
+            pygame.draw.rect(self.screen, (255, 200, 80), glow_rect,
+                           width=2, border_radius=15)
+        else:
+            pygame.draw.rect(self.screen, (80, 90, 140), tile_rect,
+                           width=2, border_radius=18)
+
+        # Content
+        content_y = y + 30
+
+        # Icon (centered, big)
+        icon_surf = self.font_tile_icon.render(module["icon"], True, (245, 248, 255))
+        icon_x = x + (width - icon_surf.get_width()) // 2
+        self.screen.blit(icon_surf, (icon_x, content_y))
+        content_y += icon_surf.get_height() + 20
+
+        # Module name (centered, HUGE)
+        name_surf = self.font_tile_name.render(module["name"], True, (245, 248, 255))
+        name_x = x + (width - name_surf.get_width()) // 2
+        self.screen.blit(name_surf, (name_x, content_y))
+        content_y += name_surf.get_height() + 12
+
+        # Sublabel (centered)
+        sublabel_surf = self.font_tile_sublabel.render(module["sublabel"], True, (170, 175, 190))
+        sublabel_x = x + (width - sublabel_surf.get_width()) // 2
+        self.screen.blit(sublabel_surf, (sublabel_x, content_y))
+        content_y += sublabel_surf.get_height() + 20
+
+        # Status pill
+        self.draw_status_pill(module["status"], x, content_y, width)
+
+    def draw_status_pill(self, status, x, y, tile_width):
+        """Draw status pill"""
+        pill_text = self.font_status_pill.render(status, True, (255, 255, 255))
+        pill_width = pill_text.get_width() + 30
+        pill_height = pill_text.get_height() + 12
+
+        pill_x = x + (tile_width - pill_width) // 2
+        pill_rect = pygame.Rect(pill_x, y, pill_width, pill_height)
+
+        pygame.draw.rect(self.screen, (60, 200, 100), pill_rect,
+                        border_radius=pill_height // 2)
+
+        text_x = pill_x + (pill_width - pill_text.get_width()) // 2
+        text_y = y + (pill_height - pill_text.get_height()) // 2
+        self.screen.blit(pill_text, (text_x, text_y))
+
+    def draw_preview_panel(self, x, y, width, height):
+        """Draw licensing/OEM preview panel with HUGE readable text"""
+        # Panel background
+        panel_rect = pygame.Rect(x, y, width, height)
+        pygame.draw.rect(self.screen, (20, 24, 38), panel_rect, border_radius=18)
+        pygame.draw.rect(self.screen, (80, 90, 140), panel_rect, width=2, border_radius=18)
+
+        # Content
+        content_x = x + 30
+        content_y = y + 30
+
+        # Panel headline (HUGE)
+        headline = self.font_panel_headline.render("Ambient Workflow Layer", True, (245, 248, 255))
+        self.screen.blit(headline, (content_x, content_y))
+        content_y += headline.get_height() + 40
+
+        # Section 1: What it enables
+        section1 = self.font_panel_bullet.render("What it enables:", True, (245, 248, 255))
+        self.screen.blit(section1, (content_x, content_y))
+        content_y += section1.get_height() + 20
+
+        enables = [
+            "• Focus pacing without screens",
+            "• Ambient task awareness",
+            "• Meeting presence signals",
+            "• Ops & workflow visibility"
+        ]
+
+        for bullet in enables:
+            bullet_surf = self.font_panel_bullet.render(bullet, True, (170, 175, 190))
+            self.screen.blit(bullet_surf, (content_x, content_y))
+            content_y += bullet_surf.get_height() + 10
+
+        content_y += 30
+
+        # Section 2: OEM / Partner hooks
+        section2 = self.font_panel_bullet.render("OEM / Partner hooks:", True, (245, 248, 255))
+        self.screen.blit(section2, (content_x, content_y))
+        content_y += section2.get_height() + 20
+
+        hooks = [
+            "• White-label ready",
+            "• Custom integrations",
+            "• Partner API access",
+            "• Enterprise deployment"
+        ]
+
+        for bullet in hooks:
+            bullet_surf = self.font_panel_bullet.render(bullet, True, (170, 175, 190))
+            self.screen.blit(bullet_surf, (content_x, content_y))
+            content_y += bullet_surf.get_height() + 10
+
+        # Demo script at bottom
+        content_y = y + height - 80
+        demo_label = self.font_controls.render("Demo script (10 seconds):", True, (245, 248, 255))
+        self.screen.blit(demo_label, (content_x, content_y))
+        content_y += demo_label.get_height() + 8
+
+        demo_text = self.font_controls.render("Press S to see Focus Sprint", True, (170, 175, 190))
+        self.screen.blit(demo_text, (content_x, content_y))
+
+    def draw_demo_overlay(self):
+        """Draw full-screen Focus Sprint demo with MASSIVE timer"""
+        # Dark overlay
+        self.screen.fill((8, 10, 18))
+
+        center_x = self.width // 2
+        center_y = self.height // 2
+
+        # Title
+        demo_title = self.font_panel_headline.render("FOCUS SPRINT", True, (245, 248, 255))
+        title_x = center_x - demo_title.get_width() // 2
+        self.screen.blit(demo_title, (title_x, 120))
+
+        # MASSIVE timer (190px font = 160-220px range)
+        minutes = self.demo_timer // 60
+        seconds = self.demo_timer % 60
+        timer_text = f"{minutes:02d}:{seconds:02d}"
+
+        timer_surf = self.font_demo_timer.render(timer_text, True, (255, 200, 80))
+        timer_x = center_x - timer_surf.get_width() // 2
+        timer_y = center_y - timer_surf.get_height() // 2
+        self.screen.blit(timer_surf, (timer_x, timer_y))
+
+        # Status
+        if self.demo_paused:
+            status_text = "PAUSED"
+            status_color = (200, 100, 100)
+        else:
+            status_text = "ACTIVE"
+            status_color = (100, 200, 100)
+
+        status_surf = self.font_panel_bullet.render(status_text, True, status_color)
+        status_x = center_x - status_surf.get_width() // 2
+        status_y = timer_y + timer_surf.get_height() + 40
+        self.screen.blit(status_surf, (status_x, status_y))
+
+        # Calming message
+        message = "Ambient pacing cues. No screens required."
+        message_surf = self.font_panel_bullet.render(message, True, (170, 175, 190))
+        message_x = center_x - message_surf.get_width() // 2
+        self.screen.blit(message_surf, (message_x, self.height - 200))
+
+        # Controls
+        controls = "SPACE pause/resume  •  R reset  •  ESC exit"
+        controls_surf = self.font_controls.render(controls, True, (170, 175, 190))
+        controls_x = center_x - controls_surf.get_width() // 2
+        self.screen.blit(controls_surf, (controls_x, self.height - 100))
+
+    def draw_controls_footer(self):
+        """Draw controls footer with readable text"""
+        footer_y = self.height - 70
+
+        # Background bar
+        footer_rect = pygame.Rect(0, footer_y, self.width, 70)
+        pygame.draw.rect(self.screen, (18, 20, 30), footer_rect)
+
+        # Controls (BIG and readable)
+        controls = "← → ↑ ↓ Navigate  |  ENTER Preview  |  S Start Demo  |  ESC Home"
+        controls_surf = self.font_controls.render(controls, True, (200, 205, 215))
+        controls_x = self.width // 2 - controls_surf.get_width() // 2
+        self.screen.blit(controls_surf, (controls_x, footer_y + 18))
+
+        # Disclaimer (single line, readable)
+        disclaimer = "Designed for general productivity & workflow awareness."
+        disclaimer_surf = self.font_controls.render(disclaimer, True, (140, 145, 160))
+        disclaimer_x = self.width // 2 - disclaimer_surf.get_width() // 2
+        self.screen.blit(disclaimer_surf, (disclaimer_x, footer_y + 18 + controls_surf.get_height() + 4))
+
+    def run(self):
+        """Main loop for Productivity realm"""
+        clock = pygame.time.Clock()
+
+        while self.running:
+            result = self.handle_input()
+
+            if result == "quit":
+                pygame.quit()
+                sys.exit(0)
+            elif result == "home":
+                return  # Return to main grid
+
+            self.update()
+            self.draw()
+            clock.tick(30)
 
 
 class MotiBeamOS:
@@ -281,6 +655,11 @@ class MotiBeamOS:
         elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
             realm = REALMS[self.selected_index]
             print(f"[SELECT] {realm['name']} – {realm['subtitle']}")
+
+            # Launch Productivity realm if selected
+            if realm['name'] == "Productivity":
+                productivity = ProductivityRealm(self.screen, self.width, self.height)
+                productivity.run()
         elif pygame.K_1 <= key <= pygame.K_9:
             idx = key - pygame.K_1
             if idx < len(REALMS):
