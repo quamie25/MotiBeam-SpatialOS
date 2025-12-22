@@ -26,3 +26,6 @@ venv/
 *.broken
 *.BROKEN
 *.OLD
+
+# Local backup files
+*.bak
