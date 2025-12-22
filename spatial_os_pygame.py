@@ -11,6 +11,7 @@ from core.design_tokens import *
 from core.notification_banner import NotificationBanner
 from core.notification_ticker import NotificationTicker
 from config.realms_config import REALMS
+from scenes.productivity_realm import ProductivityRealm
 
 class SpatialOS:
     def __init__(self, width=1024, height=768, fullscreen=True):
@@ -152,6 +153,12 @@ class SpatialOS:
                     realm = self.realms[self.selected_realm]
                     print(f"Selected realm: {realm['name']}")
                     self.ticker.add_message(f"Entering {realm['name']} - {realm['tagline']}")
+
+                    # Handle Productivity realm
+                    if realm['id'] == 'productivity':
+                        productivity = ProductivityRealm(self.screen)
+                        productivity.run()
+                        # Return to main grid after exiting productivity realm
 
                 # Quick select with numbers
                 elif event.key >= pygame.K_1 and event.key <= pygame.K_9:

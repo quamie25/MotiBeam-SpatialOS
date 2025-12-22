@@ -35,10 +35,10 @@ REALMS = [
         "emoji": "🏠",
     },
     {
-        "id": "clinical",
-        "name": "Clinical",
-        "tagline": "Health & wellness",
-        "emoji": "🏥",
+        "id": "productivity",
+        "name": "Productivity",
+        "tagline": "Ambient workflow layer",
+        "emoji": "⚡",
     },
     {
         "id": "education",
