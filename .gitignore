@@ -27,3 +27,11 @@ spatial_os.py.good_backup_1
 spatial_os.py.polishpass_20251217_101737.bak
 spatial_os.py.pre_health_20251219_124125.bak
 spatial_os.py.pre_marketplace_20251217_082019.bak
+
+# Local / temp
+__pycache__/
+*.pyc
+*.log
+.DS_Store
+.env
+.vscode/
