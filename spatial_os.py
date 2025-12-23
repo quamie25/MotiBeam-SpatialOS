@@ -197,6 +197,14 @@ class MotiBeamOS:
         self.font_card_title = pygame.font.SysFont(None, 48)  # Was 34
         self.font_card_subtitle = pygame.font.SysFont(None, 31)  # Was 22
         self.font_footer = pygame.font.SysFont(None, 34)  # Was 24
+        # Overlay fonts (for demo mode)
+        self.font_overlay_timer = pygame.font.SysFont(None, 240, bold=True)
+        self.font_overlay_subtitle = pygame.font.SysFont(None, 56)
+        self.font_overlay_hint = pygame.font.SysFont(None, 36)
+        # Overlay fonts (for demo mode)
+        self.font_overlay_timer = pygame.font.SysFont(None, 240, bold=True)
+        self.font_overlay_subtitle = pygame.font.SysFont(None, 56)
+        self.font_overlay_hint = pygame.font.SysFont(None, 36)
 
         self.clock = pygame.time.Clock()
         self.selected_index = 0  # which card is selected on home grid
@@ -409,14 +417,14 @@ class MotiBeamOS:
         """Draw scrolling ticker above footer"""
         ticker_height = 56  # Increased from 35 for better readability (+60%)
         # Position ticker ABOVE footer (footer is 60px at bottom)
-        ticker_y = self.height - 60 - ticker_height
+        ticker_y = self.height - 50 - ticker_height
 
         # Background
         ticker_rect = pygame.Rect(0, ticker_y, self.width, ticker_height)
         pygame.draw.rect(self.screen, (25, 30, 45), ticker_rect)
 
         # Scrolling text (using system font for crisp rendering)
-        ticker_font = pygame.font.SysFont(None, 44)  # Increased from 24 for wall projection (+83%)
+        ticker_font = pygame.font.SysFont(None, 70)  # Increased from 24 for wall projection (+83%)
         ticker_surf = ticker_font.render(self.ticker_text, True, (180, 200, 220))
 
         # Update offset for scrolling effect
@@ -735,7 +743,7 @@ class MotiBeamOS:
         selected = self.realm_data['circlebeam']['selected']
 
         # Header
-        title_font = pygame.font.SysFont(None, 90, bold=True)
+        title_font = pygame.font.SysFont(None, 140, bold=True)  # Scaled 1.56×
         title = title_font.render('👥 CIRCLEBEAM', True, (100, 180, 255))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 60))
 
@@ -761,7 +769,7 @@ class MotiBeamOS:
         }
 
         # Card layout - 3 columns, 2 rows for up to 6 members
-        card_width = 280
+        card_width = 400  # Scaled 1.43×
         card_height = 280
         gap = 60
         cols = 3
@@ -776,8 +784,8 @@ class MotiBeamOS:
             row = i // cols
             col = i % cols
 
-            x = start_x + col * (card_width + gap)
-            y = start_y + row * (card_height + gap)
+            x = start_x + col * (card_width + gap_x)
+            y = start_y + row * (card_height + gap_y)
 
             card_rect = pygame.Rect(x, y, card_width, card_height)
 
@@ -794,7 +802,7 @@ class MotiBeamOS:
             self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 30))
 
             # Name
-            name_font = pygame.font.SysFont(None, 52, bold=True)
+            name_font = pygame.font.SysFont(None, 75, bold=True)  # Scaled 1.44×
             name = name_font.render(circle['name'], True, (255, 255, 255))
             self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 150))
 
@@ -861,7 +869,7 @@ class MotiBeamOS:
         print("MARKETPLACE V2 ACTIVE")
 
         # Header
-        title_font = pygame.font.SysFont(None, 90, bold=True)
+        title_font = pygame.font.SysFont(None, 140, bold=True)  # Scaled 1.56×
         title = title_font.render('🛒 MARKETPLACE', True, (180, 100, 255))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 50))
 
@@ -924,7 +932,7 @@ class MotiBeamOS:
         # 2 rows × 3 cols grid layout - larger tiles
         card_width = 380
         card_height = 240
-        gap = 40
+        gap = 58  # Scaled 1.45×
         start_x = 60
         start_y = 180
 
@@ -938,8 +946,8 @@ class MotiBeamOS:
             row = i // 3  # 3 columns per row
             col = i % 3   # columns: 0, 1, 2
 
-            x = start_x + col * (card_width + gap)
-            y = start_y + row * (card_height + gap)
+            x = start_x + col * (card_width + gap_x)
+            y = start_y + row * (card_height + gap_y)
 
             card_rect = pygame.Rect(x, y, card_width, card_height)
 
@@ -1126,14 +1134,20 @@ class MotiBeamOS:
         devices_state = self.realm_data['home_realm']['devices']
 
         # Header
-        title_font = pygame.font.SysFont(None, 90, bold=True)
-        title = title_font.render('🏠 HOME', True, (100, 255, 150))
-        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 50))
+        # Title with proper emoji rendering
+        title_emoji_font = load_emoji_font(140)
+        title_text_font = pygame.font.SysFont(None, 140, bold=True)
+        house = title_emoji_font.render('🏠', True, (100, 255, 150))
+        home_text = title_text_font.render(' HOME', True, (100, 255, 150))
+        total_width = house.get_width() + home_text.get_width()
+        title_x = self.width // 2 - total_width // 2
+        self.screen.blit(house, (title_x, 50))
+        self.screen.blit(home_text, (title_x + house.get_width(), 50))
 
         # Subtitle
-        subtitle_font = pygame.font.SysFont(None, 42)
+        subtitle_font = pygame.font.SysFont(None, 62)  # Scaled 1.48×
         subtitle = subtitle_font.render('Calm Home Awareness', True, (180, 220, 200))
-        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 120))
+        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 190))
 
         # Device configurations
         devices = [
@@ -1145,18 +1159,19 @@ class MotiBeamOS:
             {'id': 'garage', 'emoji': '🚗', 'name': 'Garage', 'type': 'toggle'}
         ]
 
-        card_width = 280
-        card_height = 230
-        gap = 40
-        start_x = 120
-        start_y = 200
+        card_width = 400  # Scaled 1.43×
+        card_height = 280  # Scaled 1.43×
+        gap_x = 80  # Horizontal spacing (38% increase)
+        gap_y = 100  # Vertical spacing (72% increase)
+        start_x = 280  # Recalculated for gap_x=80
+        start_y = 280  # More separation from subtitle
 
         for i, device in enumerate(devices):
             row = i // 3
             col = i % 3
 
-            x = start_x + col * (card_width + gap)
-            y = start_y + row * (card_height + gap)
+            x = start_x + col * (card_width + gap_x)
+            y = start_y + row * (card_height + gap_y)
 
             card_rect = pygame.Rect(x, y, card_width, card_height)
 
@@ -1183,12 +1198,12 @@ class MotiBeamOS:
                 pygame.draw.rect(self.screen, (100, 255, 150), card_rect.inflate(6, 6), 4, border_radius=15)
 
             # Emoji - use emoji font
-            icon_font = load_emoji_font(110)
+            icon_font = load_emoji_font(155)  # Scaled 1.41×
             icon = icon_font.render(device['emoji'], True, (255, 255, 255))
             self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 15))
 
             # Device name - larger and bolder
-            name_font = pygame.font.SysFont(None, 52, bold=True)
+            name_font = pygame.font.SysFont(None, 75, bold=True)  # Scaled 1.44×
             name = name_font.render(device['name'], True, (255, 255, 255))
             self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 105))
 
@@ -1208,10 +1223,10 @@ class MotiBeamOS:
                     pill_bg = (60, 70, 85)
                     pill_fg = (160, 170, 180)
 
-                pill_font = pygame.font.SysFont(None, 36, bold=True)
+                pill_font = pygame.font.SysFont(None, 52, bold=True)  # Scaled 1.44×
                 pill_surf = pill_font.render(pill_text, True, pill_fg)
                 pill_width = pill_surf.get_width() + 30
-                pill_height = 32
+                pill_height = 46  # Scaled 1.44×
                 pill_x = x + (card_width - pill_width) // 2
                 pill_rect = pygame.Rect(pill_x, pill_y, pill_width, pill_height)
 
@@ -1220,7 +1235,7 @@ class MotiBeamOS:
 
             else:  # Thermostat - special display
                 # Large temperature
-                temp_font = pygame.font.SysFont(None, 64, bold=True)
+                temp_font = pygame.font.SysFont(None, 92, bold=True)  # Scaled 1.44×
                 temp_surf = temp_font.render(f"{state}°F", True, (100, 200, 255))
                 temp_x = x + card_width // 2 - temp_surf.get_width() // 2
                 temp_y = y + 145
@@ -1346,11 +1361,11 @@ class MotiBeamOS:
         ]
 
         # Header
-        title_font = pygame.font.SysFont(None, 90, bold=True)
+        title_font = pygame.font.SysFont(None, 140, bold=True)  # Scaled 1.56×
         title = title_font.render('🌿 HEALTH & WELLNESS', True, (120, 200, 160))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 45))
 
-        subtitle_font = pygame.font.SysFont(None, 42)
+        subtitle_font = pygame.font.SysFont(None, 62)  # Scaled 1.48×
         subtitle = subtitle_font.render('Daily wellbeing, calmly supported', True, (160, 190, 170))
         self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 110))
 
@@ -1650,11 +1665,11 @@ class MotiBeamOS:
             return
 
         # Header
-        title_font = pygame.font.SysFont(None, 90, bold=True)
+        title_font = pygame.font.SysFont(None, 140, bold=True)  # Scaled 1.56×
         title = title_font.render('📚 EDUCATION', True, (255, 180, 50))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 45))
 
-        subtitle_font = pygame.font.SysFont(None, 42)
+        subtitle_font = pygame.font.SysFont(None, 62)  # Scaled 1.48×
         subtitle = subtitle_font.render('Interactive Learning Sessions', True, (220, 200, 150))
         self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 110))
 
@@ -1663,14 +1678,14 @@ class MotiBeamOS:
         card_height = 240
         gap = 30 if panel_open else 40
         start_x = 40 if panel_open else 60
-        start_y = 200
+        start_y = 240  # Higher to reserve bottom 140px for ticker
 
         for i, subject in enumerate(subjects):
             row = i // 3
             col = i % 3
 
-            x = start_x + col * (card_width + gap)
-            y = start_y + row * (card_height + gap)
+            x = start_x + col * (card_width + gap_x)
+            y = start_y + row * (card_height + gap_y)
 
             card_rect = pygame.Rect(x, y, card_width, card_height)
 
@@ -1692,7 +1707,7 @@ class MotiBeamOS:
             self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 20))
 
             # Subject name
-            name_font = pygame.font.SysFont(None, 52, bold=True)
+            name_font = pygame.font.SysFont(None, 75, bold=True)  # Scaled 1.44×
             name = name_font.render(subject['name'], True, (255, 255, 255))
             self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 120))
 
@@ -1954,6 +1969,8 @@ class MotiBeamOS:
                 self.realm_data['education']['panel_open'] = False
                 print("[EDUCATION] Panel closed")
 
+        # DISABLED - S key causes system crash/reboot
+        # TODO: Fix timer/session logic before re-enabling
         # Start session (S key)
         elif key == pygame.K_s:
             if panel_open:
@@ -1976,7 +1993,7 @@ class MotiBeamOS:
         selected = self.realm_data['transport']['selected']
 
         # Header
-        title_font = pygame.font.SysFont(None, 90, bold=True)  # Was 64
+        title_font = pygame.font.SysFont(None, 140, bold=True)  # Scaled 1.56×  # Was 64
         title = title_font.render('🚗 TRANSPORT', True, (100, 180, 255))
         self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 40))
 
@@ -2007,18 +2024,18 @@ class MotiBeamOS:
             {'emoji': '⛽', 'name': 'Gas Station', 'address': 'Shell Station', 'eta': '3 min'}
         ]
 
-        card_width = 280
+        card_width = 400  # Scaled 1.43×
         card_height = 140
         gap = 35
-        start_x = 120
+        start_x = 302
         start_y = 290
 
         for i, dest in enumerate(destinations):
             row = i // 3
             col = i % 3
 
-            x = start_x + col * (card_width + gap)
-            y = start_y + row * (card_height + gap)
+            x = start_x + col * (card_width + gap_x)
+            y = start_y + row * (card_height + gap_y)
 
             card_rect = pygame.Rect(x, y, card_width, card_height)
 
@@ -2175,17 +2192,12 @@ class MotiBeamOS:
         if panel_open:
             self._render_productivity_panel(tiles[selected])
 
-        # Compliance disclaimer - larger for projection
-        disclaimer_font = pygame.font.SysFont(None, 32)
-        disclaimer_text = disclaimer_font.render('An ambient workflow layer for enterprise and workplace environments. Not a monitoring or tracking system.', True, (130, 145, 160))
-        self.screen.blit(disclaimer_text, (self.width // 2 - disclaimer_text.get_width() // 2, 720))
-
         # Help text - larger for projection
         help_font = pygame.font.SysFont(None, 36)
         if panel_open:
             help_text = help_font.render('ENTER: Close  •  ESC: Home', True, (160, 170, 190))
         else:
-            help_text = help_font.render('S: Start  •  ENTER: Preview  •  Arrows: Navigate  •  ESC: Home', True, (160, 170, 190))
+            help_text = help_font.render('ENTER: Preview  •  Arrows: Navigate  •  ESC: Home', True, (160, 170, 190))
         self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 755))
 
     def _render_productivity_panel(self, tile):
@@ -2286,7 +2298,8 @@ class MotiBeamOS:
             seconds = remaining % 60
 
             # Big timer display
-            timer_font = pygame.font.SysFont(None, 240, bold=True)
+            # Use pre-created font
+            timer_font = self.font_overlay_timer
             timer_text = f"{minutes:02d}:{seconds:02d}"
             timer_surf = timer_font.render(timer_text, True, (100, 200, 255))
             timer_x = self.width // 2 - timer_surf.get_width() // 2
@@ -2294,13 +2307,13 @@ class MotiBeamOS:
             self.screen.blit(timer_surf, (timer_x, timer_y))
 
             # Subtitle
-            subtitle_font = pygame.font.SysFont(None, 56)
+            subtitle_font = self.font_overlay_subtitle
             subtitle = subtitle_font.render('Deep focus mode', True, (150, 180, 220))
             subtitle_x = self.width // 2 - subtitle.get_width() // 2
             self.screen.blit(subtitle, (subtitle_x, timer_y + 250))
 
             # Controls hint
-            hint_font = pygame.font.SysFont(None, 36)
+            hint_font = self.font_overlay_hint
             hint = hint_font.render('S: Pause/Resume  •  R: Reset  •  ESC: Back', True, (120, 140, 160))
             hint_x = self.width // 2 - hint.get_width() // 2
             self.screen.blit(hint, (hint_x, self.height - 100))
@@ -2336,7 +2349,7 @@ class MotiBeamOS:
             self.screen.blit(silence, (silence_x, agenda_y + len(agenda_items) * line_height + 80))
 
             # Controls hint
-            hint_font = pygame.font.SysFont(None, 36)
+            hint_font = self.font_overlay_hint
             hint = hint_font.render('S: Stop  •  ESC: Back', True, (120, 140, 160))
             hint_x = self.width // 2 - hint.get_width() // 2
             self.screen.blit(hint, (hint_x, self.height - 100))
@@ -2373,7 +2386,7 @@ class MotiBeamOS:
             self.screen.blit(next_surf, (next_x, next_y))
 
             # Controls hint
-            hint_font = pygame.font.SysFont(None, 36)
+            hint_font = self.font_overlay_hint
             hint = hint_font.render('S: Stop  •  ESC: Back', True, (120, 140, 160))
             hint_x = self.width // 2 - hint.get_width() // 2
             self.screen.blit(hint, (hint_x, self.height - 100))
@@ -2397,7 +2410,7 @@ class MotiBeamOS:
             self.screen.blit(status, (status_x, self.height // 2 + 50))
 
             # Controls hint
-            hint_font = pygame.font.SysFont(None, 36)
+            hint_font = self.font_overlay_hint
             hint = hint_font.render('S: Stop  •  ESC: Back', True, (120, 140, 160))
             hint_x = self.width // 2 - hint.get_width() // 2
             self.screen.blit(hint, (hint_x, self.height - 100))
@@ -2413,11 +2426,6 @@ class MotiBeamOS:
             if key == pygame.K_ESCAPE:
                 # Exit overlay, return to grid
                 data['active_module'] = None
-                data['panel_open'] = False
-            elif key == pygame.K_s:
-                # S key: stop the active module
-                data['active_module'] = None
-                data['panel_open'] = False
             elif key == pygame.K_r and active_module == 0:
                 # R key: reset timer (Focus Sprint only)
                 data['timer_start'] = time.time()
@@ -2440,14 +2448,6 @@ class MotiBeamOS:
         elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
             # Toggle preview panel
             data['panel_open'] = not data['panel_open']
-        elif key == pygame.K_s:
-            # S key: start the selected module
-            tile_names = ['Focus Sprint', 'Task Board', 'Meeting Mode', 'Daily Brief', 'Ops Dashboard', 'Deep Work']
-            module_name = tile_names[selected]
-
-            # Start the module
-            data['active_module'] = selected
-            data['panel_open'] = False
 
             # Initialize timer for Focus Sprint
             if selected == 0:
