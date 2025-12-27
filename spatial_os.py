@@ -259,16 +259,19 @@ class MotiBeamOS:
         self.weather_last_update = 0
         self.fetch_weather_async()
 
-        # Call simulation state
         self.call_active = False
-        self.call_caller = {
-            'name': 'Mom',
-            'emoji': '👩',
-            'status': 'Incoming Presence Call',
-            'location': 'Home'
-        }
+        # Contact list for cycling through different callers
+        self.contacts = [
+            {'name': 'Mom', 'emoji': '👩', 'relation': 'Family'},
+            {'name': 'Dad', 'emoji': '👨', 'relation': 'Family'},
+            {'name': 'Sister Sarah', 'emoji': '👧', 'relation': 'Family'},
+            {'name': 'Dr. Johnson', 'emoji': '⚕️', 'relation': 'Healthcare'},
+            {'name': 'Best Friend Alex', 'emoji': '🙋', 'relation': 'Friend'}
+        ]
+        self.contact_index = 0
         self.missed_presence = False  # Tracks if there's a missed presence notification
-
+        self.call_caller = self.contacts[0]  # Start with Mom
+        
         # Alert system (professional features) - shorter messages to prevent overlap
         self.alerts = [
             {'type': 'severe', 'message': 'SEVERE WEATHER - Tornado spotted. Seek shelter immediately', 'color': (255, 80, 80)},
@@ -683,8 +686,12 @@ class MotiBeamOS:
 
         # Call simulation keys (I = incoming, A = accept, D = decline)
         if key == pygame.K_i:
+     
+            # Cycle to next contact
+            self.contact_index = (self.contact_index + 1) % len(self.contacts)
+            self.call_caller = self.contacts[self.contact_index]
             self.call_active = True
-            print("[CALL] Incoming call from " + self.call_caller['name'])
+            print(f"[CALL] Incoming call from {self.call_caller['name']} ({self.call_caller['relation']})")
             return
 
         if key == pygame.K_a and self.call_active:
