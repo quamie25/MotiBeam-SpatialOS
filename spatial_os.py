@@ -470,7 +470,7 @@ class MotiBeamOS:
         pygame.draw.rect(self.screen, (18, 20, 30), footer_rect)
 
         footer_text = (
-            "←↑↓→ Move   |   Enter Select   |   I Incoming Call   |   L Alerts   |   Q / ESC Exit   |   1–9 Quick Jump"
+            "←↑↓→ Move   |   Enter Select   |   P Privacy   |   T Ticker   |   I Call   |   L Alerts   |   Q / ESC Exit"
         )
         surf = self.font_footer.render(footer_text, True, FOOTER_COLOR)
         self.screen.blit(
