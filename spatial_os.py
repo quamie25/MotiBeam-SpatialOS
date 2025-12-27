@@ -389,7 +389,7 @@ class MotiBeamOS:
             pygame.draw.rect(self.screen, banner_color, banner_rect)
 
             # Extra large text for medication
-            alert_font = pygame.font.SysFont(None, 80, bold=True)
+            alert_font = pygame.font.SysFont(None, 95, bold=True)
             alert_surf = alert_font.render(alert['message'], True, (255, 255, 255))
             text_x = (self.width - alert_surf.get_width()) // 2
             self.screen.blit(alert_surf, (text_x, 15))
@@ -399,10 +399,10 @@ class MotiBeamOS:
             banner_rect = pygame.Rect(0, 0, self.width, banner_height)
             pygame.draw.rect(self.screen, alert['color'], banner_rect)
 
-            alert_font = pygame.font.SysFont(None, 32, bold=True)
+            alert_font = pygame.font.SysFont(None, 75, bold=True)
             alert_surf = alert_font.render(alert['message'], True, (255, 255, 255))
             text_x = (self.width - alert_surf.get_width()) // 2
-            self.screen.blit(alert_surf, (text_x, 10))
+            self.screen.blit(alert_surf, (text_x, 12))
 
     def draw_state_indicator(self):
         """Draw STATE indicator in top right corner of alert banner"""
