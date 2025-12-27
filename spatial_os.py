@@ -511,7 +511,8 @@ class MotiBeamOS:
 
         # Caller name
         name_font = pygame.font.SysFont(None, 72, bold=True)
-        name_surf = name_font.render(self.call_caller['name'], True, (255, 255, 255))
+        display_name = 'Contact' if getattr(self, 'privacy_mode', False) else self.call_caller['name']
+        name_surf = name_font.render(display_name, True, (255, 255, 255))
         name_x = card_x + (card_width - name_surf.get_width()) // 2
         self.screen.blit(name_surf, (name_x, card_y + 260))
 
@@ -656,7 +657,13 @@ class MotiBeamOS:
             self.ticker_visible = not getattr(self, "ticker_visible", True)
             print(f"[TICKER] Ticker {"visible" if self.ticker_visible else "hidden"}")
             return
-
+        
+        # P toggles privacy mode
+        if key == pygame.K_p:
+            self.privacy_mode = not getattr(self, "privacy_mode", False)
+            print(f"[PRIVACY] Privacy mode {'ON' if self.privacy_mode else 'OFF'}")
+            return   
+        
         if key == pygame.K_ESCAPE:
             if self.state == "home":
                 pygame.quit()
@@ -2625,6 +2632,18 @@ class MotiBeamOS:
             # Draw call overlay on top of everything if active
             self.draw_call_overlay()
 
+            # Draw privacy mode banner if active
+            if getattr(self, "privacy_mode", False):
+                banner_font = pygame.font.SysFont(None, 50, bold=True)
+                banner_text = "🔒 Privacy Mode"
+                banner_surf = banner_font.render(banner_text, True, (255, 200, 100))
+                banner_x = self.width - banner_surf.get_width() - 40
+                banner_y = 20
+                banner_bg = pygame.Rect(banner_x - 15, banner_y, banner_surf.get_width() + 30, 60)
+                pygame.draw.rect(self.screen, (40, 35, 30), banner_bg, border_radius=8)
+                pygame.draw.rect(self.screen, (255, 200, 100), banner_bg, width=2, border_radius=8)
+                self.screen.blit(banner_surf, (banner_x, banner_y + 15))
+            
             pygame.display.flip()
             self.clock.tick(30)
 
