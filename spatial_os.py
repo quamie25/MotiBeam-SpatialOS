@@ -671,6 +671,9 @@ class MotiBeamOS:
             if self.state == "home":
                 pygame.quit()
                 sys.exit(0)
+            # Don't go back if Education is in session mode - let realm handler deal with it
+            elif self.state == "education" and self.realm_data['education']['in_session']:
+                pass  # Education handler will process this
             else:
                 self.go_back()
                 return
@@ -1791,20 +1794,28 @@ class MotiBeamOS:
             return
 
         # Header
-        title_font = pygame.font.SysFont(None, 140, bold=True)  # Scaled 1.56×
-        title = title_font.render('📚 EDUCATION', True, (255, 180, 50))
-        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 45))
+        # Title with emoji font for proper rendering
+        title_emoji_font = load_emoji_font(175)
+        title_text_font = pygame.font.SysFont(None, 175, bold=True)
+        book_emoji = title_emoji_font.render('📚', True, (255, 180, 50))
+        education_text = title_text_font.render(' EDUCATION', True, (255, 180, 50))
+        title_width = book_emoji.get_width() + education_text.get_width()
+        title_x = self.width // 2 - title_width // 2
+        self.screen.blit(book_emoji, (title_x, 45))
+        self.screen.blit(education_text, (title_x + book_emoji.get_width(), 45))
 
         subtitle_font = pygame.font.SysFont(None, 62)  # Scaled 1.48×
         subtitle = subtitle_font.render('Interactive Learning Sessions', True, (220, 200, 150))
         self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 110))
 
-        # 2×3 grid layout
-        card_width = 320 if panel_open else 380
-        card_height = 240
-        gap = 30 if panel_open else 40
-        start_x = 40 if panel_open else 60
-        start_y = 240  # Higher to reserve bottom 140px for ticker
+        # NEW:
+        card_width = 460
+        card_height = 320
+        gap = 50
+        # Center the grid
+        grid_total_width = 3 * card_width + 2 * gap
+        start_x = (self.width - grid_total_width) // 2
+        start_y = 280  # Lower to accommodate bigger title
 
         for i, subject in enumerate(subjects):
             row = i // 3
@@ -2063,10 +2074,12 @@ class MotiBeamOS:
                     print(f"[EDUCATION] Session complete! Time: {minutes:02d}:{seconds:02d}")
 
             # Exit session
+            # Exit session (stay in Education, don't go home)
             if key == pygame.K_ESCAPE:
                 self.realm_data['education']['in_session'] = False
                 self.realm_data['education']['panel_open'] = False
-                print("[EDUCATION] Exited session")
+                print("[EDUCATION] Exited session - returning to grid")
+                return  # Exit early, stay in Education realm
 
             return
 
@@ -2086,7 +2099,8 @@ class MotiBeamOS:
 
         # Toggle preview panel
         elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
-            pass  # Disabled - preview panel causes Pi reboot
+            # Toggle preview panel (safe - no session mode)
+            self.realm_data['education']['panel_open'] = not panel_open
             print(f"[EDUCATION] Preview panel {'opened' if not panel_open else 'closed'}")
 
         # Close panel
