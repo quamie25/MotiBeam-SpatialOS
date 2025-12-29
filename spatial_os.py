@@ -915,7 +915,7 @@ class MotiBeamOS:
             actions = [
                 {'key': 'C', 'label': 'Call', 'color': (100, 200, 255)},
                 {'key': 'M', 'label': 'Message', 'color': (150, 255, 150)},
-                {'key': 'P', 'label': 'Ping', 'color': (255, 200, 100)}
+                {'key': 'N', 'label': 'Nudge', 'color': (255, 200, 100)}
             ]
             
             button_width = 200
@@ -937,6 +937,20 @@ class MotiBeamOS:
                 # Label
                 label_surf = button_font.render(action['label'], True, (220, 220, 220))
                 self.screen.blit(label_surf, (btn_x + 70, action_y + 17))
+
+            # Action feedback (brief confirmation message)
+            import time
+            if self.realm_data['circlebeam']['action_feedback']:
+                elapsed = time.time() - self.realm_data['circlebeam']['action_time']
+                if elapsed < 2.0:  # Show for 2 seconds
+                    feedback_font = pygame.font.SysFont(None, 56, bold=True)
+                    feedback_surf = feedback_font.render(self.realm_data['circlebeam']['action_feedback'], True, (100, 255, 150))
+                    feedback_bg = pygame.Rect(panel_x + 50, panel_y + 570, panel_width - 100, 60)
+                    pygame.draw.rect(self.screen, (30, 60, 40), feedback_bg, border_radius=8)
+                    self.screen.blit(feedback_surf, (panel_x + panel_width // 2 - feedback_surf.get_width() // 2, panel_y + 580))
+                else:
+                    # Clear after 2 seconds
+                    self.realm_data['circlebeam']['action_feedback'] = None
             
             # Close hint
             close_font = pygame.font.SysFont(None, 44)
@@ -981,10 +995,19 @@ class MotiBeamOS:
         # Panel action keys (only when panel is open)
         elif self.realm_data['circlebeam']['panel_open']:
             if key == pygame.K_c:
+                self.realm_data['circlebeam']['action_feedback'] = "✓ Call initiated"
+                self.realm_data['circlebeam']['action_time'] = time.time()
                 print("[CIRCLEBEAM] Call initiated (demo)")
                 return
             elif key == pygame.K_m:
+                self.realm_data['circlebeam']['action_feedback'] = "✓ Message sent"
+                self.realm_data['circlebeam']['action_time'] = time.time()
                 print("[CIRCLEBEAM] Message sent (demo)")
+                return
+            elif key == pygame.K_n:
+                self.realm_data['circlebeam']['action_feedback'] = "✓ Presence ping sent"
+                self.realm_data['circlebeam']['action_time'] = time.time()
+                print("[CIRCLEBEAM] Nudge sent (demo)")
                 return
             elif key == pygame.K_p:
                 print("[CIRCLEBEAM] Presence ping sent (demo)")
