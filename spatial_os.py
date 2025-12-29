@@ -215,7 +215,7 @@ class MotiBeamOS:
 
         # Realm-specific state data
         self.realm_data = {
-            'circlebeam': {'selected': 0, 'action_feedback': None, 'action_time': 0},
+            'circlebeam': {'selected': 0, 'panel_open': False, 'action_feedback': None, 'action_time': 0},
             'marketplace': {
                 'selected': 0,
                 'preview_open': False,
@@ -862,6 +862,87 @@ class MotiBeamOS:
             self.screen.blit(dot, (status_x, y + 195))
             self.screen.blit(status_text, (status_x + dot.get_width() + 8, y + 200))
 
+        # Preview panel (if open)
+        if self.realm_data['circlebeam']['panel_open']:
+            person = circles[selected]
+            
+            # Panel background (right side)
+            panel_x = 1100
+            panel_y = 180
+            panel_width = 760
+            panel_height = 700
+            
+            panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+            pygame.draw.rect(self.screen, (25, 30, 45), panel_rect, border_radius=15)
+            pygame.draw.rect(self.screen, (100, 180, 255), panel_rect, 3, border_radius=15)
+            
+            # Person avatar (large)
+            avatar_font = load_emoji_font(150)
+            avatar = avatar_font.render(person['emoji'], True, (255, 255, 255))
+            self.screen.blit(avatar, (panel_x + panel_width // 2 - avatar.get_width() // 2, panel_y + 40))
+            
+            # Name (large)
+            name_font = pygame.font.SysFont(None, 80, bold=True)
+            name_surf = name_font.render(person['name'], True, (255, 255, 255))
+            self.screen.blit(name_surf, (panel_x + panel_width // 2 - name_surf.get_width() // 2, panel_y + 210))
+            
+            # Status with explanation
+            status_color = status_colors[person['status']]
+            status_font = pygame.font.SysFont(None, 50, bold=True)
+            
+            status_explanations = {
+                'available': 'Available for contact',
+                'quiet': 'Quiet mode — notifications paused',
+                'offline': 'Not currently connected',
+                'needs_attention': 'Urgent — please check in'
+            }
+            
+            status_surf = status_font.render(status_explanations[person['status']], True, status_color)
+            self.screen.blit(status_surf, (panel_x + panel_width // 2 - status_surf.get_width() // 2, panel_y + 290))
+            
+            # Last seen
+            seen_font = pygame.font.SysFont(None, 42)
+            seen_times = {0: '2h ago', 1: '30m ago', 2: 'Yesterday', 3: '1h ago', 4: '15m ago', 5: 'Available now'}
+            seen_text = f"Last seen: {seen_times[selected]}"
+            seen_surf = seen_font.render(seen_text, True, (180, 190, 200))
+            self.screen.blit(seen_surf, (panel_x + panel_width // 2 - seen_surf.get_width() // 2, panel_y + 350))
+            
+            # Action buttons
+            action_y = panel_y + 430
+            button_font = pygame.font.SysFont(None, 50, bold=True)
+            key_font = pygame.font.SysFont(None, 60, bold=True)
+            
+            actions = [
+                {'key': 'C', 'label': 'Call', 'color': (100, 200, 255)},
+                {'key': 'M', 'label': 'Message', 'color': (150, 255, 150)},
+                {'key': 'P', 'label': 'Ping', 'color': (255, 200, 100)}
+            ]
+            
+            button_width = 200
+            button_height = 70
+            gap = 30
+            start_x = panel_x + (panel_width - (3 * button_width + 2 * gap)) // 2
+            
+            for i, action in enumerate(actions):
+                btn_x = start_x + i * (button_width + gap)
+                btn_rect = pygame.Rect(btn_x, action_y, button_width, button_height)
+                
+                pygame.draw.rect(self.screen, (40, 50, 70), btn_rect, border_radius=10)
+                pygame.draw.rect(self.screen, action['color'], btn_rect, 3, border_radius=10)
+                
+                # Key letter
+                key_surf = key_font.render(action['key'], True, action['color'])
+                self.screen.blit(key_surf, (btn_x + 20, action_y + 10))
+                
+                # Label
+                label_surf = button_font.render(action['label'], True, (220, 220, 220))
+                self.screen.blit(label_surf, (btn_x + 70, action_y + 17))
+            
+            # Close hint
+            close_font = pygame.font.SysFont(None, 44)
+            close_surf = close_font.render('ENTER or ESC to close', True, (150, 170, 200))
+            self.screen.blit(close_surf, (panel_x + panel_width // 2 - close_surf.get_width() // 2, panel_y + 620))
+
         # Footer - safe zone (no overlap)
         philosophy_font = pygame.font.SysFont(None, 38)
         philosophy = philosophy_font.render('Presence is shared without requiring interaction.', True, (150, 170, 200))
@@ -874,7 +955,7 @@ class MotiBeamOS:
     def handle_circlebeam_input(self, key):
         """Handle CircleBeam input - 3 cols × 2 rows grid (5 members)"""
         selected = self.realm_data['circlebeam']['selected']
-        total_members = 5
+        total_members = 6
         cols = 3
 
         # Grid navigation: [0][1][2]
@@ -892,6 +973,22 @@ class MotiBeamOS:
             if selected + cols < total_members:  # Can move down
                 self.realm_data['circlebeam']['selected'] = selected + cols
         elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
+            # Toggle preview panel
+            self.realm_data['circlebeam']['panel_open'] = not self.realm_data['circlebeam']['panel_open']
+            print(f"[CIRCLEBEAM] Preview panel {'opened' if self.realm_data['circlebeam']['panel_open'] else 'closed'}")
+            return
+        
+        # Panel action keys (only when panel is open)
+        elif self.realm_data['circlebeam']['panel_open']:
+            if key == pygame.K_c:
+                print("[CIRCLEBEAM] Call initiated (demo)")
+                return
+            elif key == pygame.K_m:
+                print("[CIRCLEBEAM] Message sent (demo)")
+                return
+            elif key == pygame.K_p:
+                print("[CIRCLEBEAM] Presence ping sent (demo)")
+                return
             # ENTER just highlights - no action in presence mode
             # This is intentionally minimal - presence, not interaction
             pass
