@@ -767,46 +767,53 @@ class MotiBeamOS:
     # ==================== REALM IMPLEMENTATIONS ====================
 
     def render_circlebeam(self):
-        """CircleBeam - Family Presence Layer (v1.1)"""
+        """CircleBeam - Family Presence Layer (Licensing-Ready)"""
         selected = self.realm_data['circlebeam']['selected']
 
-        # Header
-        title_font = pygame.font.SysFont(None, 140, bold=True)  # Scaled 1.56×
-        title = title_font.render('👥 CIRCLEBEAM', True, (100, 180, 255))
-        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 60))
+        # Title - proper emoji + text alignment
+        title_emoji_font = load_emoji_font(120)
+        title_text_font = pygame.font.SysFont(None, 120, bold=True)
+        people_emoji = title_emoji_font.render('👥', True, (100, 180, 255))
+        circlebeam_text = title_text_font.render(' CIRCLEBEAM', True, (100, 180, 255))
+        title_width = people_emoji.get_width() + circlebeam_text.get_width()
+        title_x = self.width // 2 - title_width // 2
+        self.screen.blit(people_emoji, (title_x, 50))
+        self.screen.blit(circlebeam_text, (title_x + people_emoji.get_width(), 50))
 
-        subtitle_font = pygame.font.SysFont(None, 45)
+        # Subtitle
+        subtitle_font = pygame.font.SysFont(None, 52)
         subtitle = subtitle_font.render('Family Presence', True, (180, 200, 220))
-        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 130))
+        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 160))
 
-        # Circle members - presence focused (max 6, showing 5 for demo)
+        # Circle members - 2×3 grid (standard across platform)
         circles = [
-            {'name': 'Mom', 'status': 'available', 'emoji': '👩', 'status_text': 'Available', 'dot': '🟢'},
-            {'name': 'Dad', 'status': 'quiet', 'emoji': '👨', 'status_text': 'Quiet mode', 'dot': '🌙'},
-            {'name': 'Sister', 'status': 'offline', 'emoji': '👧', 'status_text': 'Offline', 'dot': '⚪'},
-            {'name': 'Brother', 'status': 'available', 'emoji': '👦', 'status_text': 'Available', 'dot': '🟢'},
-            {'name': 'Grandma', 'status': 'away', 'emoji': '👵', 'status_text': 'Away', 'dot': '⏰'}
+            {'name': 'Mom', 'status': 'available', 'emoji': '👩', 'status_text': 'Available', 'dot': '●'},
+            {'name': 'Dad', 'status': 'quiet', 'emoji': '👨', 'status_text': 'Quiet mode', 'dot': '●'},
+            {'name': 'Sister', 'status': 'offline', 'emoji': '👧', 'status_text': 'Offline', 'dot': '●'},
+            {'name': 'Brother', 'status': 'available', 'emoji': '👦', 'status_text': 'Available', 'dot': '●'},
+            {'name': 'Grandma', 'status': 'needs_attention', 'emoji': '👵', 'status_text': 'Needs attention', 'dot': '●'},
+            {'name': 'Care Team', 'status': 'available', 'emoji': '⚕️', 'status_text': 'Available', 'dot': '●'}
         ]
 
-        # Status colors
+        # Standardized status colors
         status_colors = {
-            'available': (100, 255, 150),
-            'quiet': (180, 160, 220),
-            'offline': (120, 130, 150),
-            'away': (255, 200, 100)
+            'available': (100, 255, 150),     # Green
+            'quiet': (120, 180, 255),         # Yellow
+            'offline': (140, 150, 160),       # Gray
+            'needs_attention': (255, 100, 100) # Red
         }
 
-        # Card layout - 3 columns, 2 rows for up to 6 members
-        card_width = 400  # Scaled 1.43×
-        card_height = 280
-        gap = 60
+        # Grid layout - even spacing, centered
+        card_width = 400
+        card_height = 260
+        gap = 60  # Same horizontal and vertical
         cols = 3
         rows = 2
 
         # Center the grid
         grid_width = cols * card_width + (cols - 1) * gap
         start_x = (self.width - grid_width) // 2
-        start_y = 220
+        start_y = 250
 
         for i, circle in enumerate(circles):
             row = i // cols
@@ -817,50 +824,52 @@ class MotiBeamOS:
 
             card_rect = pygame.Rect(x, y, card_width, card_height)
 
-            # Highlight if selected
+            # Selection glow - strong but not overwhelming
             if i == selected:
-                pygame.draw.rect(self.screen, (100, 180, 255), card_rect.inflate(8, 8), 4, border_radius=15)
+                pygame.draw.rect(self.screen, (100, 180, 255), card_rect.inflate(10, 10), 4, border_radius=16)
+            
+            # Card background - dimmed if not selected
+            bg_brightness = 1.0 if i == selected else 0.7
+            bg_color = tuple(int(c * bg_brightness) for c in (30, 35, 50))
+            pygame.draw.rect(self.screen, bg_color, card_rect, border_radius=15)
 
-            # Card background
-            pygame.draw.rect(self.screen, (30, 35, 50), card_rect, border_radius=15)
-
-            # Member emoji - use emoji font
-            icon_font = load_emoji_font(120)
+            # Member emoji
+            icon_font = load_emoji_font(110)
             icon = icon_font.render(circle['emoji'], True, (255, 255, 255))
-            self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 30))
+            self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 25))
 
-            # Name
-            name_font = pygame.font.SysFont(None, 75, bold=True)  # Scaled 1.44×
+            # Name - licensing-ready size (56px)
+            name_font = pygame.font.SysFont(None, 56, bold=True)
             name = name_font.render(circle['name'], True, (255, 255, 255))
-            self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 150))
+            self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 145))
 
-            # Status dot + text
+            # Status indicator - standardized
             status_color = status_colors[circle['status']]
-
-            # Status dot emoji
-            dot_font = load_emoji_font(36)
+            
+            # Status dot
+            # Status dot - standardized colored circle
+            dot_font = pygame.font.SysFont(None, 48, bold=True)
             dot = dot_font.render(circle['dot'], True, status_color)
-
-            # Status text
-            status_font = pygame.font.SysFont(None, 32)
-            status = status_font.render(circle['status_text'], True, status_color)
-
-            # Center the status line (dot + text)
-            status_width = dot.get_width() + 8 + status.get_width()
+            
+            # Status text - readable size (36px)
+            status_font = pygame.font.SysFont(None, 36)
+            status_text = status_font.render(circle['status_text'], True, status_color)
+            
+            # Center status line
+            status_width = dot.get_width() + 8 + status_text.get_width()
             status_x = x + (card_width - status_width) // 2
+            
+            self.screen.blit(dot, (status_x, y + 195))
+            self.screen.blit(status_text, (status_x + dot.get_width() + 8, y + 200))
 
-            self.screen.blit(dot, (status_x, y + 205))
-            self.screen.blit(status, (status_x + dot.get_width() + 8, y + 210))
-
-        # Presence philosophy text
-        philosophy_font = pygame.font.SysFont(None, 34)
+        # Footer - safe zone (no overlap)
+        philosophy_font = pygame.font.SysFont(None, 38)
         philosophy = philosophy_font.render('Presence is shared without requiring interaction.', True, (150, 170, 200))
-        self.screen.blit(philosophy, (self.width // 2 - philosophy.get_width() // 2, 830))
+        self.screen.blit(philosophy, (self.width // 2 - philosophy.get_width() // 2, 820))
 
-        # Help text
-        help_font = pygame.font.SysFont(None, 31)
-        help_text = help_font.render('← → Navigate | I Incoming | ESC Home', True, (150, 160, 180))
-        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 880))
+        help_font = pygame.font.SysFont(None, 36)
+        help_text = help_font.render('← → Navigate | ENTER Preview | I Incoming | ESC Home', True, (150, 160, 180))
+        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 870))
 
     def handle_circlebeam_input(self, key):
         """Handle CircleBeam input - 3 cols × 2 rows grid (5 members)"""
@@ -2129,81 +2138,92 @@ class MotiBeamOS:
                 print(f"[EDUCATION] Starting {subject_names[selected]} session")
 
     def render_transport(self):
-        """Transport - Mobility and navigation"""
+        """Transport - Automotive HUD"""
         selected = self.realm_data['transport']['selected']
+        privacy_mode = getattr(self, 'privacy_mode', False)
 
-        # Header
-        title_font = pygame.font.SysFont(None, 140, bold=True)  # Scaled 1.56×  # Was 64
+        # Title
+        title_font = pygame.font.SysFont(None, 120, bold=True)
         title = title_font.render('🚗 TRANSPORT', True, (100, 180, 255))
-        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 40))
+        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 50))
 
-        # Current location section
-        loc_section = pygame.Rect(80, 115, 900, 80)
+        # Subtitle
+        subtitle_font = pygame.font.SysFont(None, 56)
+        subtitle = subtitle_font.render('Automotive HUD', True, (160, 180, 200))
+        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 140))
+
+        # Current location (privacy-aware)
+        loc_y = 220
+        loc_section = pygame.Rect(100, loc_y, 1720, 90)
         pygame.draw.rect(self.screen, (25, 30, 45), loc_section, border_radius=12)
+        pygame.draw.rect(self.screen, (100, 180, 255), loc_section, 2, border_radius=12)
 
-        loc_label_font = pygame.font.SysFont(None, 34)  # Was 24
+        loc_label_font = pygame.font.SysFont(None, 38, bold=True)
         loc_label = loc_label_font.render('Current Location:', True, (180, 190, 200))
-        self.screen.blit(loc_label, (100, 130))
+        self.screen.blit(loc_label, (120, loc_y + 15))
 
-        loc_value_font = pygame.font.SysFont(None, 50, bold=True)  # Was 36
-        loc_value = loc_value_font.render('📍 123 Main Street, Cypress, TX 77433', True, (100, 200, 255))
-        self.screen.blit(loc_value, (100, 160))
+        if privacy_mode:
+            location_text = '📍 Near Cypress, TX'
+        else:
+            location_text = '📍 123 Main Street, Cypress, TX 77433'
+        
+        loc_value_font = pygame.font.SysFont(None, 52, bold=True)
+        loc_value = loc_value_font.render(location_text, True, (100, 200, 255))
+        self.screen.blit(loc_value, (120, loc_y + 50))
 
-        # Destinations label
-        dest_label_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
-        dest_label = dest_label_font.render('Quick Destinations', True, (220, 230, 240))
-        self.screen.blit(dest_label, (80, 230))
+        # GPS status
+        gps_font = pygame.font.SysFont(None, 42, bold=True)
+        gps_text = gps_font.render('GPS: Locked', True, (100, 255, 150))
+        self.screen.blit(gps_text, (1650, loc_y + 30))
 
         # Destinations
         destinations = [
-            {'emoji': '🏠', 'name': 'Home', 'address': '123 Main St', 'eta': '0 min'},
-            {'emoji': '💼', 'name': 'Work', 'address': '456 Business Blvd', 'eta': '15 min'},
-            {'emoji': '🏫', 'name': 'School', 'address': '789 Education Dr', 'eta': '8 min'},
-            {'emoji': '🏥', 'name': 'Hospital', 'address': 'Memorial Medical Ctr', 'eta': '12 min'},
-            {'emoji': '🛒', 'name': 'Grocery', 'address': 'Whole Foods Market', 'eta': '5 min'},
-            {'emoji': '⛽', 'name': 'Gas Station', 'address': 'Shell Station', 'eta': '3 min'}
+            {'emoji': '🏠', 'name': 'Home', 'subtitle': '123 Main St', 'eta': '16 min'},
+            {'emoji': '💼', 'name': 'Work', 'subtitle': 'Business Blvd', 'eta': '22 min'},
+            {'emoji': '🏫', 'name': 'School', 'subtitle': 'Education Dr', 'eta': '12 min'},
+            {'emoji': '🏥', 'name': 'Hospital', 'subtitle': 'Memorial Medical', 'eta': '18 min'},
+            {'emoji': '🛒', 'name': 'Grocery', 'subtitle': 'Whole Foods', 'eta': '8 min'},
+            {'emoji': '⛽', 'name': 'Gas Station', 'subtitle': 'Shell Station', 'eta': '5 min'}
         ]
 
-        card_width = 400  # Scaled 1.43×
-        card_height = 140
-        gap = 35
-        start_x = 302
-        start_y = 290
+        card_width = 460
+        card_height = 180
+        gap = 50
+        
+        # Center grid
+        grid_total_width = 3 * card_width + 2 * gap
+        start_x = (self.width - grid_total_width) // 2
+        start_y = 360
 
         for i, dest in enumerate(destinations):
             row = i // 3
             col = i % 3
-
             x = start_x + col * (card_width + gap)
             y = start_y + row * (card_height + gap)
 
             card_rect = pygame.Rect(x, y, card_width, card_height)
+            bg_color = (35, 45, 65) if i == selected else (25, 32, 48)
+            pygame.draw.rect(self.screen, bg_color, card_rect, border_radius=12)
 
-            # Highlight selected
             if i == selected:
-                pygame.draw.rect(self.screen, (255, 255, 255), card_rect.inflate(6, 6), 3, border_radius=12)
+                pygame.draw.rect(self.screen, (100, 200, 255), card_rect, 4, border_radius=12)
 
-            pygame.draw.rect(self.screen, (30, 40, 60), card_rect, border_radius=12)
+            icon_font = load_emoji_font(90)
+            icon = icon_font.render(dest['emoji'], True, (255, 255, 255))
+            self.screen.blit(icon, (x + 20, y + 20))
 
-            # Emoji - use emoji font
-            icon_font = load_emoji_font(101)
-            icon = icon_font.render(dest['emoji'], True, (100, 200, 255))
-            self.screen.blit(icon, (x + 15, y + 15))
-
-            # Name
-            name_font = pygame.font.SysFont(None, 45, bold=True)  # Was 32
+            name_font = pygame.font.SysFont(None, 70, bold=True)
             name = name_font.render(dest['name'], True, (255, 255, 255))
-            self.screen.blit(name, (x + 80, y + 20))
+            self.screen.blit(name, (x + 130, y + 30))
 
-            # Address
-            address_font = pygame.font.SysFont(None, 25)  # Was 18
-            address = address_font.render(dest['address'], True, (180, 190, 210))
-            self.screen.blit(address, (x + 15, y + 75))
+            subtitle_font = pygame.font.SysFont(None, 38)
+            subtitle_text = subtitle_font.render(dest['subtitle'], True, (160, 180, 200))
+            self.screen.blit(subtitle_text, (x + 20, y + 110))
 
-            # ETA
-            eta_font = pygame.font.SysFont(None, 36, bold=True)  # Was 26
-            eta = eta_font.render(f"🕐 {dest['eta']}", True, (100, 255, 150))
-            self.screen.blit(eta, (x + 15, y + 105))
+            eta_font = pygame.font.SysFont(None, 48, bold=True)
+            eta = eta_font.render(dest['eta'], True, (100, 255, 150))
+            eta_x = x + card_width - eta.get_width() - 20
+            self.screen.blit(eta, (eta_x, y + 105))
 
         # Help
         help_font = pygame.font.SysFont(None, 28)  # Was 20
@@ -2212,6 +2232,7 @@ class MotiBeamOS:
 
     def handle_transport_input(self, key):
         """Handle Transport input"""
+        print(f"[DEBUG] Transport handler called with key: {key}")
         selected = self.realm_data['transport']['selected']
 
         dest_names = ['Home', 'Work', 'School', 'Hospital', 'Grocery Store', 'Gas Station']
@@ -2229,7 +2250,14 @@ class MotiBeamOS:
             if selected < 3:
                 self.realm_data['transport']['selected'] = selected + 3
         elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
-            print(f"[TRANSPORT] Calculating route to {dest_names[selected]}...")
+            print("[TRANSPORT] ENTER - Route preview (coming in Phase 2)")
+            return
+        elif key == pygame.K_s:
+            print("[TRANSPORT] S - Start navigation (coming in Phase 3)")
+            return
+        elif key == pygame.K_h:
+            print("[TRANSPORT] H - HUD mode toggle (coming in Phase 4)")
+            return
 
     # ==================== PRODUCTIVITY REALM ====================
 
