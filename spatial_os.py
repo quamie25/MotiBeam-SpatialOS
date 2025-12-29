@@ -881,9 +881,15 @@ class MotiBeamOS:
             avatar = avatar_font.render(person['emoji'], True, (255, 255, 255))
             self.screen.blit(avatar, (panel_x + panel_width // 2 - avatar.get_width() // 2, panel_y + 40))
             
-            # Name (large)
+            # Name (large) - privacy aware
+            privacy_mode = getattr(self, 'privacy_mode', False)
             name_font = pygame.font.SysFont(None, 80, bold=True)
-            name_surf = name_font.render(person['name'], True, (255, 255, 255))
+            if privacy_mode:
+                # Show initials or generic label
+                display_name = person['name'][0] + "." if len(person['name']) > 0 else "Contact"
+            else:
+                display_name = person['name']
+            name_surf = name_font.render(display_name, True, (255, 255, 255))
             self.screen.blit(name_surf, (panel_x + panel_width // 2 - name_surf.get_width() // 2, panel_y + 210))
             
             # Status with explanation
@@ -900,11 +906,16 @@ class MotiBeamOS:
             status_surf = status_font.render(status_explanations[person['status']], True, status_color)
             self.screen.blit(status_surf, (panel_x + panel_width // 2 - status_surf.get_width() // 2, panel_y + 290))
             
-            # Last seen
+            # Last seen - privacy aware
             seen_font = pygame.font.SysFont(None, 42)
-            seen_times = {0: '2h ago', 1: '30m ago', 2: 'Yesterday', 3: '1h ago', 4: '15m ago', 5: 'Available now'}
-            seen_text = f"Last seen: {seen_times[selected]}"
-            seen_surf = seen_font.render(seen_text, True, (180, 190, 200))
+            if privacy_mode:
+                seen_text = "🔒 Privacy Mode Active"
+                seen_color = (255, 220, 100)
+            else:
+                seen_times = {0: '2h ago', 1: '30m ago', 2: 'Yesterday', 3: '1h ago', 4: '15m ago', 5: 'Available now'}
+                seen_text = f"Last seen: {seen_times[selected]}"
+                seen_color = (180, 190, 200)
+            seen_surf = seen_font.render(seen_text, True, seen_color)
             self.screen.blit(seen_surf, (panel_x + panel_width // 2 - seen_surf.get_width() // 2, panel_y + 350))
             
             # Action buttons
