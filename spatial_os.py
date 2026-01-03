@@ -2414,15 +2414,20 @@ class MotiBeamOS:
             {'emoji': '🎵', 'name': 'Deep Work'}
         ]
 
-        # Header - 3x larger for projection
-        title_font = pygame.font.SysFont(None, 220, bold=True)
-        title = title_font.render('🎯 PRODUCTIVITY', True, (100, 150, 255))
-        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 30))
+        # Header - proper emoji rendering
+        title_emoji_font = load_emoji_font(180)
+        title_text_font = pygame.font.SysFont(None, 180, bold=True)
+        target_emoji = title_emoji_font.render('🎯', True, (100, 150, 255))
+        productivity_text = title_text_font.render(' PRODUCTIVITY', True, (100, 150, 255))
+        title_width = target_emoji.get_width() + productivity_text.get_width()
+        title_x = self.width // 2 - title_width // 2
+        self.screen.blit(target_emoji, (title_x, 40))
+        self.screen.blit(productivity_text, (title_x + target_emoji.get_width(), 40))
 
         # Subtitle - enterprise positioning
-        subtitle_font = pygame.font.SysFont(None, 48)
-        subtitle = subtitle_font.render('Ambient workflow layer for enterprise and workplace environments', True, (150, 180, 220))
-        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 200))
+        subtitle_font = pygame.font.SysFont(None, 54)
+        subtitle = subtitle_font.render('Enterprise Workflow Layer', True, (150, 180, 220))
+        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 210))
 
         # 2×3 grid layout - larger tiles, more spacing
         grid_cols = 3
@@ -2518,10 +2523,10 @@ class MotiBeamOS:
         title_surf = title_font.render(title_text, True, (120, 180, 255))
         self.screen.blit(title_surf, (panel_x + 40, panel_y + 40))
 
-        # Key features - max 4 bullets, large text
+        # Key features - max 4 bullets, large text (projection-ready)
         features_y = panel_y + 160
-        feature_font = pygame.font.SysFont(None, 36)
-        line_height = 70
+        feature_font = pygame.font.SysFont(None, 52)
+        line_height = 75
 
         # Tile-specific features (max 4)
         features = {
