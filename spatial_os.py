@@ -251,7 +251,7 @@ class MotiBeamOS:
                 'timer_start': 0.0,         # For Pomodoro timer
                 'timer_seconds': 25 * 60    # Default 25 minutes
             },
-            'transport': {'selected': 0, 'panel_open': False}
+            'transport': {'selected': 0, 'panel_open': False, 'driving_mode': True, 'last_interaction': 0}
         }
 
         # Weather integration
@@ -275,7 +275,7 @@ class MotiBeamOS:
         # Alert system (professional features) - shorter messages to prevent overlap
         self.alerts = [
             {'type': 'severe', 'message': 'SEVERE WEATHER - Tornado spotted. Seek shelter immediately', 'color': (255, 80, 80)},
-            {'type': 'medical', 'message': '💊 MEDICATION TIME - Take your medication NOW', 'color': (255, 50, 50)},  # Bright red, critical
+            {'type': 'medical', 'message': 'MEDICATION TIME - Take your medication NOW', 'color': (255, 50, 50)},
             {'type': 'message', 'message': 'NEW MESSAGES - 3 unread from CircleBeam', 'color': (100, 180, 255)},
         ]
         self.current_alert_index = 0
@@ -374,10 +374,17 @@ class MotiBeamOS:
 
         # Draw current alert
         alert = self.alerts[self.current_alert_index]
+        
+        # === BACKGROUND DIMMING for Critical Alerts ===
+        if alert['type'] in ['severe', 'medical']:
+            dim_overlay = pygame.Surface((self.width, self.height))
+            dim_overlay.set_alpha(25)  # Subtle 10% dim
+            dim_overlay.fill((0, 0, 0))
+            self.screen.blit(dim_overlay, (0, 0))
 
         # MEDICATION ALERT: Bigger, brighter, pulsing for elderly visibility
         if alert['type'] == 'medical':
-            banner_height = 65  # Taller for medication
+            banner_height = 75  # Taller for medication
 
             # Pulsing effect - brightness oscillates for attention
             self.alert_pulse += 0.15
@@ -392,17 +399,39 @@ class MotiBeamOS:
             alert_font = pygame.font.SysFont(None, 95, bold=True)
             alert_surf = alert_font.render(alert['message'], True, (255, 255, 255))
             text_x = (self.width - alert_surf.get_width()) // 2
-            self.screen.blit(alert_surf, (text_x, 15))
+            self.screen.blit(alert_surf, (text_x, 18))
+            
+            # Priority badge (left side)
+            priority_font = pygame.font.SysFont(None, 32, bold=True)
+            priority_text = priority_font.render('CRITICAL', True, (255, 255, 255))
+            self.screen.blit(priority_text, (20, 25))
+            
+            # Dismissal hint (right side)
+            hint_font = pygame.font.SysFont(None, 28)
+            hint_text = hint_font.render('Auto-dismiss in 2 min', True, (255, 220, 220))
+            self.screen.blit(hint_text, (self.width - 280, 28))
+            
         else:
             # Normal alerts
-            banner_height = 45
+            banner_height = 55
             banner_rect = pygame.Rect(0, 0, self.width, banner_height)
             pygame.draw.rect(self.screen, alert['color'], banner_rect)
 
             alert_font = pygame.font.SysFont(None, 75, bold=True)
             alert_surf = alert_font.render(alert['message'], True, (255, 255, 255))
             text_x = (self.width - alert_surf.get_width()) // 2
-            self.screen.blit(alert_surf, (text_x, 12))
+            self.screen.blit(alert_surf, (text_x, 15))
+            
+            # Priority badge for severe weather
+            if alert['type'] == 'severe':
+                priority_font = pygame.font.SysFont(None, 28, bold=True)
+                priority_text = priority_font.render('IMPORTANT', True, (255, 255, 255))
+                self.screen.blit(priority_text, (15, 20))
+            else:
+                # Info level for messages
+                priority_font = pygame.font.SysFont(None, 28, bold=True)
+                priority_text = priority_font.render('INFO', True, (255, 255, 255))
+                self.screen.blit(priority_text, (15, 20))
 
     def draw_state_indicator(self):
         """Draw STATE indicator in top right corner of alert banner"""
@@ -2294,11 +2323,15 @@ class MotiBeamOS:
         loc_label = loc_font.render('Current:', True, (140, 160, 180))
         self.screen.blit(loc_label, (60, loc_y))
         
-        # Adaptive verbosity for driving safety
+        # Adaptive verbosity (privacy + driving mode)
+        driving_mode = self.realm_data['transport'].get('driving_mode', True)
+        
         if privacy_mode:
             location_text = 'Near Cypress, TX'
+        elif driving_mode:
+            location_text = 'Cypress, TX'  # Minimal for safety
         else:
-            location_text = 'Cypress, TX'  # Short for driving mode
+            location_text = '123 Main Street, Cypress, TX'  # Full in parked mode
         
         loc_value_font = pygame.font.SysFont(None, 44)
         loc_value = loc_value_font.render(location_text, True, (180, 200, 220))
@@ -2416,8 +2449,17 @@ class MotiBeamOS:
             panel_height = 680
             
             panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
-            pygame.draw.rect(self.screen, (20, 30, 45), panel_rect, border_radius=12)
-            pygame.draw.rect(self.screen, (100, 180, 255), panel_rect, 3, border_radius=12)
+            
+            # Subtle de-emphasis in Driving mode (slightly dimmed)
+            if self.realm_data['transport'].get('driving_mode', True):
+                panel_bg = (int(20*0.8), int(30*0.8), int(45*0.8))  # 20% dimmer
+                border_color = (80, 140, 200)  # Softer border
+            else:
+                panel_bg = (20, 30, 45)
+                border_color = (100, 180, 255)
+            
+            pygame.draw.rect(self.screen, panel_bg, panel_rect, border_radius=12)
+            pygame.draw.rect(self.screen, border_color, panel_rect, 3, border_radius=12)
             
             # Destination header
             header_font = pygame.font.SysFont(None, 72, bold=True)
@@ -2458,35 +2500,56 @@ class MotiBeamOS:
             traffic_value = traffic_font.render(traffic_status, True, traffic_color)
             self.screen.blit(traffic_value, (panel_x + 190, traffic_y))
             
-            # Turn-by-turn preview (mock)
-            steps_y = panel_y + 480
-            steps_font = pygame.font.SysFont(None, 38)
-            steps_title = pygame.font.SysFont(None, 42, bold=True)
-            steps_header = steps_title.render('Route Steps:', True, (180, 200, 220))
-            self.screen.blit(steps_header, (panel_x + 40, steps_y))
+            # Turn-by-turn preview (only in Parked mode - safety first)
+            driving_mode = self.realm_data['transport'].get('driving_mode', True)
             
-            route_steps = [
-                '1. Head south on Main St',
-                '2. Merge onto I-45 S',
-                '3. Take exit 42A'
-            ]
-            
-            for i, step in enumerate(route_steps):
-                step_surf = steps_font.render(step, True, (160, 180, 200))
-                self.screen.blit(step_surf, (panel_x + 60, steps_y + 50 + i * 45))
+            if not driving_mode:  # Parked mode - show detailed steps
+                steps_y = panel_y + 480
+                steps_font = pygame.font.SysFont(None, 38)
+                steps_title = pygame.font.SysFont(None, 42, bold=True)
+                steps_header = steps_title.render('Route Steps:', True, (180, 200, 220))
+                self.screen.blit(steps_header, (panel_x + 40, steps_y))
+                
+                route_steps = [
+                    '1. Head south on Main St',
+                    '2. Merge onto I-45 S',
+                    '3. Take exit 42A'
+                ]
+                
+                for i, step in enumerate(route_steps):
+                    step_surf = steps_font.render(step, True, (160, 180, 200))
+                    self.screen.blit(step_surf, (panel_x + 60, steps_y + 50 + i * 45))
+            else:  # Driving mode - minimal, safety-focused
+                # Show simplified "Ready to navigate" message
+                ready_y = panel_y + 500
+                ready_font = pygame.font.SysFont(None, 48, bold=True)
+                ready_text = ready_font.render('Ready to navigate', True, (100, 255, 150))
+                self.screen.blit(ready_text, (panel_x + panel_width // 2 - ready_text.get_width() // 2, ready_y))
             
             # Close hint
             close_font = pygame.font.SysFont(None, 44)
-            close_text = close_font.render('ENTER to close  •  S to start navigation', True, (140, 160, 180))
-            self.screen.blit(close_text, (panel_x + 40, panel_y + 620))
+            if driving_mode:
+                close_text = close_font.render('M: Parked mode  •  S: Start navigation', True, (140, 160, 180))
+            else:
+                close_text = close_font.render('M: Driving mode  •  ENTER: Close', True, (140, 160, 180))
 
-        # === HUD CONTROLS (Bottom, Minimal) ===
-        help_font = pygame.font.SysFont(None, 32)
-        help_text = help_font.render('Arrows: Navigate  •  ENTER: Preview  •  ESC: Home', True, (120, 140, 160))
-        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 840))
+        # === HUD CONTROLS (Bottom, Minimal - Auto-hide) ===
+        import time
+        driving_mode = self.realm_data['transport'].get('driving_mode', True)
+        last_interaction = self.realm_data['transport'].get('last_interaction', 0)
+        time_since_interaction = time.time() - last_interaction
+        
+        # Show footer only if: (1) Parked mode, OR (2) Recent interaction (< 3 sec)
+        if not driving_mode or time_since_interaction < 3.0:
+            help_font = pygame.font.SysFont(None, 32)
+            help_text = help_font.render('Arrows: Navigate  •  ENTER: Preview  •  M: Mode  •  ESC: Home', True, (120, 140, 160))
+            self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 840))
 
     def handle_transport_input(self, key):
         """Handle Transport input"""
+        import time
+        self.realm_data['transport']['last_interaction'] = time.time()
+        
         print(f"[DEBUG] Transport handler called with key: {key}")
         selected = self.realm_data['transport']['selected']
 
@@ -2507,6 +2570,11 @@ class MotiBeamOS:
         elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
             self.realm_data['transport']['panel_open'] = not self.realm_data['transport']['panel_open']
             print(f"[TRANSPORT] Preview panel {'opened' if self.realm_data['transport']['panel_open'] else 'closed'}")
+            return
+        elif key == pygame.K_m:
+            self.realm_data['transport']['driving_mode'] = not self.realm_data['transport']['driving_mode']
+            mode_name = "Driving" if self.realm_data['transport']['driving_mode'] else "Parked"
+            print(f"[TRANSPORT] Mode: {mode_name}")
             return
         elif key == pygame.K_s:
             print("[TRANSPORT] S - Start navigation (coming in Phase 3)")
