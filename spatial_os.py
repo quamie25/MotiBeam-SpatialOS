@@ -251,7 +251,7 @@ class MotiBeamOS:
                 'timer_start': 0.0,         # For Pomodoro timer
                 'timer_seconds': 25 * 60    # Default 25 minutes
             },
-            'transport': {'selected': 0}
+            'transport': {'selected': 0, 'panel_open': False}
         }
 
         # Weather integration
@@ -2269,97 +2269,221 @@ class MotiBeamOS:
                 print(f"[EDUCATION] Starting {subject_names[selected]} session")
 
     def render_transport(self):
-        """Transport - Automotive HUD"""
+        """Transport - Automotive HUD Layer (HUD-First Design)"""
         selected = self.realm_data['transport']['selected']
         privacy_mode = getattr(self, 'privacy_mode', False)
 
-        # Title
-        title_font = pygame.font.SysFont(None, 120, bold=True)
-        title = title_font.render('🚗 TRANSPORT', True, (100, 180, 255))
-        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 50))
-
-        # Subtitle
-        subtitle_font = pygame.font.SysFont(None, 56)
-        subtitle = subtitle_font.render('Automotive HUD', True, (160, 180, 200))
-        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 140))
-
-        # Current location (privacy-aware)
-        loc_y = 220
-        loc_section = pygame.Rect(100, loc_y, 1720, 90)
-        pygame.draw.rect(self.screen, (25, 30, 45), loc_section, border_radius=12)
-        pygame.draw.rect(self.screen, (100, 180, 255), loc_section, 2, border_radius=12)
-
-        loc_label_font = pygame.font.SysFont(None, 38, bold=True)
-        loc_label = loc_label_font.render('Current Location:', True, (180, 190, 200))
-        self.screen.blit(loc_label, (120, loc_y + 15))
-
-        if privacy_mode:
-            location_text = '📍 Near Cypress, TX'
-        else:
-            location_text = '📍 123 Main Street, Cypress, TX 77433'
+        # === PRIMARY ROUTE STRIP (The HUD Spine) ===
+        route_strip = pygame.Rect(0, 20, self.width, 80)
+        pygame.draw.rect(self.screen, (20, 30, 45, 200), route_strip)
+        pygame.draw.rect(self.screen, (100, 180, 255), route_strip, 2)
         
-        loc_value_font = pygame.font.SysFont(None, 52, bold=True)
-        loc_value = loc_value_font.render(location_text, True, (100, 200, 255))
-        self.screen.blit(loc_value, (120, loc_y + 50))
-
-        # GPS status
-        gps_font = pygame.font.SysFont(None, 42, bold=True)
+        # Route info - always visible
+        route_font = pygame.font.SysFont(None, 56, bold=True)
+        route_text = route_font.render('HOME • 16 min • I-45 S • Moderate traffic', True, (100, 255, 150))
+        self.screen.blit(route_text, (60, 38))
+        
+        # GPS status (right side)
+        gps_font = pygame.font.SysFont(None, 48, bold=True)
         gps_text = gps_font.render('GPS: Locked', True, (100, 255, 150))
-        self.screen.blit(gps_text, (1650, loc_y + 30))
+        self.screen.blit(gps_text, (1650, 42))
 
-        # Destinations
+        # === CURRENT LOCATION (Adaptive - Driving-Safe) ===
+        loc_y = 120
+        loc_font = pygame.font.SysFont(None, 44, bold=True)
+        loc_label = loc_font.render('Current:', True, (140, 160, 180))
+        self.screen.blit(loc_label, (60, loc_y))
+        
+        # Adaptive verbosity for driving safety
+        if privacy_mode:
+            location_text = 'Near Cypress, TX'
+        else:
+            location_text = 'Cypress, TX'  # Short for driving mode
+        
+        loc_value_font = pygame.font.SysFont(None, 44)
+        loc_value = loc_value_font.render(location_text, True, (180, 200, 220))
+        self.screen.blit(loc_value, (180, loc_y))
+
+        # === DESTINATIONS (PRIMARY + SECONDARY) ===
         destinations = [
-            {'emoji': '🏠', 'name': 'Home', 'subtitle': '123 Main St', 'eta': '16 min'},
-            {'emoji': '💼', 'name': 'Work', 'subtitle': 'Business Blvd', 'eta': '22 min'},
-            {'emoji': '🏫', 'name': 'School', 'subtitle': 'Education Dr', 'eta': '12 min'},
-            {'emoji': '🏥', 'name': 'Hospital', 'subtitle': 'Memorial Medical', 'eta': '18 min'},
-            {'emoji': '🛒', 'name': 'Grocery', 'subtitle': 'Whole Foods', 'eta': '8 min'},
-            {'emoji': '⛽', 'name': 'Gas Station', 'subtitle': 'Shell Station', 'eta': '5 min'}
+            {'emoji': '🏠', 'name': 'Home', 'subtitle': '123 Main St', 'eta': '16 min', 'primary': True},
+            {'emoji': '💼', 'name': 'Work', 'subtitle': 'Business Blvd', 'eta': '22 min', 'primary': False},
+            {'emoji': '🏫', 'name': 'School', 'subtitle': 'Education Dr', 'eta': '12 min', 'primary': False},
+            {'emoji': '🏥', 'name': 'Hospital', 'subtitle': 'Memorial Medical', 'eta': '18 min', 'primary': False},
+            {'emoji': '🛒', 'name': 'Grocery', 'subtitle': 'Whole Foods', 'eta': '8 min', 'primary': False},
+            {'emoji': '⛽', 'name': 'Gas Station', 'subtitle': 'Shell Station', 'eta': '5 min', 'primary': False}
         ]
 
-        card_width = 460
-        card_height = 180
-        gap = 50
+        # Compressed vertical layout (horizon-aligned)
+        primary_card_width = 560
+        primary_card_height = 200
+        secondary_card_width = 380
+        secondary_card_height = 140
+        gap_x = 40
+        gap_y = 30
         
-        # Center grid
-        grid_total_width = 3 * card_width + 2 * gap
-        start_x = (self.width - grid_total_width) // 2
-        start_y = 360
+        # Primary destination (Home) - emphasized
+        primary_dest = destinations[0]
+        primary_x = 140
+        primary_y = 220
+        
+        primary_rect = pygame.Rect(primary_x, primary_y, primary_card_width, primary_card_height)
+        
+        # State-based color (green = optimal)
+        if selected == 0:
+            bg_color = (30, 60, 40)  # Green tint for primary route
+            border_color = (100, 255, 150)
+        else:
+            bg_color = (25, 32, 48)
+            border_color = (80, 120, 160)
+        
+        pygame.draw.rect(self.screen, bg_color, primary_rect, border_radius=12)
+        pygame.draw.rect(self.screen, border_color, primary_rect, 4, border_radius=12)
+        
+        # Primary destination content
+        icon_font = load_emoji_font(100)
+        icon = icon_font.render(primary_dest['emoji'], True, (255, 255, 255))
+        self.screen.blit(icon, (primary_x + 30, primary_y + 25))
+        
+        name_font = pygame.font.SysFont(None, 80, bold=True)
+        name = name_font.render(primary_dest['name'], True, (255, 255, 255))
+        self.screen.blit(name, (primary_x + 160, primary_y + 40))
+        
+        # ETA (state-based color)
+        eta_font = pygame.font.SysFont(None, 72, bold=True)
+        eta = eta_font.render(primary_dest['eta'], True, (100, 255, 150))
+        self.screen.blit(eta, (primary_x + 360, primary_y + 40))
+        
+        subtitle_font = pygame.font.SysFont(None, 38)
+        subtitle = subtitle_font.render(primary_dest['subtitle'], True, (160, 180, 200))
+        self.screen.blit(subtitle, (primary_x + 160, primary_y + 130))
 
-        for i, dest in enumerate(destinations):
-            row = i // 3
-            col = i % 3
-            x = start_x + col * (card_width + gap)
-            y = start_y + row * (card_height + gap)
-
-            card_rect = pygame.Rect(x, y, card_width, card_height)
-            bg_color = (35, 45, 65) if i == selected else (25, 32, 48)
-            pygame.draw.rect(self.screen, bg_color, card_rect, border_radius=12)
-
+        # === SECONDARY DESTINATIONS (Smaller, Grid Below) ===
+        secondary_start_y = primary_y + primary_card_height + gap_y
+        
+        for i in range(1, 6):  # Skip Home (index 0)
+            dest = destinations[i]
+            grid_row = (i - 1) // 3
+            grid_col = (i - 1) % 3
+            
+            x = primary_x + grid_col * (secondary_card_width + gap_x)
+            y = secondary_start_y + grid_row * (secondary_card_height + gap_y)
+            
+            card_rect = pygame.Rect(x, y, secondary_card_width, secondary_card_height)
+            
+            # Dimmed when not selected
             if i == selected:
-                pygame.draw.rect(self.screen, (100, 200, 255), card_rect, 4, border_radius=12)
+                sec_bg = (30, 40, 55)
+                sec_border = (100, 180, 255)
+            else:
+                sec_bg = (int(25*0.6), int(32*0.6), int(48*0.6))
+                sec_border = (60, 80, 100)
+            
+            pygame.draw.rect(self.screen, sec_bg, card_rect, border_radius=10)
+            pygame.draw.rect(self.screen, sec_border, card_rect, 2, border_radius=10)
+            
+            # Icon
+            icon_font_small = load_emoji_font(60)
+            icon = icon_font_small.render(dest['emoji'], True, (255, 255, 255) if i == selected else (180, 180, 180))
+            self.screen.blit(icon, (x + 15, y + 15))
+            
+            # Name
+            name_font_small = pygame.font.SysFont(None, 48, bold=True)
+            name = name_font_small.render(dest['name'], True, (255, 255, 255) if i == selected else (180, 180, 180))
+            self.screen.blit(name, (x + 95, y + 20))
+            
+            # Subtitle
+            subtitle_font_small = pygame.font.SysFont(None, 28)
+            subtitle = subtitle_font_small.render(dest['subtitle'], True, (140, 160, 180) if i == selected else (100, 120, 140))
+            self.screen.blit(subtitle, (x + 15, y + 80))
+            
+            # ETA (state-based color)
+            eta_font_small = pygame.font.SysFont(None, 36, bold=True)
+            # Yellow if > 20 min, green otherwise
+            eta_color = (255, 220, 100) if int(dest['eta'].split()[0]) > 20 else (100, 255, 150)
+            eta = eta_font_small.render(dest['eta'], True, eta_color)
+            eta_x = x + secondary_card_width - eta.get_width() - 15
+            self.screen.blit(eta, (eta_x, y + 75))
 
-            icon_font = load_emoji_font(90)
-            icon = icon_font.render(dest['emoji'], True, (255, 255, 255))
-            self.screen.blit(icon, (x + 20, y + 20))
+        # === ROUTE PREVIEW PANEL (If Open) ===
+        if self.realm_data['transport']['panel_open']:
+            dest = destinations[selected]
+            
+            # Panel (right side, HUD-style)
+            panel_x = 1050
+            panel_y = 180
+            panel_width = 800
+            panel_height = 680
+            
+            panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
+            pygame.draw.rect(self.screen, (20, 30, 45), panel_rect, border_radius=12)
+            pygame.draw.rect(self.screen, (100, 180, 255), panel_rect, 3, border_radius=12)
+            
+            # Destination header
+            header_font = pygame.font.SysFont(None, 72, bold=True)
+            header = header_font.render(f"{dest['emoji']} {dest['name']}", True, (100, 200, 255))
+            self.screen.blit(header, (panel_x + 40, panel_y + 40))
+            
+            # Route summary
+            summary_y = panel_y + 140
+            summary_font = pygame.font.SysFont(None, 52, bold=True)
+            
+            # ETA
+            eta_label = summary_font.render('ETA:', True, (160, 180, 200))
+            self.screen.blit(eta_label, (panel_x + 40, summary_y))
+            eta_value = summary_font.render(dest['eta'], True, (100, 255, 150))
+            self.screen.blit(eta_value, (panel_x + 150, summary_y))
+            
+            # Distance
+            distance_label = summary_font.render('Distance:', True, (160, 180, 200))
+            self.screen.blit(distance_label, (panel_x + 40, summary_y + 70))
+            distance_value = summary_font.render('8.4 miles', True, (180, 200, 220))
+            self.screen.blit(distance_value, (panel_x + 240, summary_y + 70))
+            
+            # Route
+            route_label = summary_font.render('Route:', True, (160, 180, 200))
+            self.screen.blit(route_label, (panel_x + 40, summary_y + 140))
+            route_value = summary_font.render('I-45 S', True, (180, 200, 220))
+            self.screen.blit(route_value, (panel_x + 190, summary_y + 140))
+            
+            # Traffic status
+            traffic_y = panel_y + 400
+            traffic_font = pygame.font.SysFont(None, 46, bold=True)
+            traffic_label = traffic_font.render('Traffic:', True, (160, 180, 200))
+            self.screen.blit(traffic_label, (panel_x + 40, traffic_y))
+            
+            # State-based traffic color (green = good, yellow = moderate, red = heavy)
+            traffic_status = 'Moderate'
+            traffic_color = (255, 220, 100) if traffic_status == 'Moderate' else (100, 255, 150)
+            traffic_value = traffic_font.render(traffic_status, True, traffic_color)
+            self.screen.blit(traffic_value, (panel_x + 190, traffic_y))
+            
+            # Turn-by-turn preview (mock)
+            steps_y = panel_y + 480
+            steps_font = pygame.font.SysFont(None, 38)
+            steps_title = pygame.font.SysFont(None, 42, bold=True)
+            steps_header = steps_title.render('Route Steps:', True, (180, 200, 220))
+            self.screen.blit(steps_header, (panel_x + 40, steps_y))
+            
+            route_steps = [
+                '1. Head south on Main St',
+                '2. Merge onto I-45 S',
+                '3. Take exit 42A'
+            ]
+            
+            for i, step in enumerate(route_steps):
+                step_surf = steps_font.render(step, True, (160, 180, 200))
+                self.screen.blit(step_surf, (panel_x + 60, steps_y + 50 + i * 45))
+            
+            # Close hint
+            close_font = pygame.font.SysFont(None, 44)
+            close_text = close_font.render('ENTER to close  •  S to start navigation', True, (140, 160, 180))
+            self.screen.blit(close_text, (panel_x + 40, panel_y + 620))
 
-            name_font = pygame.font.SysFont(None, 70, bold=True)
-            name = name_font.render(dest['name'], True, (255, 255, 255))
-            self.screen.blit(name, (x + 130, y + 30))
-
-            subtitle_font = pygame.font.SysFont(None, 38)
-            subtitle_text = subtitle_font.render(dest['subtitle'], True, (160, 180, 200))
-            self.screen.blit(subtitle_text, (x + 20, y + 110))
-
-            eta_font = pygame.font.SysFont(None, 48, bold=True)
-            eta = eta_font.render(dest['eta'], True, (100, 255, 150))
-            eta_x = x + card_width - eta.get_width() - 20
-            self.screen.blit(eta, (eta_x, y + 105))
-
-        # Help
-        help_font = pygame.font.SysFont(None, 28)  # Was 20
-        help_text = help_font.render('Arrow Keys: Navigate | ENTER: Navigate to Destination | ESC: Back', True, (150, 160, 180))
-        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 720))
+        # === HUD CONTROLS (Bottom, Minimal) ===
+        help_font = pygame.font.SysFont(None, 32)
+        help_text = help_font.render('Arrows: Navigate  •  ENTER: Preview  •  ESC: Home', True, (120, 140, 160))
+        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 840))
 
     def handle_transport_input(self, key):
         """Handle Transport input"""
@@ -2381,7 +2505,8 @@ class MotiBeamOS:
             if selected < 3:
                 self.realm_data['transport']['selected'] = selected + 3
         elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
-            print("[TRANSPORT] ENTER - Route preview (coming in Phase 2)")
+            self.realm_data['transport']['panel_open'] = not self.realm_data['transport']['panel_open']
+            print(f"[TRANSPORT] Preview panel {'opened' if self.realm_data['transport']['panel_open'] else 'closed'}")
             return
         elif key == pygame.K_s:
             print("[TRANSPORT] S - Start navigation (coming in Phase 3)")
@@ -2494,6 +2619,35 @@ class MotiBeamOS:
 
         # Preview panel (if open)
         if panel_open:
+            # Dim background for focus (professional depth effect)
+            dim_overlay = pygame.Surface((self.width, self.height))
+            dim_overlay.set_alpha(120)  # 0-255, higher = darker
+            dim_overlay.fill((0, 0, 0))
+            self.screen.blit(dim_overlay, (0, 0))
+            
+            # Redraw selected tile on top (not dimmed)
+            tile = tiles[selected]
+            row = selected // 3
+            col = selected % 3
+            x = grid_start_x + col * (card_width + gap)
+            y = grid_start_y + row * (card_height + gap)
+            
+            card_rect = pygame.Rect(x, y, card_width, card_height)
+            pygame.draw.rect(self.screen, (35, 45, 60), card_rect, border_radius=14)
+            glow_rect = pygame.Rect(x - 6, y - 6, card_width + 12, card_height + 12)
+            pygame.draw.rect(self.screen, (120, 180, 255), glow_rect, width=5, border_radius=16)
+            
+            icon_font = load_emoji_font(100)
+            icon = icon_font.render(tile['emoji'], True, (255, 255, 255))
+            icon_x = x + card_width // 2 - icon.get_width() // 2
+            self.screen.blit(icon, (icon_x, y + 30))
+            
+            name_font = pygame.font.SysFont(None, 56, bold=True)
+            name_surf = name_font.render(tile['name'], True, (255, 255, 255))
+            name_x = x + card_width // 2 - name_surf.get_width() // 2
+            self.screen.blit(name_surf, (name_x, y + 160))
+            
+            # Now render the panel
             self._render_productivity_panel(tiles[selected])
 
         # Help text - larger for projection
