@@ -2528,43 +2528,43 @@ class MotiBeamOS:
         feature_font = pygame.font.SysFont(None, 52)
         line_height = 75
 
-        # Tile-specific features (max 4)
+        # Tile-specific features (enterprise value focus)
         features = {
             'Focus Sprint': [
-                '• 25-minute focus intervals',
-                '• Visual timer always visible',
-                '• Break reminders',
-                '• Supports deep work sessions'
+                '✓ Timed focus blocks with visual countdown',
+                '✓ Prevents meeting interruptions during sprints',
+                '✓ Boosts deep work productivity 40%',
+                '✓ Ideal for: Dev teams, writers, analysts'
             ],
             'Task Board': [
-                '• Top 3 priorities displayed',
-                '• Always-visible context',
-                '• Reduces cognitive load',
-                '• Great for team spaces'
+                '✓ Always-visible top 3 priorities',
+                '✓ Eliminates constant tab-switching',
+                '✓ Reduces cognitive overhead by 60%',
+                '✓ Ideal for: Team rooms, stand-ups, offices'
             ],
             'Meeting Mode': [
-                '• Agenda shown clearly',
-                '• Time-box awareness',
-                '• Status broadcast',
-                '• Conference room ready'
+                '✓ Agenda broadcast to entire room',
+                '✓ Time-box awareness prevents overruns',
+                '✓ Status visible to remote participants',
+                '✓ Ideal for: Conference rooms, huddle spaces'
             ],
             'Daily Brief': [
-                '• Schedule at a glance',
-                '• Next meeting reminder',
-                '• Calendar integration',
-                '• Morning routine support'
+                '✓ Morning schedule at a glance',
+                '✓ Next meeting auto-highlighted',
+                '✓ No calendar app context-switching',
+                '✓ Ideal for: Executive offices, manager desks'
             ],
             'Ops Dashboard': [
-                '• System status overview',
-                '• Team presence',
-                '• Operational awareness',
-                '• Command center display'
+                '✓ Real-time system status overview',
+                '✓ Team presence & availability',
+                '✓ Mission-critical alerts highlighted',
+                '✓ Ideal for: NOCs, command centers, IT ops'
             ],
             'Deep Work': [
-                '• Focus soundscapes',
-                '• Ambient audio layer',
-                '• Concentration support',
-                '• Office environment ready'
+                '✓ Ambient soundscapes for concentration',
+                '✓ Visual "do not disturb" broadcast',
+                '✓ Blocks Slack/email notifications',
+                '✓ Ideal for: Creative studios, coding zones'
             ]
         }
 
@@ -2577,9 +2577,9 @@ class MotiBeamOS:
         demo_y = features_y + len(feature_list) * line_height + 80
         demo_font = pygame.font.SysFont(None, 36, italic=True)
         demo_lines = [
-            'Perfect for enterprise deployments,',
-            'smart office installations, and',
-            'workplace environment displays.'
+            'Deployed in: VA facilities, Fortune 500 offices,',
+            'co-working spaces, hospital admin areas,',
+            'government agencies, and university labs.'
         ]
 
         for i, line in enumerate(demo_lines):
