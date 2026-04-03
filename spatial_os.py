@@ -128,7 +128,7 @@ def init_display(width, height):
         os.putenv("SDL_VIDEODRIVER", "")
 
     pygame.display.init()
-    screen = pygame.display.set_mode((width, height), pygame.FULLSCREEN)
+    screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.NOFRAME)
     print(f"  ✓ Display created successfully ({width}x{height}, fullscreen)")
     pygame.display.set_caption("MotiBeam Spatial OS – Clean Build")
 
@@ -698,8 +698,7 @@ class MotiBeamOS:
         
         if key == pygame.K_ESCAPE:
             if self.state == "home":
-                pygame.quit()
-                sys.exit(0)
+                pass  # Demo mode - ESC disabled on home screen
             # Don't go back if Education is in session mode - let realm handler deal with it
             elif self.state == "education" and self.realm_data['education']['in_session']:
                 pass  # Education handler will process this
