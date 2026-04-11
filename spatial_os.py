@@ -41,6 +41,15 @@ from datetime import datetime
 # Emoji Font Loading with Fallback
 # ---------------------------
 
+
+# ── Global font cache — prevents per-frame SysFont crashes on Pi 4 ──
+_FONT_CACHE = {}
+def get_font(size, bold=False):
+    key = (size, bold)
+    if key not in _FONT_CACHE:
+        _FONT_CACHE[key] = pygame.font.SysFont(None, size, bold=bold)
+    return _FONT_CACHE[key]
+
 def load_emoji_font(size=96):
     """
     Load emoji font with graceful fallback.
@@ -204,19 +213,19 @@ class MotiBeamOS:
         # Fonts (projection friendly – large, 40% larger for 10-15ft viewing)
         # Use system fonts for crisp rendering quality
         self.font_header = pygame.font.SysFont(None, 59)  # Was 42
-        self.font_header_meta = pygame.font.SysFont(None, 36)  # Was 30
-        self.font_emoji = pygame.font.SysFont(None, 80)  # System font for sharp text
-        self.font_card_title = pygame.font.SysFont(None, 48)  # Was 34
+        self.font_header_meta = get_font(36)  # Was 30
+        self.font_emoji = get_font(80)  # System font for sharp text
+        self.font_card_title = get_font(48)  # Was 34
         self.font_card_subtitle = pygame.font.SysFont(None, 31)  # Was 22
-        self.font_footer = pygame.font.SysFont(None, 34)  # Was 24
+        self.font_footer = get_font(34)  # Was 24
         # Overlay fonts (for demo mode)
         self.font_overlay_timer = pygame.font.SysFont(None, 240, bold=True)
-        self.font_overlay_subtitle = pygame.font.SysFont(None, 56)
-        self.font_overlay_hint = pygame.font.SysFont(None, 36)
+        self.font_overlay_subtitle = get_font(56)
+        self.font_overlay_hint = get_font(36)
         # Overlay fonts (for demo mode)
         self.font_overlay_timer = pygame.font.SysFont(None, 240, bold=True)
-        self.font_overlay_subtitle = pygame.font.SysFont(None, 56)
-        self.font_overlay_hint = pygame.font.SysFont(None, 36)
+        self.font_overlay_subtitle = get_font(56)
+        self.font_overlay_hint = get_font(36)
 
         self.clock = pygame.time.Clock()
         # Voice pipeline
@@ -342,8 +351,15 @@ class MotiBeamOS:
         self.alert_pulse = 0  # For pulsing effect on critical alerts
 
         # Ticker system (scrolling updates at bottom)
-        self.ticker_text = "→ Scheduling CircleBeam → Listing schematica → Missed presence from Dad → Traffic alert: I-45 delay 15min → Weather update: Clear skies → "
+        self.ticker_text = "MotiBeam OS — Loading... "
         self.ticker_offset = 0
+        # Weather cache
+        self._weather_text = ""
+        self._start_time = __import__("time").time()
+        self._weather_last  = 0
+        self._weather_thread = None
+        # Weather fetched lazily after 30s
+        self._weather_last = 0
         self.ticker_speed = 2  # pixels per frame
 
         # System state (ALERT vs CALM)
@@ -374,9 +390,9 @@ class MotiBeamOS:
         self.screen.fill((15, 20, 30))
 
         # Create fonts for splash
-        logo_font = pygame.font.SysFont(None, 80, bold=True)
-        subtitle_font = pygame.font.SysFont(None, 48)
-        version_font = pygame.font.SysFont(None, 36)
+        logo_font = get_font(80, bold=True)
+        subtitle_font = get_font(48)
+        version_font = get_font(36)
 
         # MOTIBEAM text
         moti_text = logo_font.render("MOTIBEAM", True, (100, 180, 255))
@@ -434,10 +450,12 @@ class MotiBeamOS:
         
         # === BACKGROUND DIMMING for Critical Alerts ===
         if alert['type'] in ['severe', 'medical']:
-            dim_overlay = pygame.Surface((self.width, self.height))
-            dim_overlay.set_alpha(25)  # Subtle 10% dim
-            dim_overlay.fill((0, 0, 0))
-            self.screen.blit(dim_overlay, (0, 0))
+            # Use cached overlay surface — no per-frame Surface creation
+            if not hasattr(self, '_dim_overlay'):
+                self._dim_overlay = pygame.Surface((self.width, self.height))
+                self._dim_overlay.set_alpha(25)
+                self._dim_overlay.fill((0, 0, 0))
+            self.screen.blit(self._dim_overlay, (0, 0))
 
         # MEDICATION ALERT: Bigger, brighter, pulsing for elderly visibility
         if alert['type'] == 'medical':
@@ -453,18 +471,18 @@ class MotiBeamOS:
             pygame.draw.rect(self.screen, banner_color, banner_rect)
 
             # Extra large text for medication
-            alert_font = pygame.font.SysFont(None, 95, bold=True)
+            alert_font = get_font(95, bold=True)
             alert_surf = alert_font.render(alert['message'], True, (255, 255, 255))
             text_x = (self.width - alert_surf.get_width()) // 2
             self.screen.blit(alert_surf, (text_x, 18))
             
             # Priority badge (left side)
-            priority_font = pygame.font.SysFont(None, 32, bold=True)
+            priority_font = get_font(32, bold=True)
             priority_text = priority_font.render('CRITICAL', True, (255, 255, 255))
             self.screen.blit(priority_text, (20, 25))
             
             # Dismissal hint (right side)
-            hint_font = pygame.font.SysFont(None, 28)
+            hint_font = get_font(28)
             hint_text = hint_font.render('Auto-dismiss in 2 min', True, (255, 220, 220))
             self.screen.blit(hint_text, (self.width - 280, 28))
             
@@ -474,19 +492,19 @@ class MotiBeamOS:
             banner_rect = pygame.Rect(0, 0, self.width, banner_height)
             pygame.draw.rect(self.screen, alert['color'], banner_rect)
 
-            alert_font = pygame.font.SysFont(None, 75, bold=True)
+            alert_font = get_font(75, bold=True)
             alert_surf = alert_font.render(alert['message'], True, (255, 255, 255))
             text_x = (self.width - alert_surf.get_width()) // 2
             self.screen.blit(alert_surf, (text_x, 15))
             
             # Priority badge for severe weather
             if alert['type'] == 'severe':
-                priority_font = pygame.font.SysFont(None, 28, bold=True)
+                priority_font = get_font(28, bold=True)
                 priority_text = priority_font.render('IMPORTANT', True, (255, 255, 255))
                 self.screen.blit(priority_text, (15, 20))
             else:
                 # Info level for messages
-                priority_font = pygame.font.SysFont(None, 28, bold=True)
+                priority_font = get_font(28, bold=True)
                 priority_text = priority_font.render('INFO', True, (255, 255, 255))
                 self.screen.blit(priority_text, (15, 20))
 
@@ -496,7 +514,7 @@ class MotiBeamOS:
             return  # Don't draw if alerts are disabled
 
         state_color = (255, 255, 255) if self.system_state == "ALERT" else (255, 255, 255)
-        state_font = pygame.font.SysFont(None, 26, bold=True)
+        state_font = get_font(26, bold=True)
         state_text = f"STATE: {self.system_state}"
         state_surf = state_font.render(state_text, True, state_color)
         # Position inside alert banner at far right
@@ -516,9 +534,10 @@ class MotiBeamOS:
         ticker_rect = pygame.Rect(0, ticker_y, self.width, ticker_height)
         pygame.draw.rect(self.screen, (25, 30, 45), ticker_rect)
 
-        # Scrolling text (using system font for crisp rendering)
-        ticker_font = pygame.font.SysFont(None, 70)  # Increased from 24 for wall projection (+83%)
-        ticker_surf = ticker_font.render(self.ticker_text, True, (180, 200, 220))
+        # Scrolling text — cached font (never create fonts per frame)
+        if not hasattr(self, '_ticker_font'):
+            self._ticker_font = get_font(70)
+        ticker_surf = self._ticker_font.render(self.ticker_text, True, (180, 200, 220))
 
         # Update offset for scrolling effect
         self.ticker_offset -= self.ticker_speed
@@ -570,11 +589,12 @@ class MotiBeamOS:
         if not self.call_active:
             return
 
-        # Semi-transparent overlay
-        overlay = pygame.Surface((self.width, self.height))
-        overlay.set_alpha(200)
-        overlay.fill((20, 25, 35))
-        self.screen.blit(overlay, (0, 0))
+        # Semi-transparent overlay — cached
+        if not hasattr(self, '_call_overlay'):
+            self._call_overlay = pygame.Surface((self.width, self.height))
+            self._call_overlay.set_alpha(200)
+            self._call_overlay.fill((20, 25, 35))
+        self.screen.blit(self._call_overlay, (0, 0))
 
         # Call card
         card_width = 640
@@ -587,7 +607,7 @@ class MotiBeamOS:
         pygame.draw.rect(self.screen, (100, 180, 255), card_rect, width=4, border_radius=20)
 
         # Header text
-        header_font = pygame.font.SysFont(None, 42, bold=True)
+        header_font = get_font(42, bold=True)
         header_surf = header_font.render('Incoming Presence Call', True, (100, 180, 255))
         header_x = card_x + (card_width - header_surf.get_width()) // 2
         self.screen.blit(header_surf, (header_x, card_y + 30))
@@ -599,14 +619,14 @@ class MotiBeamOS:
         self.screen.blit(caller_emoji, (emoji_x, card_y + 100))
 
         # Caller name
-        name_font = pygame.font.SysFont(None, 72, bold=True)
+        name_font = get_font(72, bold=True)
         display_name = 'Contact' if getattr(self, 'privacy_mode', False) else self.call_caller['name']
         name_surf = name_font.render(display_name, True, (255, 255, 255))
         name_x = card_x + (card_width - name_surf.get_width()) // 2
         self.screen.blit(name_surf, (name_x, card_y + 260))
 
         # Subtext
-        subtext_font = pygame.font.SysFont(None, 36)
+        subtext_font = get_font(36)
         subtext_surf = subtext_font.render('Tap to connect or dismiss', True, (180, 200, 220))
         subtext_x = card_x + (card_width - subtext_surf.get_width()) // 2
         self.screen.blit(subtext_surf, (subtext_x, card_y + 320))
@@ -617,7 +637,7 @@ class MotiBeamOS:
         # Accept button
         accept_rect = pygame.Rect(card_x + 100, button_y, 200, 56)
         pygame.draw.rect(self.screen, (50, 200, 100), accept_rect, border_radius=10)
-        accept_font = pygame.font.SysFont(None, 42, bold=True)
+        accept_font = get_font(42, bold=True)
         accept_text = accept_font.render('Accept (A)', True, (255, 255, 255))
         accept_x = accept_rect.centerx - accept_text.get_width() // 2
         accept_y = accept_rect.centery - accept_text.get_height() // 2
@@ -626,7 +646,7 @@ class MotiBeamOS:
         # Decline button
         decline_rect = pygame.Rect(card_x + 340, button_y, 200, 56)
         pygame.draw.rect(self.screen, (200, 50, 50), decline_rect, border_radius=10)
-        decline_font = pygame.font.SysFont(None, 42, bold=True)
+        decline_font = get_font(42, bold=True)
         decline_text = decline_font.render('Decline (D)', True, (255, 255, 255))
         decline_x = decline_rect.centerx - decline_text.get_width() // 2
         decline_y = decline_rect.centery - decline_text.get_height() // 2
@@ -735,8 +755,83 @@ class MotiBeamOS:
             return True
         return False
 
+    def _fetch_weather(self):
+        """Fetch weather for Cypress TX in background thread"""
+        import threading, time as _t2
+        def _do_fetch():
+            try:
+                import urllib.request
+                url = 'https://wttr.in/Cypress+TX?format=3'
+                req = urllib.request.Request(url, headers={'User-Agent': 'curl/7.0'})
+                with urllib.request.urlopen(req, timeout=8) as r:
+                    raw = r.read().decode('utf-8').strip()
+                    raw = raw.split('\n')[0].strip()
+                    self._weather_text = f"Cypress TX  {raw}"
+            except Exception:
+                self._weather_text = "Cypress TX  Weather unavailable"
+            self._weather_last = _t2.time()
+        try:
+            t = threading.Thread(target=_do_fetch, daemon=True)
+            t.start()
+        except Exception:
+            self._weather_text = "Cypress TX  Weather unavailable"
+            self._weather_last = _t2.time()
+
+    def _build_ticker(self):
+        """Build live ticker text from system state"""
+        import time as _t3
+        # Refresh weather every 10 min
+        if _t3.time() - self._weather_last > 600:
+            self._fetch_weather()
+
+        parts = []
+
+        # Weather
+        parts.append(self._weather_text)
+
+        # CircleBeam status
+        if getattr(self, 'presence', None):
+            parts.append("CircleBeam: Connected")
+        else:
+            parts.append("CircleBeam: Standby")
+
+        # Home mode
+        home_mode = self.realm_data.get('home_realm', {}).get('ambient_mode', 'home')
+        mode_labels = {'home': 'Home: Secure', 'away': 'Home: Away Mode', 'night': 'Home: Night Watch'}
+        parts.append(mode_labels.get(home_mode, 'Home: Active'))
+
+        # Active marketplace experiences
+        if hasattr(self, 'active_experiences') and self.active_experiences:
+            exp_names = {
+                'breathing': 'Guided Breathing Active',
+                'focus':     'Focus Mode Active',
+                'decor':     'Holiday Lights Active',
+                'education': 'Flashcards Active',
+                'security':  'Front Door Pack Active',
+                'motivation':'Morning Motivation Active',
+            }
+            for key, label in exp_names.items():
+                if self.active_experiences.get(key):
+                    parts.append(label)
+
+        # Temperature from home realm
+        thermo = self.realm_data.get('home_realm', {}).get('_thermo_base', 71.0)
+        import math as _mth
+        import time as _t4
+        drift = _mth.sin(_t4.time() * 0.04) * 1.8
+        temp  = thermo + drift
+        parts.append(f"Indoor Temp: {temp:.1f}F")
+
+        # Any active home alert
+        home_state = self.realm_data.get('home_realm', {}).get('home_state', 'IDLE')
+        if home_state != 'IDLE':
+            event = self.realm_data.get('home_realm', {}).get('event')
+            if event:
+                parts.append(f"ALERT: {event.get('passive', 'Event active')}")
+
+        return "   →   ".join(parts) + "   →   "
+
     def handle_key(self, key):
-        print(f"[HK2] state={self.state} key={key}")
         # Q always quits
         if key == pygame.K_q:
             # Require CTRL+SHIFT+Q to quit - prevents accidental exit
@@ -865,7 +960,7 @@ class MotiBeamOS:
 
         # Title - proper emoji + text alignment
         title_emoji_font = load_emoji_font(80)
-        title_text_font = pygame.font.SysFont(None, 80, bold=True)
+        title_text_font = get_font(80, bold=True)
         people_emoji = title_emoji_font.render('👥', True, (100, 180, 255))
         circlebeam_text = title_text_font.render(' CIRCLEBEAM', True, (100, 180, 255))
         title_width = people_emoji.get_width() + circlebeam_text.get_width()
@@ -874,7 +969,7 @@ class MotiBeamOS:
         self.screen.blit(circlebeam_text, (title_x + people_emoji.get_width(), 50))
 
         # Subtitle
-        subtitle_font = pygame.font.SysFont(None, 52)
+        subtitle_font = get_font(52)
         subtitle = subtitle_font.render('Family Presence', True, (180, 200, 220))
         self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 160))
 
@@ -932,7 +1027,7 @@ class MotiBeamOS:
             self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 25))
 
             # Name - licensing-ready size (56px)
-            name_font = pygame.font.SysFont(None, 56, bold=True)
+            name_font = get_font(56, bold=True)
             name = name_font.render(circle['name'], True, (255, 255, 255))
             self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 145))
 
@@ -941,11 +1036,11 @@ class MotiBeamOS:
             
             # Status dot
             # Status dot - standardized colored circle
-            dot_font = pygame.font.SysFont(None, 48, bold=True)
+            dot_font = get_font(48, bold=True)
             dot = dot_font.render(circle['dot'], True, status_color)
             
             # Status text - readable size (36px)
-            status_font = pygame.font.SysFont(None, 36)
+            status_font = get_font(36)
             status_text = status_font.render(circle['status_text'], True, status_color)
             
             # Center status line
@@ -976,7 +1071,7 @@ class MotiBeamOS:
             
             # Name (large) - privacy aware
             privacy_mode = getattr(self, 'privacy_mode', False)
-            name_font = pygame.font.SysFont(None, 46, bold=True)
+            name_font = get_font(46, bold=True)
             if privacy_mode:
                 # Show initials or generic label
                 display_name = person['name'][0] + "." if len(person['name']) > 0 else "Contact"
@@ -987,7 +1082,7 @@ class MotiBeamOS:
             
             # Status with explanation
             status_color = status_colors[person['status']]
-            status_font = pygame.font.SysFont(None, 50, bold=True)
+            status_font = get_font(50, bold=True)
             
             status_explanations = {
                 'available': 'Available for contact',
@@ -1000,7 +1095,7 @@ class MotiBeamOS:
             self.screen.blit(status_surf, (panel_x + panel_width // 2 - status_surf.get_width() // 2, panel_y + 290))
             
             # Last seen - privacy aware
-            seen_font = pygame.font.SysFont(None, 42)
+            seen_font = get_font(42)
             if privacy_mode:
                 seen_text = "🔒 Privacy Mode Active"
                 seen_color = (255, 220, 100)
@@ -1013,7 +1108,7 @@ class MotiBeamOS:
             
             # Action buttons
             action_y = panel_y + 430
-            button_font = pygame.font.SysFont(None, 50, bold=True)
+            button_font = get_font(50, bold=True)
             key_font = pygame.font.SysFont(None, 60, bold=True)
             
             actions = [
@@ -1047,7 +1142,7 @@ class MotiBeamOS:
             if self.realm_data['circlebeam']['action_feedback']:
                 elapsed = time.time() - self.realm_data['circlebeam']['action_time']
                 if elapsed < 2.0:  # Show for 2 seconds
-                    feedback_font = pygame.font.SysFont(None, 56, bold=True)
+                    feedback_font = get_font(56, bold=True)
                     feedback_surf = feedback_font.render(self.realm_data['circlebeam']['action_feedback'], True, (100, 255, 150))
                     feedback_bg = pygame.Rect(panel_x + 50, panel_y + 570, panel_width - 100, 60)
                     pygame.draw.rect(self.screen, (30, 60, 40), feedback_bg, border_radius=8)
@@ -1057,16 +1152,16 @@ class MotiBeamOS:
                     self.realm_data['circlebeam']['action_feedback'] = None
             
             # Close hint
-            close_font = pygame.font.SysFont(None, 44)
+            close_font = get_font(44)
             close_surf = close_font.render('ENTER or ESC to close', True, (150, 170, 200))
             self.screen.blit(close_surf, (panel_x + panel_width // 2 - close_surf.get_width() // 2, panel_y + 620))
 
         # Footer - safe zone (no overlap)
-        philosophy_font = pygame.font.SysFont(None, 38)
+        philosophy_font = get_font(38)
         philosophy = philosophy_font.render('Presence is shared without requiring interaction.', True, (150, 170, 200))
         self.screen.blit(philosophy, (self.width // 2 - philosophy.get_width() // 2, 820))
 
-        help_font = pygame.font.SysFont(None, 36)
+        help_font = get_font(36)
         help_text = help_font.render('← → Navigate | ENTER Preview | I Incoming | ESC Home', True, (150, 160, 180))
         self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 870))
 
@@ -1121,275 +1216,417 @@ class MotiBeamOS:
             pass
 
     def render_marketplace(self):
-        """Marketplace - Investor-ready PX Store (2 rows × 3 cols, no commerce language)"""
-        selected = self.realm_data['marketplace']['selected']
-        preview_open = self.realm_data['marketplace']['preview_open']
-        installed = self.realm_data['marketplace']['installed']
+        """Marketplace - Projection Experience Platform — Upgraded"""
+        import math as _m
+        import time as _t
+        data     = self.realm_data['marketplace']
+        selected = data.get('selected', 0)
+        installed= data.get('installed', set())
+        preview  = data.get('preview_open', False)
+        prev_idx = data.get('preview_idx', 0)
+        activating = data.get('activating', False)
+        act_start  = data.get('act_start', 0)
+        now      = _t.time()
+        pulse    = (_m.sin(now * 0.8) + 1) / 2
+        pulse2   = (_m.sin(now * 1.6) + 1) / 2
 
-        # Debug confirmation - Marketplace V2 active
-        print("MARKETPLACE V2 ACTIVE")
+        W, H = self.width, self.height
+        cx, cy = W//2, H//2
 
-        # Header
-        title_font = pygame.font.SysFont(None, 90, bold=True)  # Scaled 1.56×
-        title = title_font.render('🛒 MARKETPLACE', True, (180, 100, 255))
-        self.screen.blit(title, (self.width // 2 - title.get_width() // 2, 50))
-
-        subtitle_font = pygame.font.SysFont(None, 39)
-        subtitle = subtitle_font.render('Projection Experiences', True, (200, 180, 255))
-        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 115))
-
-        # PX Database - 6 investor-focused items (2 rows × 3 cols)
         pxs = [
             {
-                'emoji': '🌙',
-                'name': 'Sleep PX',
+                'name': 'Guided Breathing',
                 'category': 'Wellness',
-                'description': 'Guided relaxation and sleep routines',
-                'features': ['Calming visuals', 'Breathing exercises', 'Sleep timer', 'Ambient sounds'],
-                'status': 'INSTALLED' if 'Sleep PX' in installed else 'AVAILABLE'
+                'desc': 'Calm your space with ambient breath cycles',
+                'color': (60, 180, 200),
+                'key': 'breathing',
+                'preview': 'breathing',
             },
             {
-                'emoji': '🎯',
-                'name': 'Focus PX',
+                'name': 'Morning Motivation',
+                'category': 'Wellness',
+                'desc': 'Daily affirmations projected at sunrise',
+                'color': (220, 160, 50),
+                'key': 'motivation',
+                'preview': 'motivation',
+            },
+            {
+                'name': 'Kids Flashcards',
+                'category': 'Education',
+                'desc': 'Interactive learning on any wall surface',
+                'color': (80, 200, 120),
+                'key': 'education',
+                'preview': 'flashcards',
+            },
+            {
+                'name': 'Focus Timer Theme',
                 'category': 'Productivity',
-                'description': 'Distraction-free work environment',
-                'features': ['Pomodoro timer', 'Focus music', 'Task tracking', 'Progress visualization'],
-                'status': 'INSTALLED' if 'Focus PX' in installed else 'AVAILABLE'
+                'desc': 'Deep work environment with ambient visuals',
+                'color': (100, 140, 220),
+                'key': 'focus',
+                'preview': 'focus',
             },
             {
-                'emoji': '👨‍👩‍👧',
-                'name': 'Family PX',
-                'category': 'Social',
-                'description': 'Shared experiences for families',
-                'features': ['Story time', 'Game night', 'Family calendar', 'Photo memories'],
-                'status': 'INSTALLED' if 'Family PX' in installed else 'AVAILABLE'
+                'name': 'Holiday Lights',
+                'category': 'Seasonal',
+                'desc': 'Festive projection decor for any room',
+                'color': (220, 80, 80),
+                'key': 'decor',
+                'preview': 'holiday',
             },
             {
-                'emoji': '📚',
-                'name': 'Education PX',
-                'category': 'Learning',
-                'description': 'Interactive learning experiences',
-                'features': ['Language lessons', 'Science demos', 'History tours', 'Math games'],
-                'status': 'INSTALLED' if 'Education PX' in installed else 'AVAILABLE'
+                'name': 'Front Door Pack',
+                'category': 'Security',
+                'desc': 'Enhanced visitor alerts and response flows',
+                'color': (200, 130, 50),
+                'key': 'security',
+                'preview': 'security',
             },
-            {
-                'emoji': '🏠',
-                'name': 'Home PX',
-                'category': 'Lifestyle',
-                'description': 'Smart home visualization',
-                'features': ['Energy dashboard', 'Device control', 'Security feed', 'Climate zones'],
-                'status': 'INSTALLED' if 'Home PX' in installed else 'COMING SOON'
-            },
-            {
-                'emoji': '⭐',
-                'name': 'Featured Today',
-                'category': 'Special',
-                'description': 'Curated daily experiences',
-                'features': ['Meditation garden', 'Virtual travel', 'Art gallery', 'Nature sounds'],
-                'status': 'COMING SOON'
-            }
         ]
 
-        # 2 rows × 3 cols grid layout - larger tiles
-        card_width = 340
-        card_height = 190
-        gap = 58  # Scaled 1.45×
-        start_x = 60
-        start_y = 210
+        if not hasattr(self, '_mf'):
+            self._mf = {
+                'title': get_font(72, bold=True),
+                'sub':   get_font(36),
+                'name':  get_font(44, bold=True),
+                'cat':   get_font(30),
+                'desc':  get_font(32),
+                'hint':  get_font(28),
+                'big':   get_font(90, bold=True),
+                'med':   get_font(56, bold=True),
+                'label': get_font(34),
+                'small': get_font(30),
+            }
+        titf = self._mf['title']
+        subf = self._mf['sub']
+        namf = self._mf['name']
+        catf = self._mf['cat']
+        desf = self._mf['desc']
+        hif  = self._mf['hint']
+        bigf = self._mf['big']
+        medf = self._mf['med']
+        lblf = self._mf['label']
+        smf  = self._mf['small']
 
-        # If preview is open, shift grid left and add preview panel
-        if preview_open:
-            start_x = 40
-            card_width = 400
-            gap = 30
+        # ── Active experiences global state ───────────────────────
+        if not hasattr(self, 'active_experiences'):
+            self.active_experiences = {}
 
-        for i, px in enumerate(pxs):
-            row = i // 3  # 3 columns per row
-            col = i % 3   # columns: 0, 1, 2
+        # ══════════════════════════════════════════════════════════
+        # ACTIVATION ANIMATION
+        # ══════════════════════════════════════════════════════════
+        if activating:
+            elapsed = now - act_start
+            if elapsed > 1.0:
+                data['activating'] = False
+                data['preview_open'] = False
+                return
+            px  = pxs[prev_idx]
+            ac  = px['color']
+            self.screen.fill((6, 8, 14))
+            # Expanding rings
+            for ri in range(5):
+                rr = int(elapsed * 400 + ri * 80)
+                ra = max(0, 80 - int(rr * 0.12) - ri*8)
+                if ra > 0 and rr > 0 and rr < 700:
+                    rc = (min(255,ac[0]//2+ra), min(255,ac[1]//2+ra), min(255,ac[2]//2+ra))
+                    pygame.draw.circle(self.screen, rc, (cx, cy), rr, width=2)
+            # Activated text
+            av = int(elapsed * 255)
+            if av > 0:
+                ms = medf.render('Activated', True, (min(255,av), min(255,av), min(255,av)))
+                self.screen.blit(ms, (cx-ms.get_width()//2, cy-30))
+                ns = lblf.render(px['name'], True, (min(255,ac[0]), min(255,ac[1]), min(255,ac[2])))
+                self.screen.blit(ns, (cx-ns.get_width()//2, cy+40))
+            return
 
-            x = start_x + col * (card_width + gap)
-            y = start_y + row * (card_height + gap)
+        # ══════════════════════════════════════════════════════════
+        # PREVIEW MODE — animated per experience type
+        # ══════════════════════════════════════════════════════════
+        if preview and 0 <= prev_idx < len(pxs):
+            px      = pxs[prev_idx]
+            ac      = px['color']
+            ptype   = px['preview']
+            is_inst = px['name'] in installed
 
-            card_rect = pygame.Rect(x, y, card_width, card_height)
+            self.screen.fill((6, 8, 14))
 
-            # Highlight selected
-            if i == selected:
-                pygame.draw.rect(self.screen, (100, 180, 255), card_rect.inflate(6, 6), 4, border_radius=12)
+            # ── Guided Breathing ──────────────────────────────────
+            if ptype == 'breathing':
+                breath_cycle = 6.0
+                t_in_cycle   = now % breath_cycle
+                if t_in_cycle < 2.5:
+                    phase = t_in_cycle / 2.5
+                    label = 'Breathe In...'
+                elif t_in_cycle < 3.5:
+                    phase = 1.0
+                    label = 'Hold...'
+                else:
+                    phase = 1.0 - (t_in_cycle - 3.5) / 2.5
+                    label = 'Breathe Out...'
+                r = int(60 + phase * 160)
+                alpha_val = int(40 + phase * 60)
+                for ri in range(4):
+                    rr2 = r - ri * 18
+                    if rr2 > 0:
+                        cv = alpha_val - ri*8
+                        if cv > 0:
+                            cc = (min(255,ac[0]//3+cv), min(255,ac[1]//3+cv), min(255,ac[2]//3+cv))
+                            pygame.draw.circle(self.screen, cc, (cx, cy), rr2, width=2)
+                pygame.draw.circle(self.screen, (min(255,ac[0]//2+80),min(255,ac[1]//2+80),min(255,ac[2]//2+80)), (cx,cy), r-8)
+                ls = medf.render(label, True, (200,220,240))
+                self.screen.blit(ls, (cx-ls.get_width()//2, cy+200))
 
-            pygame.draw.rect(self.screen, (35, 30, 55), card_rect, border_radius=12)
+            # ── Motivation ────────────────────────────────────────
+            elif ptype == 'motivation':
+                quotes = ['You are capable.', 'Today is yours.', 'Stay focused.', 'Make it happen.']
+                qi     = int(now / 3) % len(quotes)
+                fade   = (_m.sin(now * _m.pi / 3) + 1) / 2
+                tv2    = int(120 + fade * 135)
+                qs     = bigf.render(quotes[qi], True, (tv2, int(tv2*0.9), int(tv2*0.6)))
+                self.screen.blit(qs, (cx-qs.get_width()//2, cy-40))
+                # Subtle sunburst lines
+                for li in range(12):
+                    angle = li * 30 * _m.pi / 180 + now * 0.1
+                    llen  = int(80 + pulse * 30)
+                    lx1   = cx + int(_m.cos(angle) * 40)
+                    ly1   = cy - 60 + int(_m.sin(angle) * 40)
+                    lx2   = cx + int(_m.cos(angle) * (40+llen))
+                    ly2   = cy - 60 + int(_m.sin(angle) * (40+llen))
+                    lv    = int(30 + pulse * 20)
+                    pygame.draw.line(self.screen, (lv+int(ac[0]*0.3), lv+int(ac[1]*0.2), lv), (lx1,ly1), (lx2,ly2), 1)
 
-            # PX emoji - use emoji font
-            icon_font = load_emoji_font(52)
-            icon = icon_font.render(px['emoji'], True, (100, 200, 255))
-            self.screen.blit(icon, (x + 20, y + 20))
+            # ── Flashcards ────────────────────────────────────────
+            elif ptype == 'flashcards':
+                cards = [('5 x 6 = ?','30'),('A is for...','Apple'),('3 + 7 = ?','10'),('What is H2O?','Water')]
+                ci    = int(now / 4) % len(cards)
+                q, a  = cards[ci]
+                t_in  = now % 4
+                show_a = t_in > 2.0
+                # Card
+                cw4, ch4 = 500, 280
+                pygame.draw.rect(self.screen, (18,22,32), (cx-cw4//2, cy-ch4//2, cw4, ch4), border_radius=16)
+                pygame.draw.rect(self.screen, ac, (cx-cw4//2-2,cy-ch4//2-2,cw4+4,ch4+4), width=2, border_radius=18)
+                qs2 = medf.render(q, True, (220,230,245))
+                self.screen.blit(qs2, (cx-qs2.get_width()//2, cy-50))
+                if show_a:
+                    av2 = min(255, int((t_in-2.0)*300))
+                    ac2 = (min(255,ac[0]), min(255,ac[1]), min(255,ac[2]))
+                    ans = bigf.render(a, True, (av2,av2,av2))
+                    self.screen.blit(ans, (cx-ans.get_width()//2, cy+20))
 
-            # PX name
-            name_font = pygame.font.SysFont(None, 46, bold=True)
-            name = name_font.render(px['name'], True, (255, 255, 255))
-            self.screen.blit(name, (x + 110, y + 30))
+            # ── Focus ─────────────────────────────────────────────
+            elif ptype == 'focus':
+                # Minimal dark room with slow particles
+                for pi2 in range(6):
+                    px2 = int((W*(0.1+pi2*0.15) + _m.sin(now*0.1+pi2)*20)) % W
+                    py2 = int((H*(0.2+pi2*0.12) + _m.cos(now*0.08+pi2)*15)) % H
+                    pv2 = int(20 + pulse*15)
+                    pygame.draw.circle(self.screen,(min(255,ac[0]//3+pv2),min(255,ac[1]//3+pv2),min(255,ac[2]//3+pv2)),(px2,py2),2)
+                ms3 = bigf.render('Deep Focus', True, (int(160+pulse*40),int(170+pulse*30),int(200+pulse*25)))
+                self.screen.blit(ms3, (cx-ms3.get_width()//2, cy-50))
+                ts4 = medf.render('25:00', True, (80,100,160))
+                self.screen.blit(ts4, (cx-ts4.get_width()//2, cy+60))
+
+            # ── Holiday ───────────────────────────────────────────
+            elif ptype == 'holiday':
+                colors_h = [(220,60,60),(60,180,60),(220,180,50),(60,120,220),(180,60,180)]
+                for hi in range(18):
+                    hx = int(W*(0.05+hi*0.055) + _m.sin(now*0.4+hi*0.7)*12)
+                    hy = int(H*(0.2+hi*0.04) + _m.sin(now*0.6+hi*0.5)*20)
+                    hc = colors_h[hi % len(colors_h)]
+                    hv = int(100+_m.sin(now*1.2+hi)*80)
+                    hr = int(6+_m.sin(now*0.8+hi)*3)
+                    pygame.draw.circle(self.screen,(min(255,hc[0]//2+hv//2),min(255,hc[1]//2+hv//2),min(255,hc[2]//2+hv//2)),(hx,hy),hr)
+                ms4 = medf.render("Season's Greetings", True, (220,180,80))
+                self.screen.blit(ms4, (cx-ms4.get_width()//2, cy-20))
+
+            # ── Security ──────────────────────────────────────────
+            elif ptype == 'security':
+                for ri2 in range(3):
+                    rphase = now*0.8 + ri2*1.0
+                    rr3    = int(80+ri2*90+_m.sin(rphase)*15)
+                    rv     = int(60+_m.sin(rphase)*40)
+                    pygame.draw.circle(self.screen,(min(255,ac[0]//2+rv),min(255,ac[1]//4+rv//2),0),(cx,cy),rr3,width=2)
+                ms5 = medf.render('Front Door Awareness', True, (220,160,80))
+                self.screen.blit(ms5, (cx-ms5.get_width()//2, cy-30))
+                ss5 = lblf.render('Enhanced alerts enabled', True, (120,100,60))
+                self.screen.blit(ss5, (cx-ss5.get_width()//2, cy+40))
+
+            # ── Common preview chrome ─────────────────────────────
+            # Top: category + name
+            pygame.draw.rect(self.screen, ac, (0,0,W,3))
+            cat_s = catf.render(px['category'].upper(), True, ac)
+            cw5   = cat_s.get_width()+22
+            pygame.draw.rect(self.screen,(ac[0]//4,ac[1]//4,ac[2]//4),(cx-cw5//2,18,cw5,34),border_radius=8)
+            pygame.draw.rect(self.screen,ac,(cx-cw5//2-1,17,cw5+2,36),width=1,border_radius=8)
+            self.screen.blit(cat_s,(cx-cat_s.get_width()//2,24))
+            ns2 = namf.render(px['name'], True, (220,225,240))
+            self.screen.blit(ns2, (cx-ns2.get_width()//2, 60))
+
+            # Bottom: activate button
+            btn_txt = 'Deactivate' if is_inst else 'Activate'
+            btn_c   = (50,160,80) if is_inst else ac
+            bw3,bh3 = 240,56
+            bx3     = cx-bw3//2
+            by3     = H-110
+            pygame.draw.rect(self.screen,(btn_c[0]//4,btn_c[1]//4,btn_c[2]//4),(bx3,by3,bw3,bh3),border_radius=10)
+            pygame.draw.rect(self.screen,btn_c,(bx3-2,by3-2,bw3+4,bh3+4),width=2,border_radius=12)
+            bs2 = lblf.render(btn_txt, True, (255,255,255))
+            self.screen.blit(bs2,(bx3+bw3//2-bs2.get_width()//2,by3+bh3//2-bs2.get_height()//2))
+
+            hint = hif.render('SPACE: Activate / Deactivate   ESC: Back', True, (45,50,65))
+            self.screen.blit(hint,(cx-hint.get_width()//2,H-44))
+            return
+
+        # ══════════════════════════════════════════════════════════
+        # MAIN GRID
+        # ══════════════════════════════════════════════════════════
+        self.screen.fill((6, 8, 14))
+
+        # Top gradient
+        for gy2 in range(100):
+            av3 = int((1-gy2/100)*14)
+            pygame.draw.line(self.screen,(av3,av3,av3*2),(0,gy2),(W,gy2))
+
+        # Header
+        ts5 = titf.render('MARKETPLACE', True, (200,170,255))
+        self.screen.blit(ts5,(W//2-ts5.get_width()//2,26))
+        ss6 = subf.render('Projection Experience Platform', True, (80,65,110))
+        self.screen.blit(ss6,(W//2-ss6.get_width()//2,100))
+        pygame.draw.line(self.screen,(40,32,60),(80,132),(W-80,132),1)
+
+        # Active experience count indicator
+        act_count = len(self.active_experiences) if hasattr(self,'active_experiences') else 0
+        if act_count > 0:
+            ac_lbl = smf.render(f'{act_count} Active', True, (60,180,90))
+            pygame.draw.rect(self.screen,(15,40,20),(W-130,22,110,32),border_radius=8)
+            self.screen.blit(ac_lbl,(W-125,28))
+
+        # Grid
+        cols2,rows2 = 3,2
+        cw6,ch6     = 360,166
+        gx6,gy6     = 30,26
+        sw6         = cols2*cw6+(cols2-1)*gx6
+        sx6         = W//2-sw6//2
+        sy6         = 148
+
+        for i,px3 in enumerate(pxs):
+            col6   = i%cols2
+            row6   = i//cols2
+            x6     = sx6+col6*(cw6+gx6)
+            y6     = sy6+row6*(ch6+gy6)
+            is_sel = (i==selected)
+            is_inst2 = px3['name'] in installed
+            ac5    = px3['color']
+
+            bg6 = (16,18,28) if is_sel else (10,11,18)
+            pygame.draw.rect(self.screen,bg6,(x6,y6,cw6,ch6),border_radius=10)
+
+            if is_sel:
+                bv3 = int(100+pulse*90)
+                bc5 = (min(255,ac5[0]//2+bv3//2),min(255,ac5[1]//2+bv3//2),min(255,ac5[2]//2+bv3//2))
+                pygame.draw.rect(self.screen,bc5,(x6-2,y6-2,cw6+4,ch6+4),width=2,border_radius=12)
+            else:
+                pygame.draw.rect(self.screen,(20,22,32),(x6-1,y6-1,cw6+2,ch6+2),width=1,border_radius=10)
+
+            # Color top bar
+            bar_c2 = ac5 if is_sel else (ac5[0]//3,ac5[1]//3,ac5[2]//3)
+            pygame.draw.rect(self.screen,bar_c2,(x6,y6,cw6,3),border_radius=2)
 
             # Category
-            cat_font = pygame.font.SysFont(None, 30)
-            cat = cat_font.render(px['category'], True, (180, 160, 200))
-            self.screen.blit(cat, (x + 110, y + 65))
+            cl2 = catf.render(px3['category'], True, (ac5[0]//2+50,ac5[1]//2+50,ac5[2]//2+50))
+            self.screen.blit(cl2,(x6+14,y6+10))
 
-            # Description (shorter for compact view)
-            desc_font = pygame.font.SysFont(None, 36)
-            desc = desc_font.render(px['description'][:45] + '...', True, (150, 150, 170))
-            self.screen.blit(desc, (x + 20, y + 130))
+            # Name
+            nc2 = (240,245,255) if is_sel else (150,160,180)
+            nl2 = namf.render(px3['name'],True,nc2)
+            self.screen.blit(nl2,(x6+14,y6+38))
+
+            # Desc
+            dt  = px3['desc'][:42]+('...' if len(px3['desc'])>42 else '')
+            dl2 = desf.render(dt,True,(55,60,78))
+            self.screen.blit(dl2,(x6+14,y6+86))
 
             # Status badge
-            status = px['status']
-            if status == 'INSTALLED':
-                badge_color = (100, 255, 150)
-                badge_bg = (20, 80, 40)
-            elif status == 'COMING SOON':
-                badge_color = (255, 200, 100)
-                badge_bg = (80, 60, 20)
-            else:  # AVAILABLE
-                badge_color = (100, 180, 255)
-                badge_bg = (20, 40, 80)
-
-            badge_font = pygame.font.SysFont(None, 55, bold=True)
-            badge_text = badge_font.render(status, True, badge_color)
-            badge_rect = pygame.Rect(x + 20, y + 180, badge_text.get_width() + 20, 35)
-            pygame.draw.rect(self.screen, badge_bg, badge_rect, border_radius=6)
-            self.screen.blit(badge_text, (x + 30, y + 187))
-
-        # Preview panel on right side
-        if preview_open:
-            selected_px = pxs[selected]
-            panel_x = 740
-            panel_y = 180
-            panel_width = 1120
-            panel_height = 800
-
-            # Panel background
-            panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
-            pygame.draw.rect(self.screen, (25, 25, 45), panel_rect, border_radius=12)
-            pygame.draw.rect(self.screen, (100, 180, 255), panel_rect, 3, border_radius=12)
-
-            # Preview header
-            preview_title_font = pygame.font.SysFont(None, 56, bold=True)
-            preview_emoji_font = load_emoji_font(70)
-
-            preview_emoji = preview_emoji_font.render(selected_px['emoji'], True, (100, 200, 255))
-            self.screen.blit(preview_emoji, (panel_x + 30, panel_y + 30))
-
-            preview_title = preview_title_font.render(selected_px['name'], True, (255, 255, 255))
-            self.screen.blit(preview_title, (panel_x + 120, panel_y + 40))
-
-            # Category
-            preview_cat_font = pygame.font.SysFont(None, 34)
-            preview_cat = preview_cat_font.render(selected_px['category'], True, (180, 160, 200))
-            self.screen.blit(preview_cat, (panel_x + 120, panel_y + 85))
-
-            # Description
-            preview_desc_font = pygame.font.SysFont(None, 36)
-            preview_desc = preview_desc_font.render(selected_px['description'], True, (200, 200, 220))
-            self.screen.blit(preview_desc, (panel_x + 30, panel_y + 160))
-
-            # Features list
-            features_label_font = pygame.font.SysFont(None, 40, bold=True)
-            features_label = features_label_font.render('Features:', True, (100, 180, 255))
-            self.screen.blit(features_label, (panel_x + 30, panel_y + 230))
-
-            feature_font = pygame.font.SysFont(None, 32)
-            for i, feature in enumerate(selected_px['features']):
-                feature_text = feature_font.render(f'• {feature}', True, (180, 180, 200))
-                self.screen.blit(feature_text, (panel_x + 50, panel_y + 290 + i * 50))
-
-            # Status badge in preview
-            status_label_font = pygame.font.SysFont(None, 40, bold=True)
-            status_label = status_label_font.render('Status:', True, (100, 180, 255))
-            self.screen.blit(status_label, (panel_x + 30, panel_y + 520))
-
-            status = selected_px['status']
-            if status == 'INSTALLED':
-                status_color = (100, 255, 150)
-                status_bg = (20, 80, 40)
-            elif status == 'COMING SOON':
-                status_color = (255, 200, 100)
-                status_bg = (80, 60, 20)
+            if is_inst2:
+                badge_c2 = (40,150,65)
+                badge_t2 = 'Active'
             else:
-                status_color = (100, 180, 255)
-                status_bg = (20, 40, 80)
+                badge_c2 = (40,42,58)
+                badge_t2 = 'Available'
+            bt2  = smf.render(badge_t2,True,badge_c2)
+            btw2 = bt2.get_width()+14
+            pygame.draw.rect(self.screen,(badge_c2[0]//4,badge_c2[1]//4,badge_c2[2]//4),(x6+cw6-btw2-8,y6+ch6-30,btw2,22),border_radius=5)
+            self.screen.blit(bt2,(x6+cw6-btw2-1,y6+ch6-27))
 
-            status_font = pygame.font.SysFont(None, 38, bold=True)
-            status_text = status_font.render(status, True, status_color)
-            status_rect = pygame.Rect(panel_x + 30, panel_y + 580, status_text.get_width() + 30, 45)
-            pygame.draw.rect(self.screen, status_bg, status_rect, border_radius=8)
-            self.screen.blit(status_text, (panel_x + 45, panel_y + 590))
-
-            # Demo install hint
-            if status == 'AVAILABLE':
-                hint_font = pygame.font.SysFont(None, 32)
-                hint_text = hint_font.render('Press D to demo install', True, (100, 180, 255))
-                self.screen.blit(hint_text, (panel_x + 30, panel_y + 680))
-
-        # Footer help
-        help_font = pygame.font.SysFont(None, 28)
-        if preview_open:
-            help_text = help_font.render('← → Navigate | B Back to Grid | D Demo Install', True, (150, 160, 180))
-        else:
-            help_text = help_font.render('← → Navigate | Enter Preview | B Back | D Demo Install', True, (150, 160, 180))
-        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 1000))
-
-        # Debug indicator - Marketplace v2
-        debug_font = pygame.font.SysFont(None, 24)
-        debug_text = debug_font.render('Marketplace v2', True, (80, 100, 120))
-        self.screen.blit(debug_text, (10, self.height - 30))
+        hint3 = hif.render('Arrow Keys: Navigate   ENTER: Preview   SPACE: Activate   ESC: Back', True,(36,38,54))
+        self.screen.blit(hint3,(W//2-hint3.get_width()//2,H-32))
 
     def handle_marketplace_input(self, key):
-        """Handle Marketplace input - 2 rows × 3 cols grid with preview panel"""
-        selected = self.realm_data['marketplace']['selected']
-        preview_open = self.realm_data['marketplace']['preview_open']
-        installed = self.realm_data['marketplace']['installed']
+        """Marketplace input"""
+        data     = self.realm_data['marketplace']
+        selected = data.get('selected', 0)
+        preview  = data.get('preview_open', False)
+        px_names = ['Guided Breathing','Morning Motivation','Kids Flashcards',
+                    'Focus Timer Theme','Holiday Lights','Front Door Pack']
+        px_keys  = ['breathing','motivation','education','focus','decor','security']
 
-        # PX names for reference (matches order in pxs list)
-        px_names = ['Sleep PX', 'Focus PX', 'Family PX', 'Education PX', 'Home PX', 'Featured Today']
-        total_pxs = 6  # 2 rows × 3 cols = 6 tiles
-        cols = 3
-        rows = 2
+        if not hasattr(self, 'active_experiences'):
+            self.active_experiences = {}
 
-        # Navigation (works in both grid and preview modes)
-        # Grid layout: [0][1][2]
-        #              [3][4][5]
+        if data.get('activating'):
+            return
+
+        if preview:
+            if key in (pygame.K_b, pygame.K_ESCAPE):
+                data['preview_open'] = False
+            elif key == pygame.K_SPACE:
+                import time as _t2
+                px_name = px_names[data.get('preview_idx',0)]
+                px_key  = px_keys[data.get('preview_idx',0)]
+                inst    = data.get('installed', set())
+                if px_name in inst:
+                    inst.discard(px_name)
+                    self.active_experiences.pop(px_key, None)
+                else:
+                    inst.add(px_name)
+                    self.active_experiences[px_key] = True
+                data['installed']   = inst
+                data['activating']  = True
+                data['act_start']   = _t2.time()
+            return
+
         if key == pygame.K_LEFT:
-            if selected % cols > 0:  # Can move left (not in leftmost column)
-                self.realm_data['marketplace']['selected'] = selected - 1
+            if selected % 3 > 0: data['selected'] = selected-1
         elif key == pygame.K_RIGHT:
-            if selected % cols < cols - 1 and selected < total_pxs - 1:  # Can move right
-                self.realm_data['marketplace']['selected'] = selected + 1
+            if selected % 3 < 2 and selected < 5: data['selected'] = selected+1
         elif key == pygame.K_UP:
-            if selected >= cols:  # Can move up (not in top row)
-                self.realm_data['marketplace']['selected'] = selected - cols
+            if selected >= 3: data['selected'] = selected-3
         elif key == pygame.K_DOWN:
-            if selected + cols < total_pxs:  # Can move down (not in bottom row)
-                self.realm_data['marketplace']['selected'] = selected + cols
+            if selected < 3: data['selected'] = selected+3
+        elif key in (pygame.K_RETURN, pygame.K_KP_ENTER):
+            data['preview_open'] = True
+            data['preview_idx']  = selected
+        elif key == pygame.K_SPACE:
+            import time as _t3
+            px_name = px_names[selected]
+            px_key  = px_keys[selected]
+            inst    = data.get('installed', set())
+            if px_name in inst:
+                inst.discard(px_name)
+                self.active_experiences.pop(px_key, None)
+            else:
+                inst.add(px_name)
+                self.active_experiences[px_key] = True
+            data['installed']  = inst
+            data['preview_idx']= selected
+            data['activating'] = True
+            import time as _t4
+            data['act_start']  = _t4.time()
+        elif key in (pygame.K_b, pygame.K_ESCAPE):
+            self.go_back()
 
-        # Toggle preview panel
-        elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
-            pass  # Disabled - preview panel causes Pi reboot
-
-        # Back button - close preview if open, otherwise go back to home
-        elif key == pygame.K_b:
-            if preview_open:
-                self.realm_data['marketplace']['preview_open'] = False
-            # If preview is closed, ESC will handle going back to home
-
-        # Demo install with 'D' key
-        elif key == pygame.K_d:
-            selected_px = px_names[selected]
-            # Only install if AVAILABLE (not already installed or coming soon)
-            if selected_px not in installed and selected_px != 'Featured Today':
-                installed.add(selected_px)
-                # Update ticker with install message
-                install_msg = f"→ Installing {selected_px}... → {selected_px} installed successfully! → "
-                self.ticker_text = install_msg + self.ticker_text
-                print(f"[MARKETPLACE] Demo install: {selected_px}")
-
-    # ── HOME REALM STATE MACHINE ─────────────────────────────────
 
     def _home_poll_keys(self):
         """Poll keys every frame — no focus dependency"""
@@ -1558,24 +1795,7 @@ class MotiBeamOS:
                 data['home_state'] = 'PRIORITY_ALERT'
                 state = 'PRIORITY_ALERT'
 
-        # ── Auto-fire after idle ──────────────────────────────────
-        last_action = data.get('_last_key_time', 0)
-        if state == 'IDLE' and not data.get('_auto_fired') and last_action > 0 and (now - last_action) > 30:
-            data['event'] = {
-                'type': 'motion_detected',
-                'passive': 'Motion — Backyard',
-                'medium': 'Motion Detected',
-                'medium_sub': 'Backyard sensor triggered',
-                'priority': 'MOTION DETECTED',
-                'priority_sub': 'Backyard — Review activity',
-                'color': (60, 180, 120),
-                'escalate': 'MEDIUM',
-            }
-            data['home_state'] = 'PASSIVE_ALERT'
-            data['alert_start'] = now
-            data['btn_sel']     = 0
-            data['_auto_fired'] = True
-            state = 'PASSIVE_ALERT'
+        # Auto-fire disabled — idle screen is the ambient living wall
 
         # ── Init & poll ───────────────────────────────────────────
         if data.get('_last_key_time', 0) == 0:
@@ -1586,17 +1806,17 @@ class MotiBeamOS:
         # ── Font cache ────────────────────────────────────────────
         if not hasattr(self, '_hf'):
             self._hf = {
-                'time':  pygame.font.SysFont(None, 120, bold=True),
-                'sub':   pygame.font.SysFont(None, 40),
-                'greet': pygame.font.SysFont(None, 44),
+                'time':  get_font(120, bold=True),
+                'sub':   get_font(40),
+                'greet': get_font(44),
                 'head':  pygame.font.SysFont(None, 54, bold=True),
-                'body':  pygame.font.SysFont(None, 40),
-                'small': pygame.font.SysFont(None, 32),
+                'body':  get_font(40),
+                'small': get_font(32),
                 'hint':  pygame.font.SysFont(None, 27),
-                'huge':  pygame.font.SysFont(None, 108, bold=True),
-                'giant': pygame.font.SysFont(None, 84, bold=True),
-                'med':   pygame.font.SysFont(None, 44),
-                'label': pygame.font.SysFont(None, 28),
+                'huge':  get_font(108, bold=True),
+                'giant': get_font(84, bold=True),
+                'med':   get_font(44),
+                'label': get_font(28),
             }
         tf  = self._hf['time']
         sf  = self._hf['sub']
@@ -1777,13 +1997,9 @@ class MotiBeamOS:
         # Background — very dark, near black, clean
         self.screen.fill((6, 8, 14))
 
-        # Subtle vertical gradient — brighter center band
-        for gy in range(H):
-            dist = abs(gy - H//2) / (H//2)
-            av   = int((1 - dist**2) * (8 + pulse3 * 5))
-            if av > 0:
-                lc = (min(255, 6+av), min(255, 8+av), min(255, 14+av*2))
-                pygame.draw.line(self.screen, lc, (0, gy), (W, gy))
+        # Subtle center glow — 3 bands only (Pi 4 safe)
+        for gy, gv in [(H//2-60, 6),(H//2, 9),(H//2+60, 6)]:
+            pygame.draw.line(self.screen, (6+gv, 8+gv, 14+gv*2), (0, gy), (W, gy))
 
         # Single slow horizontal breath line
         breath_y = int(H * 0.58 + math.sin(now * 0.4) * 6)
@@ -1866,13 +2082,23 @@ class MotiBeamOS:
             else:
                 thermo_color = (60, 200, 140)
 
-            tiles = [
-                ('ENTRY',   True,  (50,200,100),  'Secured'),
-                ('GARAGE',  False, (180,140,50),  'Closed'),
-                ('BACKYARD',False, (50,130,210),  'Clear'),
-                ('NETWORK', True,  (50,150,220),  'Online'),
-                ('TEMP',    True,  thermo_color,  temp_display),
+            # Ambient tile cycling — activity rotates every 6s
+            cycle_t  = int(now / 6) % 4
+            activity_log = [
+                ('ENTRY',   True,  (50,200,100),  'Secured',     '2m ago'),
+                ('GARAGE',  False, (180,140,50),  'Closed',      '14m ago'),
+                ('BACKYARD',False, (50,130,210),  'Clear',       'No motion'),
+                ('NETWORK', True,  (50,150,220),  'Online',      '100% uptime'),
             ]
+            # Highlight rotating tile
+            tiles_display = []
+            for ti, (tn, ta, tc, ts2, ta2) in enumerate(activity_log):
+                is_active_cycle = (ti == cycle_t)
+                display_status  = ta2 if is_active_cycle else ts2
+                pulse_override  = is_active_cycle
+                tiles_display.append((tn, ta or pulse_override, tc, display_status))
+            tiles_display.append(('TEMP', True, thermo_color, temp_display))
+            tiles = tiles_display
             tile_w, tile_h = 130, 72
             gap_t          = 12
             total_tw       = len(tiles)*tile_w + (len(tiles)-1)*gap_t
@@ -1980,10 +2206,10 @@ class MotiBeamOS:
         elif module == 'activity': self._hw_activity(); return
         elif module == 'insights': self._hw_insights(); return
         self.screen.fill((10,16,22))
-        title_font = pygame.font.SysFont(None, 68, bold=True)
+        title_font = get_font(68, bold=True)
         title = title_font.render("HEALTH & WELLNESS", True, (100,210,160))
         self.screen.blit(title, (self.width//2-title.get_width()//2, 28))
-        sub_font = pygame.font.SysFont(None, 38)
+        sub_font = get_font(38)
         sub = sub_font.render("Stay Balanced. Stay Aware.", True, (140,175,160))
         self.screen.blit(sub, (self.width//2-sub.get_width()//2, 108))
         tiles = [
@@ -2011,14 +2237,14 @@ class MotiBeamOS:
             ef = load_emoji_font(48)
             em = ef.render(tile['emoji'], True, (255,255,255))
             self.screen.blit(em, (x+cw//2-em.get_width()//2, y+14))
-            nf = pygame.font.SysFont(None, 38, bold=True)
+            nf = get_font(38, bold=True)
             nc = (140,230,190) if is_sel else (180,210,195)
             nm = nf.render(tile['name'], True, nc)
             self.screen.blit(nm, (x+cw//2-nm.get_width()//2, y+76))
-            df = pygame.font.SysFont(None, 28)
+            df = get_font(28)
             dm = df.render(tile['desc'], True, (90,130,115))
             self.screen.blit(dm, (x+cw//2-dm.get_width()//2, y+120))
-        hf = pygame.font.SysFont(None, 28)
+        hf = get_font(28)
         hint = hf.render("Arrow keys Navigate  |  ENTER Open  |  ESC Back", True, (60,90,78))
         self.screen.blit(hint, (self.width//2-hint.get_width()//2, self.height-48))
 
@@ -2036,10 +2262,10 @@ class MotiBeamOS:
         self.screen.blit(surf, (cx-200,cy-200))
         pygame.draw.circle(self.screen, (60,150,110), (cx,cy), r, 2)
         msg = "Breathe in..." if phase > 0.5 else "Breathe out..."
-        mf = pygame.font.SysFont(None, 52, bold=True)
+        mf = get_font(52, bold=True)
         mm = mf.render(msg, True, (int(100*pulse),int(200*pulse),int(150*pulse)))
         self.screen.blit(mm, (self.width//2-mm.get_width()//2, cy+110))
-        hf = pygame.font.SysFont(None, 28)
+        hf = get_font(28)
         hm = hf.render("Press any key to interact", True, (40,62,52))
         self.screen.blit(hm, (self.width//2-hm.get_width()//2, self.height-32))
 
@@ -2048,7 +2274,7 @@ class MotiBeamOS:
         step = hw.get('checkin_step', 0)
         answers = hw.get('checkin_answers', [])
         self.screen.fill((10,16,22))
-        hf = pygame.font.SysFont(None, 52, bold=True)
+        hf = get_font(52, bold=True)
         hm = hf.render("DAILY CHECK-IN", True, (100,210,160))
         self.screen.blit(hm, (self.width//2-hm.get_width()//2, 28))
         questions = [
@@ -2058,13 +2284,13 @@ class MotiBeamOS:
         ]
         if step >= len(questions):
             self.screen.fill((10,16,22))
-            tf = pygame.font.SysFont(None, 56, bold=True)
+            tf = get_font(56, bold=True)
             tm = tf.render("Check-In Complete!", True, (100,210,160))
             self.screen.blit(tm, (self.width//2-tm.get_width()//2, 140))
             labels = ['Feeling','Energy','Stress']
             for i,(label,ans_idx) in enumerate(zip(labels,answers)):
                 ans = questions[i][1][ans_idx]
-                lf = pygame.font.SysFont(None, 44)
+                lf = get_font(44)
                 lm = lf.render(f"{label}: {ans}", True, (160,210,190))
                 self.screen.blit(lm, (self.width//2-lm.get_width()//2, 240+i*60))
             feeling = answers[0] if answers else 2
@@ -2072,15 +2298,15 @@ class MotiBeamOS:
             if feeling<=1 and energy<=1: insight="You're doing great today! Keep it up."
             elif feeling>=3 or energy>=3: insight="Take it easy today. Rest and hydrate."
             else: insight="Good day ahead. Stay balanced."
-            inf = pygame.font.SysFont(None, 38)
+            inf = get_font(38)
             im = inf.render(insight, True, (120,190,155))
             self.screen.blit(im, (self.width//2-im.get_width()//2, 440))
-            ff = pygame.font.SysFont(None, 30)
+            ff = get_font(30)
             fm = ff.render("B Back to Wellness", True, (60,90,78))
             self.screen.blit(fm, (self.width//2-fm.get_width()//2, self.height-48))
             return
         q, opts = questions[step]
-        qf = pygame.font.SysFont(None, 46, bold=True)
+        qf = get_font(46, bold=True)
         qm = qf.render(q, True, (200,230,215))
         self.screen.blit(qm, (self.width//2-qm.get_width()//2, 110))
         sel = hw.get('checkin_sel', 0)
@@ -2099,10 +2325,10 @@ class MotiBeamOS:
             oc = (140,230,190) if is_sel else (120,165,148)
             om = of.render(opt, True, oc)
             self.screen.blit(om, (ox+ow//2-om.get_width()//2, oy+oh//2-om.get_height()//2))
-        pf = pygame.font.SysFont(None, 32)
+        pf = get_font(32)
         pm = pf.render(f"Question {step+1} of {len(questions)}", True, (80,120,105))
         self.screen.blit(pm, (self.width//2-pm.get_width()//2, 320))
-        ff = pygame.font.SysFont(None, 30)
+        ff = get_font(30)
         fm = ff.render("LEFT/RIGHT Select  |  ENTER Confirm  |  B Back", True, (60,90,78))
         self.screen.blit(fm, (self.width//2-fm.get_width()//2, self.height-48))
 
@@ -2110,7 +2336,7 @@ class MotiBeamOS:
         hw = self.realm_data['health_wellness']
         answers = hw.get('checkin_answers', [2,2,2])
         self.screen.fill((10,16,22))
-        hf = pygame.font.SysFont(None, 52, bold=True)
+        hf = get_font(52, bold=True)
         hm = hf.render("MOOD & ENERGY", True, (100,210,160))
         self.screen.blit(hm, (self.width//2-hm.get_width()//2, 28))
         metrics = [
@@ -2120,7 +2346,7 @@ class MotiBeamOS:
         ]
         for i,(label,val,levels,color) in enumerate(metrics):
             y = 140+i*150
-            lf = pygame.font.SysFont(None, 42, bold=True)
+            lf = get_font(42, bold=True)
             lm = lf.render(label, True, color)
             self.screen.blit(lm, (160,y))
             bar_x,bar_y = 320,y+8
@@ -2128,15 +2354,15 @@ class MotiBeamOS:
             pygame.draw.rect(self.screen, (20,35,28), pygame.Rect(bar_x,bar_y,bar_w,bar_h), border_radius=10)
             fill = bar_w-int((val/4)*bar_w) if label!='Stress' else int((val/4)*bar_w)
             pygame.draw.rect(self.screen, color, pygame.Rect(bar_x,bar_y,fill,bar_h), border_radius=10)
-            vf = pygame.font.SysFont(None, 36)
+            vf = get_font(36)
             vm = vf.render(levels[val], True, (160,200,180))
             self.screen.blit(vm, (bar_x+bar_w+20,y+5))
         tips = ["You seem well today. Keep up the good habits.","Moderate day - stay hydrated.","Consider a short walk or breathing exercise.","Rest and recovery recommended today."]
         avg = sum(answers[:3])//3 if answers else 2
-        tf = pygame.font.SysFont(None, 36)
+        tf = get_font(36)
         tm = tf.render(tips[min(avg,len(tips)-1)], True, (100,160,138))
         self.screen.blit(tm, (self.width//2-tm.get_width()//2, 610))
-        ff = pygame.font.SysFont(None, 30)
+        ff = get_font(30)
         fm = ff.render("Complete Daily Check-In for accurate data  |  B Back", True, (60,90,78))
         self.screen.blit(fm, (self.width//2-fm.get_width()//2, self.height-48))
 
@@ -2145,17 +2371,17 @@ class MotiBeamOS:
         hw = self.realm_data['health_wellness']
         running = hw.get('breath_running', False)
         self.screen.fill((8,12,20))
-        hf = pygame.font.SysFont(None, 52, bold=True)
+        hf = get_font(52, bold=True)
         hm = hf.render("BREATHING", True, (100,210,160))
         self.screen.blit(hm, (self.width//2-hm.get_width()//2, 22))
         if not running:
-            sf = pygame.font.SysFont(None, 42)
+            sf = get_font(42)
             sm = sf.render("Press S to begin guided breathing", True, (120,175,155))
             self.screen.blit(sm, (self.width//2-sm.get_width()//2, 120))
             cx, cy = self.width//2, self.height//2
             pygame.draw.circle(self.screen, (20,50,40), (cx,cy), 140)
             pygame.draw.circle(self.screen, (60,150,110), (cx,cy), 140, 3)
-            bf = pygame.font.SysFont(None, 52, bold=True)
+            bf = get_font(52, bold=True)
             bm = bf.render("Breathe", True, (100,210,160))
             self.screen.blit(bm, (cx-bm.get_width()//2, cy-bm.get_height()//2))
         else:
@@ -2171,21 +2397,21 @@ class MotiBeamOS:
             self.screen.blit(surf, (cx-250,cy-250))
             pygame.draw.circle(self.screen, color, (cx,cy), r)
             pygame.draw.circle(self.screen, (200,240,220), (cx,cy), r, 3)
-            pf = pygame.font.SysFont(None, 72, bold=True)
+            pf = get_font(72, bold=True)
             pm = pf.render(phase, True, (220,245,232))
             self.screen.blit(pm, (cx-pm.get_width()//2, cy-pm.get_height()//2))
             cycles = int(t/cycle)
-            cf = pygame.font.SysFont(None, 34)
+            cf = get_font(34)
             cm = cf.render(f"Cycle {cycles+1}", True, (80,130,110))
             self.screen.blit(cm, (self.width//2-cm.get_width()//2, 110))
-        ff = pygame.font.SysFont(None, 30)
+        ff = get_font(30)
         fm = ff.render("S Start/Stop  |  B Back", True, (50,80,65))
         self.screen.blit(fm, (self.width//2-fm.get_width()//2, self.height-48))
 
     def _hw_routines(self):
         hw = self.realm_data['health_wellness']
         self.screen.fill((10,16,22))
-        hf = pygame.font.SysFont(None, 52, bold=True)
+        hf = get_font(52, bold=True)
         hm = hf.render("ROUTINE REMINDERS", True, (100,210,160))
         self.screen.blit(hm, (self.width//2-hm.get_width()//2, 28))
         routines = [
@@ -2211,24 +2437,24 @@ class MotiBeamOS:
             ef = load_emoji_font(36)
             em = ef.render(emoji, True, (255,255,255))
             self.screen.blit(em, (rx+18,ry+rh//2-em.get_height()//2))
-            nf = pygame.font.SysFont(None, 36, bold=True)
+            nf = get_font(36, bold=True)
             nm = nf.render(name, True, (140,230,190) if is_sel else (160,200,180))
             self.screen.blit(nm, (rx+70,ry+10))
-            df = pygame.font.SysFont(None, 28)
+            df = get_font(28)
             dm = df.render(desc, True, (80,120,105))
             self.screen.blit(dm, (rx+70,ry+38))
             if done:
-                cf = pygame.font.SysFont(None, 36, bold=True)
+                cf = get_font(36, bold=True)
                 cm = cf.render("Done!", True, (80,200,130))
                 self.screen.blit(cm, (rx+rw-80,ry+rh//2-cm.get_height()//2))
-        ff = pygame.font.SysFont(None, 30)
+        ff = get_font(30)
         fm = ff.render("UP/DOWN Navigate  |  SPACE Complete  |  B Back", True, (60,90,78))
         self.screen.blit(fm, (self.width//2-fm.get_width()//2, self.height-48))
 
     def _hw_activity(self):
         hw = self.realm_data['health_wellness']
         self.screen.fill((10,16,22))
-        hf = pygame.font.SysFont(None, 52, bold=True)
+        hf = get_font(52, bold=True)
         hm = hf.render("ACTIVITY & MOVEMENT", True, (100,210,160))
         self.screen.blit(hm, (self.width//2-hm.get_width()//2, 28))
         prompts = [
@@ -2254,24 +2480,24 @@ class MotiBeamOS:
             ef = load_emoji_font(36)
             em = ef.render(emoji, True, (255,255,255))
             self.screen.blit(em, (px+18,y+ph//2-em.get_height()//2))
-            nf = pygame.font.SysFont(None, 36, bold=True)
+            nf = get_font(36, bold=True)
             nm = nf.render(title, True, (140,230,190) if is_sel else (160,200,180))
             self.screen.blit(nm, (px+70,y+8))
-            df = pygame.font.SysFont(None, 28)
+            df = get_font(28)
             dm = df.render(desc, True, (80,120,105))
             self.screen.blit(dm, (px+70,y+38))
             if done:
-                cf = pygame.font.SysFont(None, 34, bold=True)
+                cf = get_font(34, bold=True)
                 cm = cf.render("Done!", True, (80,200,130))
                 self.screen.blit(cm, (px+pw-80,y+ph//2-cm.get_height()//2))
-        ff = pygame.font.SysFont(None, 30)
+        ff = get_font(30)
         fm = ff.render("UP/DOWN Navigate  |  SPACE Acknowledge  |  B Back", True, (60,90,78))
         self.screen.blit(fm, (self.width//2-fm.get_width()//2, self.height-48))
 
     def _hw_insights(self):
         hw = self.realm_data['health_wellness']
         self.screen.fill((10,16,22))
-        hf = pygame.font.SysFont(None, 52, bold=True)
+        hf = get_font(52, bold=True)
         hm = hf.render("WELLNESS INSIGHTS", True, (100,210,160))
         self.screen.blit(hm, (self.width//2-hm.get_width()//2, 28))
         answers = hw.get('checkin_answers', [])
@@ -2302,13 +2528,13 @@ class MotiBeamOS:
             ef = load_emoji_font(40)
             em = ef.render(emoji, True, (255,255,255))
             self.screen.blit(em, (ix+18,y+ih//2-em.get_height()//2))
-            nf = pygame.font.SysFont(None, 38, bold=True)
+            nf = get_font(38, bold=True)
             nm = nf.render(title, True, (140,220,185))
             self.screen.blit(nm, (ix+72,y+8))
-            df = pygame.font.SysFont(None, 28)
+            df = get_font(28)
             dm = df.render(desc, True, (80,120,105))
             self.screen.blit(dm, (ix+72,y+44))
-        ff = pygame.font.SysFont(None, 30)
+        ff = get_font(30)
         fm = ff.render("B  Back to Wellness", True, (60,90,78))
         self.screen.blit(fm, (self.width//2-fm.get_width()//2, self.height-48))
 
@@ -2405,10 +2631,10 @@ class MotiBeamOS:
             self._edu_daily(); return
 
         self.screen.fill(BG_COLOR)
-        title_font = pygame.font.SysFont(None, 72, bold=True)
+        title_font = get_font(72, bold=True)
         title = title_font.render("EDUCATION", True, (255, 180, 50))
         self.screen.blit(title, (self.width//2 - title.get_width()//2, 30))
-        sub_font = pygame.font.SysFont(None, 42)
+        sub_font = get_font(42)
         sub = sub_font.render("Learn Anywhere", True, (180, 200, 220))
         self.screen.blit(sub, (self.width//2 - sub.get_width()//2, 115))
 
@@ -2438,18 +2664,18 @@ class MotiBeamOS:
             ef = load_emoji_font(52)
             em = ef.render(tile['emoji'], True, (255,255,255))
             self.screen.blit(em, (x + cw//2 - em.get_width()//2, y + 18))
-            nf = pygame.font.SysFont(None, 40, bold=True)
+            nf = get_font(40, bold=True)
             nc = (255, 220, 100) if is_sel else (220, 230, 245)
             nm = nf.render(tile['name'], True, nc)
             self.screen.blit(nm, (x + cw//2 - nm.get_width()//2, y + 88))
-            df = pygame.font.SysFont(None, 28)
+            df = get_font(28)
             dm = df.render(tile['desc'], True, (140, 155, 175))
             self.screen.blit(dm, (x + cw//2 - dm.get_width()//2, y + 130))
 
         if ed['preview_open']:
             self._edu_preview(tiles[selected])
 
-        hf = pygame.font.SysFont(None, 28)
+        hf = get_font(28)
         hint = hf.render("Arrow keys Navigate  |  ENTER Open  |  P Preview  |  ESC Back", True, (100, 115, 135))
         self.screen.blit(hint, (self.width//2 - hint.get_width()//2, self.height - 52))
 
@@ -2457,16 +2683,15 @@ class MotiBeamOS:
         pw, ph = 480, 320
         px = self.width//2 - pw//2
         py = self.height//2 - ph//2
-        overlay = pygame.Surface((self.width, self.height), pygame.SRCALPHA)
-        overlay.fill((0,0,0,160))
-        self.screen.blit(overlay, (0,0))
+        # Dark background instead of SRCALPHA overlay (Pi 4 safe)
+        self.screen.fill((8, 10, 18))
         rect = pygame.Rect(px, py, pw, ph)
         pygame.draw.rect(self.screen, (28, 38, 58), rect, border_radius=18)
         pygame.draw.rect(self.screen, (255, 180, 50), rect, 3, border_radius=18)
         ef = load_emoji_font(56)
         em = ef.render(tile['emoji'], True, (255,255,255))
         self.screen.blit(em, (px + pw//2 - em.get_width()//2, py + 16))
-        tf = pygame.font.SysFont(None, 48, bold=True)
+        tf = get_font(48, bold=True)
         tm = tf.render(tile['name'], True, (255, 220, 100))
         self.screen.blit(tm, (px + pw//2 - tm.get_width()//2, py + 90))
         previews = {
@@ -2477,11 +2702,11 @@ class MotiBeamOS:
             'quiz':       ['5 demo questions', 'A/B/C/D to answer', 'Instant feedback'],
             'daily':      ["Today's recommended focus", 'Auto-selected by day', 'Projected on wall'],
         }
-        lf = pygame.font.SysFont(None, 32)
+        lf = get_font(32)
         for i, line in enumerate(previews.get(tile['id'], [])):
             lm = lf.render("• " + line, True, (200, 210, 230))
             self.screen.blit(lm, (px + 36, py + 150 + i * 42))
-        cf = pygame.font.SysFont(None, 28)
+        cf = get_font(28)
         cm = cf.render("ENTER to open  |  P to close", True, (110, 125, 148))
         self.screen.blit(cm, (px + pw//2 - cm.get_width()//2, py + ph - 32))
 
@@ -2503,9 +2728,9 @@ class MotiBeamOS:
         revealed = ed['flashcard_revealed']
         card = cards[idx]
         self.screen.fill((12, 18, 30))
-        hf = pygame.font.SysFont(None, 48, bold=True)
+        hf = get_font(48, bold=True)
         self.screen.blit(hf.render("FLASHCARDS", True, (255,180,50)), (self.width//2 - hf.size("FLASHCARDS")[0]//2, 25))
-        pf = pygame.font.SysFont(None, 36)
+        pf = get_font(36)
         pm = pf.render(f"Card {idx+1} of {len(cards)}", True, (140,160,185))
         self.screen.blit(pm, (self.width//2 - pm.get_width()//2, 85))
         cw, ch = 1000, 360
@@ -2513,7 +2738,7 @@ class MotiBeamOS:
         cy = 130
         pygame.draw.rect(self.screen, (22,32,52), pygame.Rect(cx,cy,cw,ch), border_radius=20)
         pygame.draw.rect(self.screen, (255,180,50), pygame.Rect(cx,cy,cw,ch), 3, border_radius=20)
-        qf = pygame.font.SysFont(None, 52, bold=True)
+        qf = get_font(52, bold=True)
         words = card[0].split()
         lines, line = [], []
         for w in words:
@@ -2526,7 +2751,7 @@ class MotiBeamOS:
             self.screen.blit(lm, (cx+cw//2-lm.get_width()//2, cy+28+i*58))
         if revealed:
             pygame.draw.line(self.screen, (60,80,110), (cx+40,cy+165), (cx+cw-40,cy+165), 2)
-            af = pygame.font.SysFont(None, 38)
+            af = get_font(38)
             awords = card[1].split()
             alines, aline = [], []
             for w in awords:
@@ -2538,10 +2763,10 @@ class MotiBeamOS:
                 lm = af.render(ln, True, (100,220,160))
                 self.screen.blit(lm, (cx+cw//2-lm.get_width()//2, cy+182+i*46))
         else:
-            hint = pygame.font.SysFont(None, 38)
+            hint = get_font(38)
             hm = hint.render("Press SPACE to reveal answer", True, (100,120,150))
             self.screen.blit(hm, (cx+cw//2-hm.get_width()//2, cy+185))
-        ff = pygame.font.SysFont(None, 30)
+        ff = get_font(30)
         fm = ff.render("SPACE Reveal  |  N Next card  |  B Back", True, (90,105,125))
         self.screen.blit(fm, (self.width//2-fm.get_width()//2, self.height-48))
 
@@ -2564,17 +2789,17 @@ class MotiBeamOS:
         answered = ed['math_answered']
         selected = ed['math_selected']
         self.screen.fill((12,18,30))
-        hf = pygame.font.SysFont(None, 48, bold=True)
+        hf = get_font(48, bold=True)
         hm = hf.render("MATH PRACTICE", True, (100,200,255))
         self.screen.blit(hm, (self.width//2-hm.get_width()//2, 25))
-        pf = pygame.font.SysFont(None, 36)
+        pf = get_font(36)
         pm = pf.render(f"Problem {idx+1} of {len(problems)}", True, (140,160,185))
         self.screen.blit(pm, (self.width//2-pm.get_width()//2, 82))
         qw, qh = 900, 120
         qx = (self.width-qw)//2
         pygame.draw.rect(self.screen, (22,35,58), pygame.Rect(qx,125,qw,qh), border_radius=16)
         pygame.draw.rect(self.screen, (100,160,255), pygame.Rect(qx,125,qw,qh), 2, border_radius=16)
-        qf2 = pygame.font.SysFont(None, 58, bold=True)
+        qf2 = get_font(58, bold=True)
         qm2 = qf2.render(p['q'], True, (255,255,255))
         self.screen.blit(qm2, (self.width//2-qm2.get_width()//2, 158))
         answers = [('A',p['a']),('B',p['b']),('C',p['c'])]
@@ -2597,20 +2822,20 @@ class MotiBeamOS:
             arect = pygame.Rect(ax,ay,aw,ah)
             pygame.draw.rect(self.screen, bg, arect, border_radius=14)
             pygame.draw.rect(self.screen, bc, arect, 2, border_radius=14)
-            kf = pygame.font.SysFont(None, 52, bold=True)
+            kf = get_font(52, bold=True)
             km = kf.render(key, True, (255,200,80))
             self.screen.blit(km, (ax+18, ay+ah//2-km.get_height()//2))
-            vf = pygame.font.SysFont(None, 46, bold=True)
+            vf = get_font(46, bold=True)
             vm = vf.render(val, True, (240,245,255))
             self.screen.blit(vm, (ax+65, ay+ah//2-vm.get_height()//2))
         if answered:
             is_right = (selected or '').upper() == p['correct'].upper()
             fc = (80,220,120) if is_right else (220,80,80)
             ft = "Correct! Well done!" if is_right else f"Incorrect - Answer was {p['correct'].upper()}: {p[p['correct']]}"
-            fbf = pygame.font.SysFont(None, 48, bold=True)
+            fbf = get_font(48, bold=True)
             fbm = fbf.render(ft, True, fc)
             self.screen.blit(fbm, (self.width//2-fbm.get_width()//2, 408))
-        ff = pygame.font.SysFont(None, 30)
+        ff = get_font(30)
         fm = ff.render("A/B/C Answer  |  N Next  |  B Back", True, (90,105,125)) if not answered else ff.render("N Next problem  |  B Back", True, (90,105,125))
         self.screen.blit(fm, (self.width//2-fm.get_width()//2, self.height-48))
 
@@ -2632,10 +2857,10 @@ class MotiBeamOS:
         revealed = ed['vocab_revealed']
         w = words[idx]
         self.screen.fill((12,18,30))
-        hf = pygame.font.SysFont(None, 48, bold=True)
+        hf = get_font(48, bold=True)
         hm = hf.render("VOCABULARY", True, (180,120,255))
         self.screen.blit(hm, (self.width//2-hm.get_width()//2, 25))
-        pf = pygame.font.SysFont(None, 36)
+        pf = get_font(36)
         pm = pf.render(f"Word {idx+1} of {len(words)}", True, (140,160,185))
         self.screen.blit(pm, (self.width//2-pm.get_width()//2, 82))
         cw2, ch2 = 1000, 360
@@ -2643,12 +2868,12 @@ class MotiBeamOS:
         cy2 = 128
         pygame.draw.rect(self.screen, (22,18,42), pygame.Rect(cx2,cy2,cw2,ch2), border_radius=20)
         pygame.draw.rect(self.screen, (180,120,255), pygame.Rect(cx2,cy2,cw2,ch2), 3, border_radius=20)
-        wf = pygame.font.SysFont(None, 72, bold=True)
+        wf = get_font(72, bold=True)
         wm = wf.render(w[0], True, (220,180,255))
         self.screen.blit(wm, (cx2+cw2//2-wm.get_width()//2, cy2+18))
         if revealed:
             pygame.draw.line(self.screen, (80,60,120), (cx2+40,cy2+110), (cx2+cw2-40,cy2+110), 2)
-            df2 = pygame.font.SysFont(None, 34)
+            df2 = get_font(34)
             dwords = w[1].split()
             dlines, dline = [], []
             for dw in dwords:
@@ -2659,14 +2884,14 @@ class MotiBeamOS:
             for i, ln in enumerate(dlines):
                 lm = df2.render(ln, True, (200,215,240))
                 self.screen.blit(lm, (cx2+cw2//2-lm.get_width()//2, cy2+126+i*42))
-            ef2 = pygame.font.SysFont(None, 28)
+            ef2 = get_font(28)
             ef2m = ef2.render(w[2], True, (130,150,130))
             self.screen.blit(ef2m, (cx2+cw2//2-ef2m.get_width()//2, cy2+295))
         else:
-            hint = pygame.font.SysFont(None, 38)
+            hint = get_font(38)
             hm2 = hint.render("Press SPACE to reveal definition", True, (100,120,150))
             self.screen.blit(hm2, (cx2+cw2//2-hm2.get_width()//2, cy2+155))
-        ff = pygame.font.SysFont(None, 30)
+        ff = get_font(30)
         fm = ff.render("SPACE Reveal  |  N Next word  |  B Back", True, (90,105,125))
         self.screen.blit(fm, (self.width//2-fm.get_width()//2, self.height-48))
 
@@ -2692,10 +2917,10 @@ class MotiBeamOS:
             ed['timer_running'] = False
             ed['timer_elapsed'] = mode['duration']
         self.screen.fill((10,14,22))
-        mf = pygame.font.SysFont(None, 52, bold=True)
+        mf = get_font(52, bold=True)
         mm = mf.render(mode['name'], True, mode['color'])
         self.screen.blit(mm, (self.width//2-mm.get_width()//2, 40))
-        tf2 = pygame.font.SysFont(None, 200, bold=True)
+        tf2 = get_font(200, bold=True)
         tm2 = tf2.render(f"{mins:02d}:{secs:02d}", True, mode['color'])
         self.screen.blit(tm2, (self.width//2-tm2.get_width()//2, 110))
         bar_w = 800
@@ -2705,20 +2930,20 @@ class MotiBeamOS:
         pygame.draw.rect(self.screen, (30,40,55), pygame.Rect(bar_x,bar_y,bar_w,18), border_radius=9)
         if progress > 0:
             pygame.draw.rect(self.screen, mode['color'], pygame.Rect(bar_x,bar_y,int(bar_w*progress),18), border_radius=9)
-        sf = pygame.font.SysFont(None, 40)
+        sf = get_font(40)
         status = "RUNNING" if running else ("COMPLETE" if remaining<=0 else "PAUSED")
         sc = (80,220,120) if running else ((255,180,50) if remaining>0 else (220,100,100))
         sm = sf.render(status, True, sc)
         self.screen.blit(sm, (self.width//2-sm.get_width()//2, 410))
         for i, m in enumerate(modes):
             mc = m['color'] if i==mode_idx else (50,60,80)
-            mf2 = pygame.font.SysFont(None, 30)
+            mf2 = get_font(30)
             mbg = pygame.Rect(self.width//2-320+i*215, 468, 190, 40)
             pygame.draw.rect(self.screen, (20,28,44) if i!=mode_idx else (30,42,62), mbg, border_radius=10)
             pygame.draw.rect(self.screen, mc, mbg, 2, border_radius=10)
             mm2 = mf2.render(m['name'], True, mc)
             self.screen.blit(mm2, (mbg.x+mbg.w//2-mm2.get_width()//2, mbg.y+9))
-        ff = pygame.font.SysFont(None, 30)
+        ff = get_font(30)
         fm = ff.render("S Start/Pause  |  R Reset  |  M Switch mode  |  B Back", True, (80,95,115))
         self.screen.blit(fm, (self.width//2-fm.get_width()//2, self.height-48))
 
@@ -2734,18 +2959,18 @@ class MotiBeamOS:
         idx = ed['quiz_index']
         if idx >= len(questions):
             self.screen.fill((12,18,30))
-            rf = pygame.font.SysFont(None, 72, bold=True)
+            rf = get_font(72, bold=True)
             rm = rf.render("Quiz Complete!", True, (255,180,50))
             self.screen.blit(rm, (self.width//2-rm.get_width()//2, 180))
-            sf2 = pygame.font.SysFont(None, 96, bold=True)
+            sf2 = get_font(96, bold=True)
             sc2 = (80,220,120) if ed['quiz_score']>=4 else (255,180,50) if ed['quiz_score']>=3 else (220,100,100)
             sm2 = sf2.render(f"{ed['quiz_score']} / {len(questions)}", True, sc2)
             self.screen.blit(sm2, (self.width//2-sm2.get_width()//2, 290))
             msg = "Excellent!" if ed['quiz_score']>=4 else "Good effort!" if ed['quiz_score']>=3 else "Keep practicing!"
-            mf3 = pygame.font.SysFont(None, 48)
+            mf3 = get_font(48)
             mm3 = mf3.render(msg, True, sc2)
             self.screen.blit(mm3, (self.width//2-mm3.get_width()//2, 420))
-            ff = pygame.font.SysFont(None, 32)
+            ff = get_font(32)
             fm = ff.render("R  Restart  |  B  Back", True, (90,105,125))
             self.screen.blit(fm, (self.width//2-fm.get_width()//2, self.height-48))
             return
@@ -2753,14 +2978,14 @@ class MotiBeamOS:
         answered = ed['quiz_answered']
         sel = ed['quiz_selected']
         self.screen.fill((12,18,30))
-        hf = pygame.font.SysFont(None, 40, bold=True)
+        hf = get_font(40, bold=True)
         hm = hf.render(f"QUIZ  -  Question {idx+1} of {len(questions)}  -  Score: {ed['quiz_score']}", True, (255,160,60))
         self.screen.blit(hm, (self.width//2-hm.get_width()//2, 22))
         qw2, qh2 = 1000, 100
         qx2 = (self.width-qw2)//2
         pygame.draw.rect(self.screen, (22,32,52), pygame.Rect(qx2,72,qw2,qh2), border_radius=14)
         pygame.draw.rect(self.screen, (255,160,60), pygame.Rect(qx2,72,qw2,qh2), 2, border_radius=14)
-        qf3 = pygame.font.SysFont(None, 42, bold=True)
+        qf3 = get_font(42, bold=True)
         qm3 = qf3.render(q['q'], True, (255,255,255))
         self.screen.blit(qm3, (self.width//2-qm3.get_width()//2, 104))
         opts = [('A',q['a']),('B',q['b']),('C',q['c']),('D',q['d'])]
@@ -2781,20 +3006,20 @@ class MotiBeamOS:
             orect = pygame.Rect(ox,oy,ow,oh)
             pygame.draw.rect(self.screen, bg, orect, border_radius=12)
             pygame.draw.rect(self.screen, bc, orect, 2, border_radius=12)
-            kf2 = pygame.font.SysFont(None, 42, bold=True)
+            kf2 = get_font(42, bold=True)
             km2 = kf2.render(key, True, (255,200,80))
             self.screen.blit(km2, (ox+16, oy+oh//2-km2.get_height()//2))
-            vf2 = pygame.font.SysFont(None, 36)
+            vf2 = get_font(36)
             vm2 = vf2.render(val, True, (230,238,255))
             self.screen.blit(vm2, (ox+58, oy+oh//2-vm2.get_height()//2))
         if answered:
             is_right = (sel or '').upper() == q['correct'].upper()
             fc = (80,220,120) if is_right else (220,80,80)
             ft = "Correct!" if is_right else f"Incorrect - Answer: {q['correct'].upper()}"
-            fbf2 = pygame.font.SysFont(None, 48, bold=True)
+            fbf2 = get_font(48, bold=True)
             fbm2 = fbf2.render(ft, True, fc)
             self.screen.blit(fbm2, (self.width//2-fbm2.get_width()//2, 408))
-        ff = pygame.font.SysFont(None, 30)
+        ff = get_font(30)
         fm = ff.render("A/B/C/D Answer  |  N Next  |  B Back", True, (80,95,115)) if not answered else ff.render("N Next question  |  B Back", True, (80,95,115))
         self.screen.blit(fm, (self.width//2-fm.get_width()//2, self.height-48))
 
@@ -2812,10 +3037,10 @@ class MotiBeamOS:
         ]
         lesson = lessons[today.weekday() % len(lessons)]
         self.screen.fill((10,16,26))
-        hf = pygame.font.SysFont(None, 48, bold=True)
+        hf = get_font(48, bold=True)
         hm = hf.render("DAILY LESSON", True, (255,200,80))
         self.screen.blit(hm, (self.width//2-hm.get_width()//2, 30))
-        df3 = pygame.font.SysFont(None, 34)
+        df3 = get_font(34)
         dm3 = df3.render(today.strftime("Today is %A, %B %d"), True, (140,160,185))
         self.screen.blit(dm3, (self.width//2-dm3.get_width()//2, 88))
         lw, lh = 900, 300
@@ -2823,16 +3048,16 @@ class MotiBeamOS:
         ly = 140
         pygame.draw.rect(self.screen, (20,30,48), pygame.Rect(lx,ly,lw,lh), border_radius=22)
         pygame.draw.rect(self.screen, (255,200,80), pygame.Rect(lx,ly,lw,lh), 3, border_radius=22)
-        tf3 = pygame.font.SysFont(None, 62, bold=True)
+        tf3 = get_font(62, bold=True)
         tm3 = tf3.render(lesson[0], True, (255,220,120))
         self.screen.blit(tm3, (lx+lw//2-tm3.get_width()//2, ly+60))
-        sf3 = pygame.font.SysFont(None, 38)
+        sf3 = get_font(38)
         sm3 = sf3.render(lesson[1], True, (180,200,225))
         self.screen.blit(sm3, (lx+lw//2-sm3.get_width()//2, ly+148))
-        tf4 = pygame.font.SysFont(None, 32)
+        tf4 = get_font(32)
         tm4 = tf4.render("Explore this topic in your other learning modules", True, (110,130,155))
         self.screen.blit(tm4, (lx+lw//2-tm4.get_width()//2, ly+220))
-        ff = pygame.font.SysFont(None, 30)
+        ff = get_font(30)
         fm = ff.render("B  Back to Education", True, (80,95,115))
         self.screen.blit(fm, (self.width//2-fm.get_width()//2, self.height-48))
 
@@ -2841,19 +3066,20 @@ class MotiBeamOS:
         answered = self.realm_data['education']['live_answered']
         correct = self.realm_data['education']['live_correct']
         if not q: return
-        overlay = pygame.Surface((self.width, self.height))
-        overlay.set_alpha(230)
-        overlay.fill((15,20,35))
-        self.screen.blit(overlay, (0,0))
+        if not hasattr(self, '_quiz_overlay'):
+            self._quiz_overlay = pygame.Surface((self.width, self.height))
+            self._quiz_overlay.set_alpha(230)
+            self._quiz_overlay.fill((15,20,35))
+        self.screen.blit(self._quiz_overlay, (0,0))
         cw3, ch3 = 1000, 540
         cx3 = (self.width-cw3)//2
         cy3 = (self.height-ch3)//2
         pygame.draw.rect(self.screen, (28,38,58), pygame.Rect(cx3,cy3,cw3,ch3), border_radius=20)
         pygame.draw.rect(self.screen, (255,180,50), pygame.Rect(cx3,cy3,cw3,ch3), 3, border_radius=20)
-        hf4 = pygame.font.SysFont(None, 38, bold=True)
+        hf4 = get_font(38, bold=True)
         hm4 = hf4.render("Dad sent you a question!", True, (255,180,50))
         self.screen.blit(hm4, (cx3+cw3//2-hm4.get_width()//2, cy3+16))
-        qf4 = pygame.font.SysFont(None, 48, bold=True)
+        qf4 = get_font(48, bold=True)
         qm4 = qf4.render(q.get('q',''), True, (255,255,255))
         self.screen.blit(qm4, (cx3+40, cy3+72))
         for i,(key,val) in enumerate([('A',q.get('a','')),('B',q.get('b','')),('C',q.get('c',''))]):
@@ -2867,20 +3093,20 @@ class MotiBeamOS:
             arect4 = pygame.Rect(cx3+36, ay4, cw3-72, 88)
             pygame.draw.rect(self.screen, bg4, arect4, border_radius=10)
             pygame.draw.rect(self.screen, border4, arect4, 2, border_radius=10)
-            kf4 = pygame.font.SysFont(None, 52, bold=True)
+            kf4 = get_font(52, bold=True)
             km4 = kf4.render(key, True, (255,180,50))
             self.screen.blit(km4, (cx3+55, ay4+20))
-            vf4 = pygame.font.SysFont(None, 38)
+            vf4 = get_font(38)
             vm4 = vf4.render(val, True, (240,245,255))
             self.screen.blit(vm4, (cx3+105, ay4+24))
         if answered:
             fc4=(80,220,120) if correct else (220,80,80)
             ft4="Correct! Great job!" if correct else "Not quite - keep trying!"
-            fbf4 = pygame.font.SysFont(None, 48, bold=True)
+            fbf4 = get_font(48, bold=True)
             fbm4 = fbf4.render(ft4, True, fc4)
             self.screen.blit(fbm4, (cx3+cw3//2-fbm4.get_width()//2, cy3+490))
         else:
-            hf5 = pygame.font.SysFont(None, 30)
+            hf5 = get_font(30)
             hm5 = hf5.render("Press A, B, or C to answer  |  ESC to dismiss", True, (120,138,158))
             self.screen.blit(hm5, (cx3+cw3//2-hm5.get_width()//2, cy3+505))
 
@@ -2923,7 +3149,7 @@ class MotiBeamOS:
         show_answer = card_phase > 0.45
 
         # Question
-        qf = pygame.font.SysFont(None, 58, bold=True)
+        qf = get_font(58, bold=True)
         qm = qf.render(card[0], True, (int(220*pulse), int(200*pulse), int(100*pulse)))
         surf_q = pygame.Surface(qm.get_size(), pygame.SRCALPHA)
         surf_q.blit(qm, (0,0))
@@ -2931,7 +3157,7 @@ class MotiBeamOS:
         self.screen.blit(surf_q, (self.width//2 - qm.get_width()//2, self.height//2 - 80))
 
         if show_answer:
-            af = pygame.font.SysFont(None, 44)
+            af = get_font(44)
             am = af.render(card[1], True, (int(100*pulse), int(210*pulse), int(150*pulse)))
             surf_a = pygame.Surface(am.get_size(), pygame.SRCALPHA)
             surf_a.blit(am, (0,0))
@@ -2948,7 +3174,7 @@ class MotiBeamOS:
             pygame.draw.circle(self.screen, color, (dot_x_start + i*dot_spacing, dot_y), 5)
 
         # Subtle wake hint
-        hf = pygame.font.SysFont(None, 28)
+        hf = get_font(28)
         hm = hf.render("Press any key to interact", True, (50, 62, 80))
         self.screen.blit(hm, (self.width//2 - hm.get_width()//2, self.height - 32))
 
@@ -3072,11 +3298,11 @@ class MotiBeamOS:
             {'emoji': '📊', 'name': 'Session Summary', 'sub': 'How you did'},
         ]
 
-        title_font  = pygame.font.SysFont(None, 72, bold=True)
-        sub_font    = pygame.font.SysFont(None, 42)
-        name_font   = pygame.font.SysFont(None, 44, bold=True)
-        desc_font   = pygame.font.SysFont(None, 34)
-        hint_font   = pygame.font.SysFont(None, 32)
+        title_font  = get_font(72, bold=True)
+        sub_font    = get_font(42)
+        name_font   = get_font(44, bold=True)
+        desc_font   = get_font(34)
+        hint_font   = get_font(32)
         emoji_font  = load_emoji_font(52)
 
         title_surf = title_font.render('PRODUCTIVITY', True, (100, 160, 255))
@@ -3122,12 +3348,12 @@ class MotiBeamOS:
         data = self.realm_data['productivity']
         pd   = data.get('mod_data', {})
 
-        title_font  = pygame.font.SysFont(None, 62, bold=True)
-        body_font   = pygame.font.SysFont(None, 44)
-        small_font  = pygame.font.SysFont(None, 36)
-        hint_font   = pygame.font.SysFont(None, 32)
-        big_font    = pygame.font.SysFont(None, 120, bold=True)
-        head_font   = pygame.font.SysFont(None, 48, bold=True)
+        title_font  = get_font(62, bold=True)
+        body_font   = get_font(44)
+        small_font  = get_font(36)
+        hint_font   = get_font(32)
+        big_font    = get_font(120, bold=True)
+        head_font   = get_font(48, bold=True)
 
         # ── 0: TASKS ──────────────────────────────────────────────
         if module_index == 0:
@@ -3190,7 +3416,7 @@ class MotiBeamOS:
             if focus_screen:
                 # ── Immersive Focus Screen ──
                 self.screen.fill((0, 0, 0))
-                giant_font = pygame.font.SysFont(None, 220, bold=True)
+                giant_font = get_font(220, bold=True)
                 tc = giant_font.render(timer_str, True, mode_color)
                 self.screen.blit(tc, (self.width // 2 - tc.get_width() // 2, self.height // 2 - 120))
                 dim_hint = hint_font.render('S: Start/Pause  |  F: Exit Focus Mode', True, (50, 60, 70))
@@ -3774,11 +4000,16 @@ class MotiBeamOS:
             self.draw_ticker()
 
             # Draw call overlay on top of everything if active
+            if not hasattr(self, '_frame_count'):
+                self._frame_count = 0
+            self._frame_count += 1
+            if self._frame_count % 10 == 0:
+                print(f"[FRAME] {self._frame_count} state={self.state}", flush=True)
             self.draw_call_overlay()
 
             # Draw privacy mode banner if active
             if getattr(self, "privacy_mode", False):
-                banner_font = pygame.font.SysFont(None, 50, bold=True)
+                banner_font = get_font(50, bold=True)
                 banner_text = "🔒 Privacy Mode"
                 banner_surf = banner_font.render(banner_text, True, (255, 200, 100))
                 banner_x = self.width - banner_surf.get_width() - 40
@@ -3796,11 +4027,22 @@ class MotiBeamOS:
                     r,g,b = a['color']
                     s.fill((r,g,b,200))
                     self.screen.blit(s, (self.width-310, 10))
-                    af = pygame.font.SysFont(None, 30, bold=True)
+                    af = get_font(30, bold=True)
                     at = af.render(a['text'], True, (255,255,255))
                     self.screen.blit(at, (self.width-305, 24))
                 else:
                     self.corner_alert = None
+            # Update ticker every 8 seconds
+            import time as _tloop
+            if not hasattr(self, '_ticker_last_update'):
+                self._ticker_last_update = 0
+            if _tloop.time() - self._ticker_last_update > 8:
+                try:
+                    self.ticker_text = self._build_ticker()
+                except Exception:
+                    pass
+                self._ticker_last_update = _tloop.time()
+
             pygame.display.flip()
             self.clock.tick(30)
 
