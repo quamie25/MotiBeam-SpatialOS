@@ -1193,6 +1193,7 @@ class MotiBeamOS:
             cd['presence_start'] = _pt.time()
             self.circlebeam_active = True
             self.circlebeam_target = name
+            self._cb_presence_start = _pt.time()
             # Sound hook: soft connected cue
             try:
                 if pygame.mixer.get_init():
@@ -1282,7 +1283,7 @@ class MotiBeamOS:
             _page = _pt.time() - _ph
             _pa = 255 if _page < 4.0 else max(0,int(255*(1-(_page-4.0)/1.2)))
             if _pa > 0:
-                ef = get_font(26).render('ESC or B to end presence',True,(78,88,112))
+                ef = get_font(26).render('ESC  End presence   |   H  Go to Home',True,(78,88,112))
                 ef.set_alpha(_pa)
                 self.screen.blit(ef,(cx-ef.get_width()//2,H-98))
 
@@ -1304,7 +1305,7 @@ class MotiBeamOS:
             {'name': 'Care Team', 'status': 'available',       'emoji': '⚕️'},
         ]
 
-        # Presence active — only ESC/B exits
+        # Presence active — ESC/B ends, H goes to Home keeping session alive
         if pstate in ('calling', 'connecting', 'connected', 'active'):
             if key in (pygame.K_ESCAPE, pygame.K_b):
                 cd['presence_state']  = None
@@ -1312,6 +1313,13 @@ class MotiBeamOS:
                 self.circlebeam_active = False
                 self.circlebeam_target = None
                 print('[CIRCLEBEAM] Presence ended')
+                self.state = "home"
+                self.navigation_stack = ["home"]
+            elif key == pygame.K_h:
+                # Go to Home while keeping presence session alive
+                self.state = "home"
+                self.navigation_stack = ["home", "circlebeam"]
+                print('[CIRCLEBEAM] Moved to Home — presence still active')
             return
 
         # Panel open — action keys
@@ -1951,20 +1959,6 @@ class MotiBeamOS:
 
         # Auto-fire disabled — idle screen is the ambient living wall
 
-        # CircleBeam live session banner
-        if getattr(self, 'circlebeam_active', False) and getattr(self, 'circlebeam_target', None):
-            import math as _hcm, time as _hct
-            _hp = (_hcm.sin(_hct.time() * 1.2) + 1) / 2
-            _bsurf = pygame.Surface((self.width - 60, 52), pygame.SRCALPHA)
-            _bsurf.fill((20, 60, 40, int(180 + _hp * 40)))
-            self.screen.blit(_bsurf, (30, 8))
-            pygame.draw.rect(self.screen, (60, int(180+_hp*50), 100),
-                             pygame.Rect(30, 8, self.width - 60, 52), 2, border_radius=8)
-            _btf = get_font(32, bold=True)
-            _bts = _btf.render(f'● Live Circle Active — {self.circlebeam_target}', True,
-                               (80, int(200+_hp*55), 130))
-            self.screen.blit(_bts, (self.width//2 - _bts.get_width()//2, 18))
-
         # ── Init & poll ───────────────────────────────────────────
         if data.get('_last_key_time', 0) == 0:
             data['_last_key_time'] = now
@@ -2344,6 +2338,20 @@ class MotiBeamOS:
 
         ht5 = hif.render('H / A / N   Mode      ESC   Back', True, (24, 28, 44))
         self.screen.blit(ht5, (W//2-ht5.get_width()//2, H-34))
+
+        # CircleBeam live session banner — drawn last so nothing overwrites it
+        if getattr(self, 'circlebeam_active', False) and getattr(self, 'circlebeam_target', None):
+            import math as _hcm, time as _hct
+            _hp = (_hcm.sin(_hct.time() * 1.2) + 1) / 2
+            _bsurf = pygame.Surface((W - 60, 54), pygame.SRCALPHA)
+            _bsurf.fill((10, 48, 28, int(200 + _hp * 40)))
+            self.screen.blit(_bsurf, (30, 10))
+            pygame.draw.rect(self.screen, (50, int(185+_hp*55), 90),
+                             pygame.Rect(30, 10, W - 60, 54), 2, border_radius=8)
+            _bts = get_font(34, bold=True).render(
+                f'● Live Circle Active — {self.circlebeam_target}',
+                True, (80, int(205+_hp*50), 125))
+            self.screen.blit(_bts, (W//2 - _bts.get_width()//2, 20))
 
 
     def handle_home_realm_input(self, key):
@@ -4149,6 +4157,45 @@ class MotiBeamOS:
                 self.draw_header()
                 self.draw_grid()
                 self.draw_footer()
+                # CircleBeam live session banner — animated
+                if getattr(self, 'circlebeam_active', False) and getattr(self, 'circlebeam_target', None):
+                    import math as _hcm, time as _hct
+                    _now  = _hct.time()
+                    _hp   = (_hcm.sin(_now * 1.4) + 1) / 2   # slow breath
+                    _hp2  = (_hcm.sin(_now * 2.8) + 1) / 2   # faster dot pulse
+                    _bw   = self.width - 60
+
+                    # Background
+                    _bs = pygame.Surface((_bw, 54), pygame.SRCALPHA)
+                    _bs.fill((8, 42, 24, int(195 + _hp * 45)))
+                    self.screen.blit(_bs, (30, 10))
+
+                    # Animated border — brightness pulses
+                    _bc = (45, int(170+_hp*70), 80)
+                    _bthick = 2 if _hp < 0.5 else 3
+                    pygame.draw.rect(self.screen, _bc,
+                                     pygame.Rect(30, 10, _bw, 54), _bthick, border_radius=8)
+
+                    # Pulsing dot — separate from text so it animates independently
+                    _dv  = int(120 + _hp2 * 135)
+                    _dot = get_font(34, bold=True).render('●', True, (50, _dv, 80))
+                    _dot_x = self.width//2 - 200
+                    self.screen.blit(_dot, (_dot_x, 20))
+
+                    # Contact name
+                    _tv  = int(185 + _hp * 55)
+                    _bt2 = get_font(34, bold=True).render(
+                        f' Live Circle Active — {self.circlebeam_target}',
+                        True, (75, _tv, 115))
+                    self.screen.blit(_bt2, (_dot_x + _dot.get_width(), 20))
+
+                    # Live duration counter — top right of banner
+                    _sess_start = getattr(self, '_cb_presence_start', _now)
+                    _elapsed    = int(_now - _sess_start)
+                    _mins, _secs = divmod(_elapsed, 60)
+                    _dur = f'{_mins}m {_secs:02d}s' if _mins else f'{_secs}s'
+                    _dsurf = get_font(26).render(_dur, True, (60, int(140+_hp*60), 90))
+                    self.screen.blit(_dsurf, (30 + _bw - _dsurf.get_width() - 14, 28))
             elif self.state == "circlebeam":
                 self.render_circlebeam()
             elif self.state == "marketplace":
