@@ -255,6 +255,9 @@ class MotiBeamOS:
         else:
             self.presence = None
         self.selected_index = 0  # which card is selected on home grid
+        self.circlebeam_active = False
+        self.circlebeam_target = None
+        self._cb_hint_time     = 0   # tracks last interaction for nav fade
         self.corner_alert = None
         self.corner_alert_time = 0
 
@@ -264,7 +267,18 @@ class MotiBeamOS:
 
         # Realm-specific state data
         self.realm_data = {
-            'circlebeam': {'selected': 0, 'panel_open': False, 'action_feedback': None, 'action_time': 0},
+            'circlebeam': {
+                'selected': 0,
+                'panel_open': False,
+                'action_feedback': None,
+                'action_time': 0,
+                'presence_state': None,
+                'presence_target': None,
+                'presence_emoji':  None,
+                'presence_start':  0,
+                'presence_status': None,
+                'nav_hint_time':   0,
+            },
             'marketplace': {
                 'selected': 0,
                 'preview_open': False,
@@ -745,6 +759,7 @@ class MotiBeamOS:
         # Clear missed presence indicator when entering CircleBeam
         if realm_name == 'circlebeam':
             self.missed_presence = False
+            self._cb_hint_time = __import__('time').time()
 
     def go_back(self):
         """Navigate back one level"""
@@ -761,7 +776,7 @@ class MotiBeamOS:
         def _do_fetch():
             try:
                 import urllib.request
-                url = 'https://wttr.in/Cypress+TX?format=3'
+                url = 'https://wttr.in/Cypress+TX?format=%t+%C&u'
                 req = urllib.request.Request(url, headers={'User-Agent': 'curl/7.0'})
                 with urllib.request.urlopen(req, timeout=8) as r:
                     raw = r.read().decode('utf-8').strip()
@@ -863,6 +878,9 @@ class MotiBeamOS:
             # Don't go back if Education is in session mode - let realm handler deal with it
             elif self.state == "education" and self.realm_data['education'].get('module') is not None:
                 pass  # Education handler will process this
+            # CircleBeam handles ESC internally (panel close, presence exit, then realm exit)
+            elif self.state == "circlebeam":
+                pass  # CircleBeam handler will process this
             else:
                 self.go_back()
                 return
@@ -956,264 +974,400 @@ class MotiBeamOS:
 
     def render_circlebeam(self):
         """CircleBeam - Family Presence Layer (Licensing-Ready)"""
-        selected = self.realm_data['circlebeam']['selected']
+        import math as _cm, time as _ct
+        cd       = self.realm_data['circlebeam']
+        selected = cd['selected']
+        pstate   = cd.get('presence_state')
 
-        # Title - proper emoji + text alignment
-        title_emoji_font = load_emoji_font(80)
-        title_text_font = get_font(80, bold=True)
-        people_emoji = title_emoji_font.render('👥', True, (100, 180, 255))
-        circlebeam_text = title_text_font.render(' CIRCLEBEAM', True, (100, 180, 255))
+        # Route to presence flow if active
+        if pstate in ('calling', 'connecting', 'connected', 'active'):
+            self._render_circlebeam_presence(cd)
+            return
+
+        # Title — compact to give grid more room
+        title_emoji_font = load_emoji_font(64)
+        title_text_font  = get_font(64, bold=True)
+        people_emoji     = title_emoji_font.render('👥', True, (100, 180, 255))
+        circlebeam_text  = title_text_font.render(' CIRCLEBEAM', True, (100, 180, 255))
         title_width = people_emoji.get_width() + circlebeam_text.get_width()
-        title_x = self.width // 2 - title_width // 2
-        self.screen.blit(people_emoji, (title_x, 50))
-        self.screen.blit(circlebeam_text, (title_x + people_emoji.get_width(), 50))
+        title_x     = self.width // 2 - title_width // 2
+        self.screen.blit(people_emoji,    (title_x, 28))
+        self.screen.blit(circlebeam_text, (title_x + people_emoji.get_width(), 28))
 
         # Subtitle
-        subtitle_font = get_font(52)
-        subtitle = subtitle_font.render('Family Presence', True, (180, 200, 220))
-        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 160))
+        subtitle_font = get_font(36)
+        subtitle = subtitle_font.render('Family Presence', True, (140, 165, 195))
+        self.screen.blit(subtitle, (self.width // 2 - subtitle.get_width() // 2, 105))
 
-        # Circle members - 2×3 grid (standard across platform)
+        # ── CONTACT DATA ──────────────────────────────────────────
         circles = [
-            {'name': 'Mom', 'status': 'available', 'emoji': '👩', 'status_text': 'Available', 'dot': '●'},
-            {'name': 'Dad', 'status': 'quiet', 'emoji': '👨', 'status_text': 'Quiet mode', 'dot': '●'},
-            {'name': 'Sister', 'status': 'offline', 'emoji': '👧', 'status_text': 'Offline', 'dot': '●'},
-            {'name': 'Brother', 'status': 'available', 'emoji': '👦', 'status_text': 'Available', 'dot': '●'},
-            {'name': 'Grandma', 'status': 'needs_attention', 'emoji': '👵', 'status_text': 'Needs attention', 'dot': '●'},
-            {'name': 'Care Team', 'status': 'available', 'emoji': '⚕️', 'status_text': 'Available', 'dot': '●'}
+            {'name': 'Mom',       'status': 'available',       'emoji': '👩', 'status_text': 'Available',       'dot': '●'},
+            {'name': 'Dad',       'status': 'quiet',           'emoji': '👨', 'status_text': 'Quiet mode',      'dot': '●'},
+            {'name': 'Sister',    'status': 'offline',         'emoji': '👧', 'status_text': 'Offline',         'dot': '●'},
+            {'name': 'Brother',   'status': 'available',       'emoji': '👦', 'status_text': 'Available',       'dot': '●'},
+            {'name': 'Grandma',   'status': 'needs_attention', 'emoji': '👵', 'status_text': 'Needs attention', 'dot': '●'},
+            {'name': 'Care Team', 'status': 'available',       'emoji': '⚕️', 'status_text': 'Available',       'dot': '●'},
         ]
-
-        # Standardized status colors
         status_colors = {
-            'available': (100, 255, 150),     # Green
-            'quiet': (120, 180, 255),         # Yellow
-            'offline': (140, 150, 160),       # Gray
-            'needs_attention': (255, 100, 100) # Red
+            'available':       (100, 255, 150),
+            'quiet':           (120, 180, 255),
+            'offline':         (140, 150, 160),
+            'needs_attention': (255, 100, 100),
         }
 
-        # Grid layout - even spacing, centered
-        card_width = 340
-        card_height = 200
-        gap = 60  # Same horizontal and vertical
-        cols = 3
-        rows = 2
-
-        # Center the grid
-        grid_width = cols * card_width + (cols - 1) * gap
-        start_x = (self.width - grid_width) // 2
-        start_y = 210
+        # ── GRID ──────────────────────────────────────────────────
+        card_w, card_h = 320, 185
+        gap_x, gap_y   = 48, 20
+        cols           = 3
+        grid_w         = cols * card_w + (cols - 1) * gap_x
+        start_x        = (self.width - grid_w) // 2
+        start_y        = 136
+        now_t          = _ct.time()
 
         for i, circle in enumerate(circles):
             row = i // cols
             col = i % cols
+            x   = start_x + col * (card_w + gap_x)
+            y   = start_y + row * (card_h + gap_y)
+            card_rect = pygame.Rect(x, y, card_w, card_h)
 
-            x = start_x + col * (card_width + gap)
-            y = start_y + row * (card_height + gap)
+            if circle['status'] == 'needs_attention':
+                _na = (_cm.sin(now_t * 1.8) + 1) / 2
+                _gs = pygame.Surface((card_w + 20, card_h + 20), pygame.SRCALPHA)
+                _gs.fill((255, 80, 80, int(35 + _na * 45)))
+                self.screen.blit(_gs, (x - 10, y - 10))
 
-            card_rect = pygame.Rect(x, y, card_width, card_height)
-
-            # Selection glow - strong but not overwhelming
             if i == selected:
-                pygame.draw.rect(self.screen, (100, 180, 255), card_rect.inflate(10, 10), 4, border_radius=16)
-            
-            # Card background - dimmed if not selected
-            bg_brightness = 1.0 if i == selected else 0.7
-            bg_color = tuple(int(c * bg_brightness) for c in (30, 35, 50))
-            pygame.draw.rect(self.screen, bg_color, card_rect, border_radius=15)
+                _br = (_cm.sin(now_t * 2.0) + 1) / 2
+                _gr = int(80  + _br * 80)
+                _gg = int(160 + _br * 60)
+                _bw = int(3   + _br * 3)
+                _inf = int(5  + _br * 7)
+                pygame.draw.rect(self.screen, (_gr, _gg, 255),
+                                 card_rect.inflate(_inf, _inf), _bw, border_radius=15)
+            elif circle['status'] == 'needs_attention':
+                _na2 = (_cm.sin(now_t * 1.8) + 1) / 2
+                pygame.draw.rect(self.screen, (255, int(60+_na2*40), 60),
+                                 card_rect.inflate(4, 4), int(2+_na2*2), border_radius=15)
 
-            # Member emoji
-            icon_font = load_emoji_font(110)
+            if circle['status'] == 'offline':
+                bg_col = (18, 20, 30)
+            elif i == selected:
+                bg_col = (30, 36, 54)
+            else:
+                bg_col = (22, 26, 40)
+            pygame.draw.rect(self.screen, bg_col, card_rect, border_radius=13)
+
+            icon_font = load_emoji_font(88)
             icon = icon_font.render(circle['emoji'], True, (255, 255, 255))
-            self.screen.blit(icon, (x + card_width // 2 - icon.get_width() // 2, y + 25))
+            if circle['status'] == 'offline':
+                icon.set_alpha(110)
+            self.screen.blit(icon, (x + card_w//2 - icon.get_width()//2, y + 14))
 
-            # Name - licensing-ready size (56px)
-            name_font = get_font(56, bold=True)
-            name = name_font.render(circle['name'], True, (255, 255, 255))
-            self.screen.blit(name, (x + card_width // 2 - name.get_width() // 2, y + 145))
+            nc  = (155, 160, 170) if circle['status'] == 'offline' else (232, 238, 255)
+            ns0 = get_font(44, bold=True).render(circle['name'], True, nc)
+            self.screen.blit(ns0, (x + card_w//2 - ns0.get_width()//2, y + 116))
 
-            # Status indicator - standardized
-            status_color = status_colors[circle['status']]
-            
-            # Status dot
-            # Status dot - standardized colored circle
-            dot_font = get_font(48, bold=True)
-            dot = dot_font.render(circle['dot'], True, status_color)
-            
-            # Status text - readable size (36px)
-            status_font = get_font(36)
-            status_text = status_font.render(circle['status_text'], True, status_color)
-            
-            # Center status line
-            status_width = dot.get_width() + 8 + status_text.get_width()
-            status_x = x + (card_width - status_width) // 2
-            
-            self.screen.blit(dot, (status_x, y + 195))
-            self.screen.blit(status_text, (status_x + dot.get_width() + 8, y + 200))
-
-        # Preview panel (if open)
-        if self.realm_data['circlebeam']['panel_open']:
-            person = circles[selected]
-            
-            # Panel background (right side)
-            panel_x = 1100
-            panel_y = 180
-            panel_width = 760
-            panel_height = 700
-            
-            panel_rect = pygame.Rect(panel_x, panel_y, panel_width, panel_height)
-            pygame.draw.rect(self.screen, (25, 30, 45), panel_rect, border_radius=15)
-            pygame.draw.rect(self.screen, (100, 180, 255), panel_rect, 3, border_radius=15)
-            
-            # Person avatar (large)
-            avatar_font = load_emoji_font(150)
-            avatar = avatar_font.render(person['emoji'], True, (255, 255, 255))
-            self.screen.blit(avatar, (panel_x + panel_width // 2 - avatar.get_width() // 2, panel_y + 40))
-            
-            # Name (large) - privacy aware
-            privacy_mode = getattr(self, 'privacy_mode', False)
-            name_font = get_font(46, bold=True)
-            if privacy_mode:
-                # Show initials or generic label
-                display_name = person['name'][0] + "." if len(person['name']) > 0 else "Contact"
+            sc = status_colors[circle['status']]
+            if circle['status'] in ('available', 'needs_attention'):
+                _dp = (_cm.sin(now_t * 2.5 + i) + 1) / 2
+                _dc = tuple(min(255, int(c*(0.55+_dp*0.45))) for c in sc)
             else:
-                display_name = person['name']
-            name_surf = name_font.render(display_name, True, (255, 255, 255))
-            self.screen.blit(name_surf, (panel_x + panel_width // 2 - name_surf.get_width() // 2, panel_y + 210))
-            
-            # Status with explanation
+                _dc = sc
+            dots = get_font(36, bold=True).render('●', True, _dc)
+            sts  = get_font(28).render(circle['status_text'], True, sc)
+            sw   = dots.get_width() + 5 + sts.get_width()
+            sx   = x + (card_w - sw) // 2
+            self.screen.blit(dots, (sx, y + 152))
+            self.screen.blit(sts,  (sx + dots.get_width() + 5, y + 156))
+
+        # ── BOTTOM OVERLAY PANEL ──────────────────────────────────
+        if cd['panel_open']:
+            person       = circles[selected]
             status_color = status_colors[person['status']]
-            status_font = get_font(50, bold=True)
-            
-            status_explanations = {
-                'available': 'Available for contact',
-                'quiet': 'Quiet mode — notifications paused',
-                'offline': 'Not currently connected',
-                'needs_attention': 'Urgent — please check in'
+            panel_h = 205
+            panel_y = self.height - panel_h - 46
+            panel_x = 34
+            panel_w = self.width - 68
+            margin  = 26
+
+            ps2 = pygame.Surface((panel_w, panel_h), pygame.SRCALPHA)
+            ps2.fill((12, 16, 32, 238))
+            self.screen.blit(ps2, (panel_x, panel_y))
+            pygame.draw.rect(self.screen, status_color,
+                             pygame.Rect(panel_x, panel_y, panel_w, 3), border_radius=3)
+            pygame.draw.rect(self.screen, (52, 78, 126),
+                             pygame.Rect(panel_x, panel_y, panel_w, panel_h), 2, border_radius=10)
+
+            av2  = load_emoji_font(85).render(person['emoji'], True, (255, 255, 255))
+            ax2  = panel_x + margin
+            ay2  = panel_y + (panel_h - av2.get_height()) // 2
+            self.screen.blit(av2, (ax2, ay2))
+
+            tx2  = ax2 + av2.get_width() + 16
+            priv = getattr(self, 'privacy_mode', False)
+            dn2  = (person['name'][0]+'.') if priv else person['name']
+            pns  = get_font(46, bold=True).render(dn2, True, (243, 246, 255))
+            self.screen.blit(pns, (tx2, panel_y + 26))
+
+            expl2 = {
+                'available':       'Available for contact',
+                'quiet':           'Quiet mode — notifications paused',
+                'offline':         'Not currently connected',
+                'needs_attention': 'Urgent — please check in',
             }
-            
-            status_surf = status_font.render(status_explanations[person['status']], True, status_color)
-            self.screen.blit(status_surf, (panel_x + panel_width // 2 - status_surf.get_width() // 2, panel_y + 290))
-            
-            # Last seen - privacy aware
-            seen_font = get_font(42)
-            if privacy_mode:
-                seen_text = "🔒 Privacy Mode Active"
-                seen_color = (255, 220, 100)
-            else:
-                seen_times = {0: '2h ago', 1: '30m ago', 2: 'Yesterday', 3: '1h ago', 4: '15m ago', 5: 'Available now'}
-                seen_text = f"Last seen: {seen_times[selected]}"
-                seen_color = (180, 190, 200)
-            seen_surf = seen_font.render(seen_text, True, seen_color)
-            self.screen.blit(seen_surf, (panel_x + panel_width // 2 - seen_surf.get_width() // 2, panel_y + 350))
-            
-            # Action buttons
-            action_y = panel_y + 430
-            button_font = get_font(50, bold=True)
-            key_font = pygame.font.SysFont(None, 60, bold=True)
-            
-            actions = [
-                {'key': 'C', 'label': 'Call', 'color': (100, 200, 255)},
-                {'key': 'M', 'label': 'Message', 'color': (150, 255, 150)},
-                {'key': 'N', 'label': 'Nudge', 'color': (255, 200, 100)}
+            pes = get_font(31, bold=True).render(expl2[person['status']], True, status_color)
+            self.screen.blit(pes, (tx2, panel_y + 86))
+
+            sm2 = {0:'2h ago',1:'30m ago',2:'Yesterday',3:'1h ago',4:'15m ago',5:'Available now'}
+            st2 = '🔒 Privacy' if priv else f"Last seen: {sm2.get(selected,'—')}"
+            sc2 = (255,220,100) if priv else (148,162,182)
+            self.screen.blit(get_font(28).render(st2, True, sc2), (tx2, panel_y + 134))
+
+            acts2 = [
+                {'key':'C','label':'Call',    'color':(100,200,255)},
+                {'key':'M','label':'Message', 'color':(150,255,150)},
+                {'key':'N','label':'Nudge',   'color':(255,200,100)},
             ]
-            
-            button_width = 200
-            button_height = 70
-            gap = 30
-            start_x = panel_x + (panel_width - (3 * button_width + 2 * gap)) // 2
-            
-            for i, action in enumerate(actions):
-                btn_x = start_x + i * (button_width + gap)
-                btn_rect = pygame.Rect(btn_x, action_y, button_width, button_height)
-                
-                pygame.draw.rect(self.screen, (40, 50, 70), btn_rect, border_radius=10)
-                pygame.draw.rect(self.screen, action['color'], btn_rect, 3, border_radius=10)
-                
-                # Key letter
-                key_surf = key_font.render(action['key'], True, action['color'])
-                self.screen.blit(key_surf, (btn_x + 20, action_y + 10))
-                
-                # Label
-                label_surf = button_font.render(action['label'], True, (220, 220, 220))
-                self.screen.blit(label_surf, (btn_x + 70, action_y + 17))
+            bw3,bh3,bg3 = 178,56,14
+            tbw3 = len(acts2)*bw3+(len(acts2)-1)*bg3
+            bsx3 = panel_x+panel_w-margin-tbw3
+            by3  = panel_y+(panel_h-bh3)//2
+            kf3  = get_font(34, bold=True)
+            lf3  = get_font(32)
+            for idx3, act3 in enumerate(acts2):
+                bx3 = bsx3+idx3*(bw3+bg3)
+                br3 = pygame.Rect(bx3, by3, bw3, bh3)
+                pygame.draw.rect(self.screen, (26,33,52), br3, border_radius=9)
+                pygame.draw.rect(self.screen, act3['color'], br3, 2, border_radius=9)
+                ks3 = kf3.render(act3['key'],   True, act3['color'])
+                ls3 = lf3.render(act3['label'], True, (202,208,218))
+                self.screen.blit(ks3, (bx3+11, by3+(bh3-ks3.get_height())//2))
+                self.screen.blit(ls3, (bx3+11+ks3.get_width()+9, by3+(bh3-ls3.get_height())//2))
 
-            # Action feedback (brief confirmation message)
-            import time
-            if self.realm_data['circlebeam']['action_feedback']:
-                elapsed = time.time() - self.realm_data['circlebeam']['action_time']
-                if elapsed < 2.0:  # Show for 2 seconds
-                    feedback_font = get_font(56, bold=True)
-                    feedback_surf = feedback_font.render(self.realm_data['circlebeam']['action_feedback'], True, (100, 255, 150))
-                    feedback_bg = pygame.Rect(panel_x + 50, panel_y + 570, panel_width - 100, 60)
-                    pygame.draw.rect(self.screen, (30, 60, 40), feedback_bg, border_radius=8)
-                    self.screen.blit(feedback_surf, (panel_x + panel_width // 2 - feedback_surf.get_width() // 2, panel_y + 580))
+            if cd['action_feedback']:
+                import time as _fbt
+                if _fbt.time()-cd['action_time'] < 2.0:
+                    fbs2 = get_font(34, bold=True).render(cd['action_feedback'], True, (100,255,150))
+                    self.screen.blit(fbs2,(panel_x+panel_w//2-fbs2.get_width()//2, panel_y+panel_h-38))
                 else:
-                    # Clear after 2 seconds
-                    self.realm_data['circlebeam']['action_feedback'] = None
-            
-            # Close hint
-            close_font = get_font(44)
-            close_surf = close_font.render('ENTER or ESC to close', True, (150, 170, 200))
-            self.screen.blit(close_surf, (panel_x + panel_width // 2 - close_surf.get_width() // 2, panel_y + 620))
+                    cd['action_feedback'] = None
 
-        # Footer - safe zone (no overlap)
-        philosophy_font = get_font(38)
-        philosophy = philosophy_font.render('Presence is shared without requiring interaction.', True, (150, 170, 200))
-        self.screen.blit(philosophy, (self.width // 2 - philosophy.get_width() // 2, 820))
+            hs4 = get_font(24).render('ENTER or ESC to close', True, (88,102,132))
+            self.screen.blit(hs4,(panel_x+panel_w-hs4.get_width()-margin, panel_y+panel_h-hs4.get_height()-7))
 
-        help_font = get_font(36)
-        help_text = help_font.render('← → Navigate | ENTER Preview | I Incoming | ESC Home', True, (150, 160, 180))
-        self.screen.blit(help_text, (self.width // 2 - help_text.get_width() // 2, 870))
+        # ── FOOTER — auto-fade after 4s inactivity ─────────────────
+        _ht = getattr(self, '_cb_hint_time', 0)
+        _age = _ct.time() - _ht
+        _fade_dur = 1.2
+        _show_dur = 4.0
+        if _age < _show_dur:
+            _halpha = 255
+        elif _age < _show_dur + _fade_dur:
+            _halpha = int(255 * (1.0 - (_age - _show_dur) / _fade_dur))
+        else:
+            _halpha = 0
+        if _halpha > 0:
+            _hsurf = get_font(28).render(
+                '← → ↑ ↓  Navigate   |   ENTER  Open   |   C  Call   M  Message   N  Nudge   |   ESC  Back',
+                True, (100, 115, 145))
+            _hsurf.set_alpha(_halpha)
+            self.screen.blit(_hsurf, (self.width//2 - _hsurf.get_width()//2, self.height - 88))
+
+    def _render_circlebeam_presence(self, cd):
+        """Presence flow: calling → connecting → connected → active"""
+        import math as _pm, time as _pt
+        pstate  = cd['presence_state']
+        name    = cd.get('presence_target', '')
+        emoji   = cd.get('presence_emoji',  '👤')
+        elapsed = _pt.time() - cd.get('presence_start', _pt.time())
+        W, H    = self.width, self.height
+        cx      = W // 2
+
+        if pstate == 'calling'    and elapsed > 1.4:
+            cd['presence_state'] = 'connecting'
+            cd['presence_start'] = _pt.time()
+            return
+        if pstate == 'connecting' and elapsed > 1.8:
+            cd['presence_state'] = 'connected'
+            cd['presence_start'] = _pt.time()
+            self.circlebeam_active = True
+            self.circlebeam_target = name
+            # Sound hook: soft connected cue
+            try:
+                if pygame.mixer.get_init():
+                    pygame.mixer.stop()
+            except Exception:
+                pass
+            return
+        if pstate == 'connected'  and elapsed > 1.2:
+            cd['presence_state'] = 'active'
+            cd['presence_start'] = _pt.time()
+            return
+
+        pulse  = (_pm.sin(_pt.time() * 1.6) + 1) / 2
+        pulse2 = (_pm.sin(_pt.time() * 0.5) + 1) / 2
+
+        dim = pygame.Surface((W, H), pygame.SRCALPHA)
+        dim.fill((8,10,20,245) if pstate=='active' else (10,14,26,215))
+        self.screen.blit(dim, (0, 0))
+
+        if pstate == 'calling':
+            ring_r = int(88+pulse*18)
+            rs = pygame.Surface((ring_r*2+4,ring_r*2+4), pygame.SRCALPHA)
+            pygame.draw.circle(rs,(100,180,255,int(55+pulse*80)),(ring_r+2,ring_r+2),ring_r,3)
+            self.screen.blit(rs,(cx-ring_r-2,H//2-185-ring_r-2))
+            av = load_emoji_font(138).render(emoji,True,(255,255,255))
+            self.screen.blit(av,(cx-av.get_width()//2,H//2-285))
+            cv = int(195+pulse*60)
+            cs = get_font(66,bold=True).render('Calling...', True,(cv,cv,255))
+            self.screen.blit(cs,(cx-cs.get_width()//2,H//2-58))
+            ns = get_font(50).render(name,True,(175,198,228))
+            self.screen.blit(ns,(cx-ns.get_width()//2,H//2+22))
+            dc = int(_pt.time()*1.5)%4
+            ds = get_font(40).render('●'*dc+'○'*(3-dc),True,(75,125,195))
+            self.screen.blit(ds,(cx-ds.get_width()//2,H//2+88))
+
+        elif pstate == 'connecting':
+            for ri in range(3):
+                rr = int(68+ri*44+pulse*24)
+                ra = max(0,int(78-ri*20+pulse*28))
+                rsurf = pygame.Surface((rr*2+4,rr*2+4),pygame.SRCALPHA)
+                pygame.draw.circle(rsurf,(78,158,255,ra),(rr+2,rr+2),rr,2)
+                self.screen.blit(rsurf,(cx-rr-2,H//2-162-rr-2))
+            av2 = load_emoji_font(118).render(emoji,True,(255,255,255))
+            self.screen.blit(av2,(cx-av2.get_width()//2,H//2-252))
+            cv2 = int(175+pulse*78)
+            cs2 = get_font(60,bold=True).render('Connecting...',True,(cv2,cv2,255))
+            self.screen.blit(cs2,(cx-cs2.get_width()//2,H//2-48))
+            ss3 = get_font(36).render('CircleBeam: Establishing presence',True,(95,145,208))
+            self.screen.blit(ss3,(cx-ss3.get_width()//2,H//2+28))
+
+        elif pstate == 'connected':
+            av3 = load_emoji_font(128).render(emoji,True,(255,255,255))
+            self.screen.blit(av3,(cx-av3.get_width()//2,H//2-262))
+            gv = int(175+pulse*78)
+            cs3 = get_font(70,bold=True).render('Connected',True,(75,gv,135))
+            self.screen.blit(cs3,(cx-cs3.get_width()//2,H//2-48))
+            ss4 = get_font(40).render('Live Circle Active',True,(95,198,148))
+            self.screen.blit(ss4,(cx-ss4.get_width()//2,H//2+36))
+            ns2 = get_font(46).render(name,True,(198,218,242))
+            self.screen.blit(ns2,(cx-ns2.get_width()//2,H//2+92))
+
+        elif pstate == 'active':
+            aura_r = int(128+pulse2*28)
+            sk = cd.get('presence_status','available')
+            ac = {'available':(78,198,118),'quiet':(78,138,255),
+                  'offline':(118,128,138),'needs_attention':(255,78,78)}.get(sk,(78,178,255))
+            for layer in range(4):
+                lr = aura_r+layer*22
+                la = max(0,int(18+pulse2*22)-layer*4)
+                asurf = pygame.Surface((lr*2,lr*2),pygame.SRCALPHA)
+                pygame.draw.circle(asurf,(*ac,la),(lr,lr),lr)
+                self.screen.blit(asurf,(cx-lr,H//2-202-lr))
+            av4 = load_emoji_font(168).render(emoji,True,(255,255,255))
+            self.screen.blit(av4,(cx-av4.get_width()//2,H//2-332))
+            pv = int(208+pulse2*47)
+            ps3 = get_font(62,bold=True).render(f'{name} is present',True,(pv,pv,255))
+            self.screen.blit(ps3,(cx-ps3.get_width()//2,H//2-28))
+            # Secondary emotional line
+            ev2 = int(140+pulse2*40)
+            es2 = get_font(36).render(f'Live with {name}',True,(ev2,ev2+30,ev2+20))
+            self.screen.blit(es2,(cx-es2.get_width()//2,H//2+42))
+            lv5 = int(100+pulse2*40)
+            ls5 = get_font(28).render('Live presence active',True,(60,lv5,90))
+            self.screen.blit(ls5,(cx-ls5.get_width()//2,H//2+92))
+            # ESC hint — fades with inactivity
+            _ph = getattr(self, '_cb_hint_time', 0)
+            _page = _pt.time() - _ph
+            _pa = 255 if _page < 4.0 else max(0,int(255*(1-(_page-4.0)/1.2)))
+            if _pa > 0:
+                ef = get_font(26).render('ESC or B to end presence',True,(78,88,112))
+                ef.set_alpha(_pa)
+                self.screen.blit(ef,(cx-ef.get_width()//2,H-98))
 
     def handle_circlebeam_input(self, key):
-        """Handle CircleBeam input - 3 cols × 2 rows grid (5 members)"""
-        selected = self.realm_data['circlebeam']['selected']
-        total_members = 6
-        cols = 3
+        """Handle CircleBeam input — grid nav, panel, presence flow"""
+        import time as _cht
+        cd       = self.realm_data['circlebeam']
+        selected = cd['selected']
+        cols     = 3
+        total    = 6
+        pstate   = cd.get('presence_state')
 
-        # Grid navigation: [0][1][2]
-        #                  [3][4]
-        if key == pygame.K_LEFT:
-            if selected % cols > 0:  # Can move left
-                self.realm_data['circlebeam']['selected'] = selected - 1
-        elif key == pygame.K_RIGHT:
-            if selected % cols < cols - 1 and selected < total_members - 1:  # Can move right
-                self.realm_data['circlebeam']['selected'] = selected + 1
-        elif key == pygame.K_UP:
-            if selected >= cols:  # Can move up
-                self.realm_data['circlebeam']['selected'] = selected - cols
-        elif key == pygame.K_DOWN:
-            if selected + cols < total_members:  # Can move down
-                self.realm_data['circlebeam']['selected'] = selected + cols
-        elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
-            # Toggle preview panel
-            self.realm_data['circlebeam']['panel_open'] = not self.realm_data['circlebeam']['panel_open']
-            print(f"[CIRCLEBEAM] Preview panel {'opened' if self.realm_data['circlebeam']['panel_open'] else 'closed'}")
+        circles = [
+            {'name': 'Mom',       'status': 'available',       'emoji': '👩'},
+            {'name': 'Dad',       'status': 'quiet',           'emoji': '👨'},
+            {'name': 'Sister',    'status': 'offline',         'emoji': '👧'},
+            {'name': 'Brother',   'status': 'available',       'emoji': '👦'},
+            {'name': 'Grandma',   'status': 'needs_attention', 'emoji': '👵'},
+            {'name': 'Care Team', 'status': 'available',       'emoji': '⚕️'},
+        ]
+
+        # Presence active — only ESC/B exits
+        if pstate in ('calling', 'connecting', 'connected', 'active'):
+            if key in (pygame.K_ESCAPE, pygame.K_b):
+                cd['presence_state']  = None
+                cd['presence_target'] = None
+                self.circlebeam_active = False
+                self.circlebeam_target = None
+                print('[CIRCLEBEAM] Presence ended')
             return
-        
-        # Panel action keys (only when panel is open)
-        elif self.realm_data['circlebeam']['panel_open']:
-            if key == pygame.K_c:
-                self.realm_data['circlebeam']['action_feedback'] = "✓ Call initiated"
-                self.realm_data['circlebeam']['action_time'] = time.time()
-                print("[CIRCLEBEAM] Call initiated (demo)")
+
+        # Panel open — action keys
+        if cd['panel_open']:
+            if key in (pygame.K_ESCAPE, pygame.K_RETURN, pygame.K_KP_ENTER):
+                cd['panel_open'] = False
+                return
+            elif key == pygame.K_c:
+                person = circles[selected]
+                cd['panel_open']      = False
+                cd['presence_state']  = 'calling'
+                cd['presence_target'] = person['name']
+                cd['presence_emoji']  = person['emoji']
+                cd['presence_status'] = person['status']
+                cd['presence_start']  = _cht.time()
+                self._cb_hint_time    = _cht.time()
+                # Sound hook: soft call-start cue
+                try:
+                    if pygame.mixer.get_init():
+                        pass  # wire tone here: pygame.mixer.Sound('assets/call_start.wav').play()
+                except Exception:
+                    pass
+                print(f'[CIRCLEBEAM] Call → {person["name"]}')
                 return
             elif key == pygame.K_m:
-                self.realm_data['circlebeam']['action_feedback'] = "✓ Message sent"
-                self.realm_data['circlebeam']['action_time'] = time.time()
-                print("[CIRCLEBEAM] Message sent (demo)")
+                cd['action_feedback'] = '✓ Message sent'
+                cd['action_time']     = _cht.time()
                 return
             elif key == pygame.K_n:
-                self.realm_data['circlebeam']['action_feedback'] = "✓ Presence ping sent"
-                self.realm_data['circlebeam']['action_time'] = time.time()
-                print("[CIRCLEBEAM] Nudge sent (demo)")
+                cd['action_feedback'] = '✓ Nudge sent'
+                cd['action_time']     = _cht.time()
                 return
-            elif key == pygame.K_p:
-                print("[CIRCLEBEAM] Presence ping sent (demo)")
-                return
-            # ENTER just highlights - no action in presence mode
-            # This is intentionally minimal - presence, not interaction
-            pass
+            return
+
+        # Reset nav hint timer on any interaction
+        self._cb_hint_time = _cht.time()
+
+        # Grid navigation
+        if key == pygame.K_LEFT:
+            if selected % cols > 0:
+                cd['selected'] = selected - 1
+        elif key == pygame.K_RIGHT:
+            if selected % cols < cols - 1 and selected < total - 1:
+                cd['selected'] = selected + 1
+        elif key == pygame.K_UP:
+            if selected >= cols:
+                cd['selected'] = selected - cols
+        elif key == pygame.K_DOWN:
+            if selected + cols < total:
+                cd['selected'] = selected + cols
+        elif key == pygame.K_RETURN or key == pygame.K_KP_ENTER:
+            cd['panel_open'] = True
+            print(f'[CIRCLEBEAM] Panel → {circles[selected]["name"]}')
+        elif key == pygame.K_ESCAPE:
+            self.state = "home"
+            self.navigation_stack = ["home"]
 
     def render_marketplace(self):
         """Marketplace - Projection Experience Platform — Upgraded"""
@@ -1796,6 +1950,20 @@ class MotiBeamOS:
                 state = 'PRIORITY_ALERT'
 
         # Auto-fire disabled — idle screen is the ambient living wall
+
+        # CircleBeam live session banner
+        if getattr(self, 'circlebeam_active', False) and getattr(self, 'circlebeam_target', None):
+            import math as _hcm, time as _hct
+            _hp = (_hcm.sin(_hct.time() * 1.2) + 1) / 2
+            _bsurf = pygame.Surface((self.width - 60, 52), pygame.SRCALPHA)
+            _bsurf.fill((20, 60, 40, int(180 + _hp * 40)))
+            self.screen.blit(_bsurf, (30, 8))
+            pygame.draw.rect(self.screen, (60, int(180+_hp*50), 100),
+                             pygame.Rect(30, 8, self.width - 60, 52), 2, border_radius=8)
+            _btf = get_font(32, bold=True)
+            _bts = _btf.render(f'● Live Circle Active — {self.circlebeam_target}', True,
+                               (80, int(200+_hp*55), 130))
+            self.screen.blit(_bts, (self.width//2 - _bts.get_width()//2, 18))
 
         # ── Init & poll ───────────────────────────────────────────
         if data.get('_last_key_time', 0) == 0:
@@ -3727,7 +3895,7 @@ class MotiBeamOS:
             self.realm_data['education']['live_correct'] = None
             self.corner_alert = {'text': "Dad sent a question!", 'color': (255, 180, 50)}
             self.corner_alert_time = _t.time()
-            self.state = "home"
+            self.state = "circlebeam"
             self.enter_realm("education")
             print(f"[Education] Live question received from {sender}")
 
@@ -3749,26 +3917,26 @@ class MotiBeamOS:
             # Visual feedback - flash header
             print("[Voice] Listening...")
         elif cmd == "CIRCLE":
-            self.state = "home"
+            self.state = "circlebeam"
             self.selected_index = 2
             self.enter_realm("circlebeam")
         elif cmd == "HOME":
-            self.state = "home"
+            self.state = "circlebeam"
             self.selected_index = 1
             self.enter_realm("home_realm")
         elif cmd == "EDUCATION":
-            self.state = "home"
+            self.state = "circlebeam"
             self.selected_index = 2
         elif cmd == "HEALTH":
-            self.state = "home"
+            self.state = "circlebeam"
             self.selected_index = 3
             self.enter_realm("health_wellness")
         elif cmd == "PRODUCTIVITY":
-            self.state = "home"
+            self.state = "circlebeam"
             self.selected_index = 4
             self.enter_realm("productivity")
         elif cmd == "MARKETPLACE":
-            self.state = "home"
+            self.state = "circlebeam"
             self.selected_index = 5
             self.enter_realm("marketplace")
         elif cmd == "CALL_DAD":
@@ -3787,27 +3955,27 @@ class MotiBeamOS:
             # Visual feedback - flash header
             print("[Voice] Listening...")
         elif cmd == "CIRCLE":
-            self.state = "home"
+            self.state = "circlebeam"
             self.selected_index = 0
             self.enter_realm("circlebeam")
         elif cmd == "HOME":
-            self.state = "home"
+            self.state = "circlebeam"
             self.selected_index = 1
             self.enter_realm("home_realm")
         elif cmd == "EDUCATION":
-            self.state = "home"
+            self.state = "circlebeam"
             self.selected_index = 2
             self.enter_realm("education")
         elif cmd == "HEALTH":
-            self.state = "home"
+            self.state = "circlebeam"
             self.selected_index = 3
             self.enter_realm("health_wellness")
         elif cmd == "PRODUCTIVITY":
-            self.state = "home"
+            self.state = "circlebeam"
             self.selected_index = 4
             self.enter_realm("productivity")
         elif cmd == "MARKETPLACE":
-            self.state = "home"
+            self.state = "circlebeam"
             self.selected_index = 5
             self.enter_realm("marketplace")
         elif cmd in ["BACK", "EXIT"]:
