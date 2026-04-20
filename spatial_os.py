@@ -149,6 +149,19 @@ def init_display(width, height):
         os.putenv("SDL_VIDEODRIVER", "")
 
     pygame.display.init()
+    # Initialize audio mixer for voice tones — route to 3.5mm jack (card 2)
+    import os as _os
+    _os.environ['SDL_AUDIODRIVER'] = 'alsa'
+    _os.environ['AUDIODEV'] = 'hw:2,0'
+    try:
+        pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=1024, devicename='hw:2,0')
+        print("  ✓ Audio mixer initialized on hw:2,0")
+    except Exception as _me:
+        try:
+            pygame.mixer.init(frequency=44100, size=-16, channels=2, buffer=1024)
+            print("  ✓ Audio mixer initialized (default)")
+        except Exception as _me2:
+            print(f"  Audio mixer failed: {_me2} — voice tones disabled")
     screen = pygame.display.set_mode((0, 0), pygame.FULLSCREEN | pygame.NOFRAME)
     print(f"  ✓ Display created successfully ({width}x{height}, fullscreen)")
     pygame.display.set_caption("MotiBeam Spatial OS – Clean Build")
@@ -228,13 +241,6 @@ class MotiBeamOS:
         self.font_overlay_hint = get_font(36)
 
         self.clock = pygame.time.Clock()
-        # Voice pipeline
-        self.voice_queue = queue.Queue()
-        if VOICE_ENABLED:
-            self.voice = VoicePipeline(self.voice_queue)
-            self.voice.start()
-        else:
-            self.voice = None
         # Voice pipeline
         self.voice_queue = queue.Queue()
         if VOICE_ENABLED:
@@ -3956,39 +3962,6 @@ class MotiBeamOS:
         elif cmd in ["BACK", "EXIT"]:
             self.go_back()
 
-    def handle_voice_command(self, cmd):
-        """Route voice commands to realm actions"""
-        print(f"[Voice] Executing: {cmd}")
-        if cmd == "WAKE":
-            # Visual feedback - flash header
-            print("[Voice] Listening...")
-        elif cmd == "CIRCLE":
-            self.state = "circlebeam"
-            self.selected_index = 0
-            self.enter_realm("circlebeam")
-        elif cmd == "HOME":
-            self.state = "circlebeam"
-            self.selected_index = 1
-            self.enter_realm("home_realm")
-        elif cmd == "EDUCATION":
-            self.state = "circlebeam"
-            self.selected_index = 2
-            self.enter_realm("education")
-        elif cmd == "HEALTH":
-            self.state = "circlebeam"
-            self.selected_index = 3
-            self.enter_realm("health_wellness")
-        elif cmd == "PRODUCTIVITY":
-            self.state = "circlebeam"
-            self.selected_index = 4
-            self.enter_realm("productivity")
-        elif cmd == "MARKETPLACE":
-            self.state = "circlebeam"
-            self.selected_index = 5
-            self.enter_realm("marketplace")
-        elif cmd in ["BACK", "EXIT"]:
-            self.go_back()
-
     def run(self):
         print("MotiBeam Spatial OS – clean launcher running (framebuffer-friendly)")
         while True:
@@ -4157,45 +4130,7 @@ class MotiBeamOS:
                 self.draw_header()
                 self.draw_grid()
                 self.draw_footer()
-                # CircleBeam live session banner — animated
-                if getattr(self, 'circlebeam_active', False) and getattr(self, 'circlebeam_target', None):
-                    import math as _hcm, time as _hct
-                    _now  = _hct.time()
-                    _hp   = (_hcm.sin(_now * 1.4) + 1) / 2   # slow breath
-                    _hp2  = (_hcm.sin(_now * 2.8) + 1) / 2   # faster dot pulse
-                    _bw   = self.width - 60
 
-                    # Background
-                    _bs = pygame.Surface((_bw, 54), pygame.SRCALPHA)
-                    _bs.fill((8, 42, 24, int(195 + _hp * 45)))
-                    self.screen.blit(_bs, (30, 10))
-
-                    # Animated border — brightness pulses
-                    _bc = (45, int(170+_hp*70), 80)
-                    _bthick = 2 if _hp < 0.5 else 3
-                    pygame.draw.rect(self.screen, _bc,
-                                     pygame.Rect(30, 10, _bw, 54), _bthick, border_radius=8)
-
-                    # Pulsing dot — separate from text so it animates independently
-                    _dv  = int(120 + _hp2 * 135)
-                    _dot = get_font(34, bold=True).render('●', True, (50, _dv, 80))
-                    _dot_x = self.width//2 - 200
-                    self.screen.blit(_dot, (_dot_x, 20))
-
-                    # Contact name
-                    _tv  = int(185 + _hp * 55)
-                    _bt2 = get_font(34, bold=True).render(
-                        f' Live Circle Active — {self.circlebeam_target}',
-                        True, (75, _tv, 115))
-                    self.screen.blit(_bt2, (_dot_x + _dot.get_width(), 20))
-
-                    # Live duration counter — top right of banner
-                    _sess_start = getattr(self, '_cb_presence_start', _now)
-                    _elapsed    = int(_now - _sess_start)
-                    _mins, _secs = divmod(_elapsed, 60)
-                    _dur = f'{_mins}m {_secs:02d}s' if _mins else f'{_secs}s'
-                    _dsurf = get_font(26).render(_dur, True, (60, int(140+_hp*60), 90))
-                    self.screen.blit(_dsurf, (30 + _bw - _dsurf.get_width() - 14, 28))
             elif self.state == "circlebeam":
                 self.render_circlebeam()
             elif self.state == "marketplace":
@@ -4213,6 +4148,35 @@ class MotiBeamOS:
 
             # Draw ticker at bottom (before call overlay)
             self.draw_ticker()
+
+            # CircleBeam live banner — all realms except CircleBeam itself
+            if getattr(self, 'circlebeam_active', False) and getattr(self, 'circlebeam_target', None) and self.state != 'circlebeam':
+                import math as _hcm, time as _hct
+                _now = _hct.time()
+                _hp  = (_hcm.sin(_now * 1.4) + 1) / 2
+                _hp2 = (_hcm.sin(_now * 2.8) + 1) / 2
+                _bw  = self.width - 60
+                _bs  = pygame.Surface((_bw, 54), pygame.SRCALPHA)
+                _bs.fill((8, 42, 24, int(195 + _hp * 45)))
+                self.screen.blit(_bs, (30, 10))
+                pygame.draw.rect(self.screen, (45, int(170+_hp*70), 80),
+                                 pygame.Rect(30, 10, _bw, 54),
+                                 2 if _hp < 0.5 else 3, border_radius=8)
+                _dv  = int(120 + _hp2 * 135)
+                _dot = get_font(34, bold=True).render('●', True, (50, _dv, 80))
+                _dot_x = self.width//2 - 210
+                self.screen.blit(_dot, (_dot_x, 20))
+                _tv  = int(185 + _hp * 55)
+                _bt2 = get_font(34, bold=True).render(
+                    f' Live Circle Active — {self.circlebeam_target}',
+                    True, (75, _tv, 115))
+                self.screen.blit(_bt2, (_dot_x + _dot.get_width(), 20))
+                _sess_start = getattr(self, '_cb_presence_start', _now)
+                _elapsed    = int(_now - _sess_start)
+                _mins, _secs = divmod(_elapsed, 60)
+                _dur  = f'{_mins}m {_secs:02d}s' if _mins else f'{_secs}s'
+                _ds   = get_font(26).render(_dur, True, (60, int(140+_hp*60), 90))
+                self.screen.blit(_ds, (30 + _bw - _ds.get_width() - 14, 28))
 
             # Draw call overlay on top of everything if active
             if not hasattr(self, '_frame_count'):
