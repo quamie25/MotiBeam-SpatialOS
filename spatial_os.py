@@ -3924,6 +3924,41 @@ class MotiBeamOS:
                 self.ticker_text = result_msg + self.ticker_text
             print(f"[Education] Result from Dad: {result}")
 
+    def _trigger_local_call(self, target_name):
+        """Fire the CircleBeam presence flow locally so Pi 4 shows the outgoing call."""
+        import time as _cht
+        # Navigate to CircleBeam realm
+        if self.state != "circlebeam":
+            self.state = "circlebeam"
+            self.navigation_stack = ["home", "circlebeam"]
+        cd = self.realm_data.get('circlebeam', {})
+        # Find the circle entry for target (Dad, Grandma, etc.)
+        circles = [
+            {'name': 'Dad',     'status': 'quiet',           'emoji': '\U0001F468'},
+            {'name': 'Mom',     'status': 'available',       'emoji': '\U0001F469'},
+            {'name': 'Grandma', 'status': 'needs_attention', 'emoji': '\U0001F475'},
+            {'name': 'Sister',  'status': 'available',       'emoji': '\U0001F467'},
+            {'name': 'Brother', 'status': 'offline',         'emoji': '\U0001F466'},
+            {'name': 'Partner', 'status': 'available',       'emoji': '\U0001F48E'},
+        ]
+        person = next((p for p in circles if p['name'] == target_name), circles[0])
+        cd['panel_open']      = False
+        cd['presence_state']  = 'calling'
+        cd['presence_target'] = person['name']
+        cd['presence_emoji']  = person['emoji']
+        cd['presence_status'] = person.get('status', 'available')
+        cd['presence_start']  = _cht.time()
+        self._cb_hint_time    = _cht.time()
+        print(f"[CIRCLEBEAM] Voice call -> {person['name']} (local flow triggered)")
+
+    def _trigger_local_nudge(self, target_name):
+        """Show a quick local feedback for voice-triggered nudge."""
+        import time as _cht
+        cd = self.realm_data.get('circlebeam', {})
+        cd['action_feedback'] = f'\u2713 Nudged {target_name}'
+        cd['action_time']     = _cht.time()
+        print(f"[CIRCLEBEAM] Voice nudge -> {target_name}")
+
     def handle_voice_command(self, cmd):
         """Route voice commands to realm actions"""
         print(f"[Voice] Executing: {cmd}")
@@ -3954,9 +3989,14 @@ class MotiBeamOS:
             self.selected_index = 5
             self.enter_realm("marketplace")
         elif cmd == "CALL_DAD":
+            # Trigger local CircleBeam presence flow on Pi 4 (bidirectional)
+            self._trigger_local_call("Dad")
+            # Broadcast to Pi 5 so Dad's wall lights up
             if self.presence:
                 self.presence.broadcast({"type":"PRESENCE_CALL","from":"Daughter","message":"Incoming call"})
         elif cmd == "NUDGE_DAD":
+            # Local nudge feedback
+            self._trigger_local_nudge("Dad")
             if self.presence:
                 self.presence.broadcast({"type":"PRESENCE_NUDGE","from":"Daughter","message":"Hey Dad"})
         elif cmd in ["BACK", "EXIT"]:
