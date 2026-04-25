@@ -217,8 +217,10 @@ def init_display(width, height):
 class MotiBeamOS:
     def __init__(self, width=SCREEN_WIDTH, height=SCREEN_HEIGHT):
         self.screen = init_display(width, height)
-        self.width = width
-        self.height = height
+        actual = self.screen.get_size()
+        self.width  = actual[0]
+        self.height = actual[1]
+        print(f'[Display] requested {width}x{height}, actual {self.width}x{self.height}')
 
         # Show boot splash screen on projector
         self.show_boot_splash()
@@ -256,7 +258,30 @@ class MotiBeamOS:
         # Presence client
         self.presence_queue = queue.Queue()
         if PRESENCE_ENABLED:
-            self.presence = PresenceNode(my_port=5555, peer_host="192.168.1.156", peer_port=5557, node_name="Pi4")
+            # Auto-configure based on local IP — same code runs on both Pis
+            import socket as _s
+            try:
+                _hostname = _s.gethostname()
+                _local_ip = _s.gethostbyname(_hostname)
+            except Exception:
+                _local_ip = ""
+            # Fallback: probe the actual outbound interface IP
+            try:
+                _probe = _s.socket(_s.AF_INET, _s.SOCK_DGRAM)
+                _probe.connect(("8.8.8.8", 80))
+                _local_ip = _probe.getsockname()[0]
+                _probe.close()
+            except Exception:
+                pass
+            print(f"[Presence] Local IP detected: {_local_ip}")
+            if _local_ip == "192.168.1.156":
+                # We are Pi 5 (receiver/Dad)
+                self.presence = PresenceNode(my_port=5555, peer_host="192.168.1.203", peer_port=5555, node_name="Pi5")
+                print("[Presence] Configured as Pi5 (Dad) — peer is Pi4 (Daughter) at 192.168.1.203")
+            else:
+                # We are Pi 4 (sender/Daughter)
+                self.presence = PresenceNode(my_port=5555, peer_host="192.168.1.156", peer_port=5555, node_name="Pi4")
+                print("[Presence] Configured as Pi4 (Daughter) — peer is Pi5 (Dad) at 192.168.1.156")
             self.presence.start(event_queue=self.presence_queue)
         else:
             self.presence = None
@@ -911,18 +936,35 @@ class MotiBeamOS:
             return
 
         if key == pygame.K_a and self.call_active:
-            print("[PRESENCE] Presence call accepted")
+            import time as _t
+            caller_name = self.call_caller.get('name', 'Caller')
+            caller_emoji = self.call_caller.get('emoji', '👤')
+            print(f"[CALL] accept sent to {caller_name}")
+            print(f"[STATE] RINGING_INCOMING -> PRESENCE_ACTIVE")
+            if self.presence:
+                self.presence.broadcast({"type":"PRESENCE_ACCEPT","from":self.presence.node_name,"to":caller_name})
+            cd = self.realm_data['circlebeam']
+            cd['presence_state']  = 'active'
+            cd['presence_target'] = caller_name
+            cd['presence_emoji']  = caller_emoji
+            cd['presence_status'] = 'available'
+            cd['presence_start']  = _t.time()
+            self._cb_presence_start = _t.time()
+            self.circlebeam_active = True
+            self.circlebeam_target = caller_name
+            self.state = "circlebeam"
+            self.navigation_stack = ["home", "circlebeam"]
             self.call_active = False
-            # Could add ticker message for accepted call if desired
             return
 
         if key == pygame.K_d and self.call_active:
-            print("[PRESENCE] Presence call declined")
+            caller_name = self.call_caller.get('name', 'Caller')
+            print(f"[CALL] decline sent to {caller_name}")
+            if self.presence:
+                self.presence.broadcast({"type":"PRESENCE_DECLINE","from":self.presence.node_name,"to":caller_name})
             self.call_active = False
-            # Add missed presence indicator
             self.missed_presence = True
-            # Add ticker message (de-duped to prevent spam)
-            missed_msg = f"→ Missed presence from {self.call_caller['name']} → "
+            missed_msg = f"→ Missed presence from {caller_name} → "
             if not self.ticker_text.startswith(missed_msg):
                 self.ticker_text = missed_msg + self.ticker_text
             return
@@ -1194,18 +1236,14 @@ class MotiBeamOS:
             cd['presence_state'] = 'connecting'
             cd['presence_start'] = _pt.time()
             return
-        if pstate == 'connecting' and elapsed > 1.8:
-            cd['presence_state'] = 'connected'
-            cd['presence_start'] = _pt.time()
-            self.circlebeam_active = True
-            self.circlebeam_target = name
-            self._cb_presence_start = _pt.time()
-            # Sound hook: soft connected cue
-            try:
-                if pygame.mixer.get_init():
-                    pygame.mixer.stop()
-            except Exception:
-                pass
+        # connecting stays until PRESENCE_ACCEPT arrives from peer.
+        # 20-second timeout fallback — if no accept, assume peer unreachable.
+        if pstate == 'connecting' and elapsed > 20.0:
+            print('[STATE] CONNECTING timeout -> IDLE (no accept received)')
+            cd['presence_state']  = None
+            cd['presence_target'] = None
+            self.circlebeam_active = False
+            self.circlebeam_target = None
             return
         if pstate == 'connected'  and elapsed > 1.2:
             cd['presence_state'] = 'active'
@@ -1314,11 +1352,18 @@ class MotiBeamOS:
         # Presence active — ESC/B ends, H goes to Home keeping session alive
         if pstate in ('calling', 'connecting', 'connected', 'active'):
             if key in (pygame.K_ESCAPE, pygame.K_b):
+                target = cd.get('presence_target', '')
+                if self.presence:
+                    try:
+                        self.presence.broadcast({"type":"PRESENCE_END","from":self.presence.node_name,"to":target})
+                        print(f'[CALL] end sent to {target}')
+                    except Exception as _e:
+                        print(f'[CALL] end broadcast failed: {_e}')
                 cd['presence_state']  = None
                 cd['presence_target'] = None
                 self.circlebeam_active = False
                 self.circlebeam_target = None
-                print('[CIRCLEBEAM] Presence ended')
+                print('[STATE] PRESENCE_ACTIVE -> IDLE')
                 self.state = "home"
                 self.navigation_stack = ["home"]
             elif key == pygame.K_h:
@@ -3891,6 +3936,40 @@ class MotiBeamOS:
                 self.ticker_text = ping_msg + self.ticker_text
             print(f"[Presence] PING from {sender}")
 
+        elif msg_type == 'PRESENCE_ACCEPT':
+            import time as _t
+            cd = self.realm_data.get('circlebeam', {})
+            if cd.get('presence_state') in ('calling', 'connecting'):
+                print(f'[CALL] accept received from {sender}')
+                print(f'[STATE] {cd["presence_state"].upper()} -> PRESENCE_ACTIVE')
+                cd['presence_state'] = 'active'
+                cd['presence_start'] = _t.time()
+                self.circlebeam_active = True
+                self.circlebeam_target = cd.get('presence_target', sender)
+                self._cb_presence_start = _t.time()
+
+        elif msg_type == 'PRESENCE_DECLINE':
+            import time as _t
+            cd = self.realm_data.get('circlebeam', {})
+            print(f'[CALL] decline received from {sender}')
+            cd['presence_state']  = None
+            cd['presence_target'] = None
+            self.circlebeam_active = False
+            self.circlebeam_target = None
+            self.corner_alert = {'text': f'{sender}: Call declined', 'color': (200, 120, 120)}
+            self.corner_alert_time = _t.time()
+
+        elif msg_type == 'PRESENCE_END':
+            import time as _t
+            cd = self.realm_data.get('circlebeam', {})
+            if cd.get('presence_state') in ('calling', 'connecting', 'connected', 'active'):
+                print(f'[CALL] end received from {sender}')
+                print(f'[STATE] PRESENCE_ACTIVE -> IDLE')
+                cd['presence_state']  = None
+                cd['presence_target'] = None
+                self.circlebeam_active = False
+                self.circlebeam_target = None
+
         elif msg_type == 'PRESENCE_NUDGE':
             import time as _t
             self.corner_alert = {'text': f"{sender} says hey", 'color': (80, 140, 220)}
@@ -3991,9 +4070,17 @@ class MotiBeamOS:
         elif cmd == "CALL_DAD":
             # Trigger local CircleBeam presence flow on Pi 4 (bidirectional)
             self._trigger_local_call("Dad")
-            # Broadcast to Pi 5 so Dad's wall lights up
+            # Broadcast to Pi 5 after 1.4s delay — gives audience time to see "Calling Dad..." on Pi 4 first.
+            # Both walls then progress together in sync.
             if self.presence:
-                self.presence.broadcast({"type":"PRESENCE_CALL","from":"Daughter","message":"Incoming call"})
+                import threading as _th
+                def _delayed_call_broadcast():
+                    try:
+                        self.presence.broadcast({"type":"PRESENCE_CALL","from":"Daughter","message":"Incoming call"})
+                        print("[CALL] PRESENCE_CALL broadcast to Pi5 (after 1.4s dwell)")
+                    except Exception as _e:
+                        print(f"[CALL] delayed broadcast failed: {_e}")
+                _th.Timer(1.4, _delayed_call_broadcast).start()
         elif cmd == "NUDGE_DAD":
             # Local nudge feedback
             self._trigger_local_nudge("Dad")
