@@ -1028,7 +1028,7 @@ class MotiBeamOS:
         pstate   = cd.get('presence_state')
 
         # Route to presence flow if active
-        if pstate in ('calling', 'connecting', 'connected', 'active'):
+        if pstate in ('calling', 'connecting', 'connected', 'active', 'ending'):
             self._render_circlebeam_presence(cd)
             return
 
@@ -1300,28 +1300,31 @@ class MotiBeamOS:
             self.screen.blit(ns2,(cx-ns2.get_width()//2,H//2+92))
 
         elif pstate == 'active':
-            aura_r = int(128+pulse2*28)
+            # Scale factor: Pi 4 (720p) = 1.0, Pi 5 (1080p) = 1.5
+            scale = H / 720.0
+            aura_r = int((128+pulse2*28) * scale)
             sk = cd.get('presence_status','available')
             ac = {'available':(78,198,118),'quiet':(78,138,255),
                   'offline':(118,128,138),'needs_attention':(255,78,78)}.get(sk,(78,178,255))
+            # Boosted aura: stronger inner core, more layers, brighter edges
             for layer in range(4):
-                lr = aura_r+layer*22
-                la = max(0,int(18+pulse2*22)-layer*4)
+                lr = aura_r + int(22 * scale * layer)
+                la = max(0, int((22 + pulse2 * 28) - layer * 4))  # boosted base alpha
                 asurf = pygame.Surface((lr*2,lr*2),pygame.SRCALPHA)
                 pygame.draw.circle(asurf,(*ac,la),(lr,lr),lr)
-                self.screen.blit(asurf,(cx-lr,H//2-202-lr))
-            av4 = load_emoji_font(168).render(emoji,True,(255,255,255))
-            self.screen.blit(av4,(cx-av4.get_width()//2,H//2-332))
+                self.screen.blit(asurf,(cx-lr, H//2 - int(202 * scale) - lr))
+            # Avatar emoji — scaled
+            av4 = load_emoji_font(int(168 * scale)).render(emoji,True,(255,255,255))
+            self.screen.blit(av4,(cx - av4.get_width()//2, H//2 - int(332 * scale)))
+            # Primary line: "{name} is present"
             pv = int(208+pulse2*47)
-            ps3 = get_font(62,bold=True).render(f'{name} is present',True,(pv,pv,255))
-            self.screen.blit(ps3,(cx-ps3.get_width()//2,H//2-28))
-            # Secondary emotional line
+            ps3 = get_font(int(62 * scale), bold=True).render(f'{name} is present', True, (pv,pv,255))
+            self.screen.blit(ps3,(cx - ps3.get_width()//2, H//2 - int(28 * scale)))
+            # Secondary line: "Live with {name}"
             ev2 = int(140+pulse2*40)
-            es2 = get_font(36).render(f'Live with {name}',True,(ev2,ev2+30,ev2+20))
-            self.screen.blit(es2,(cx-es2.get_width()//2,H//2+42))
-            lv5 = int(100+pulse2*40)
-            ls5 = get_font(28).render('Live presence active',True,(60,lv5,90))
-            self.screen.blit(ls5,(cx-ls5.get_width()//2,H//2+92))
+            es2 = get_font(int(36 * scale)).render(f'Live with {name}', True, (ev2,ev2+30,ev2+20))
+            self.screen.blit(es2,(cx - es2.get_width()//2, H//2 + int(42 * scale)))
+            # Tertiary line "Live presence active" REMOVED for cleaner two-line layout
             # ESC hint — fades with inactivity
             _ph = getattr(self, '_cb_hint_time', 0)
             _page = _pt.time() - _ph
@@ -1330,6 +1333,45 @@ class MotiBeamOS:
                 ef = get_font(26).render('ESC  End presence   |   H  Go to Home',True,(78,88,112))
                 ef.set_alpha(_pa)
                 self.screen.blit(ef,(cx-ef.get_width()//2,H-98))
+
+        elif pstate == 'ending':
+            # Render the same scaled aura visuals as 'active', then overlay a black fade.
+            # Both Pis run this in sync because PRESENCE_END was broadcast at ESC time.
+            scale = H / 720.0
+            aura_r = int((128+pulse2*28) * scale)
+            sk = cd.get('presence_status','available')
+            ac = {'available':(78,198,118),'quiet':(78,138,255),
+                  'offline':(118,128,138),'needs_attention':(255,78,78)}.get(sk,(78,178,255))
+            for layer in range(4):
+                lr = aura_r + int(22 * scale * layer)
+                la = max(0, int((22 + pulse2 * 28) - layer * 4))
+                asurf = pygame.Surface((lr*2,lr*2),pygame.SRCALPHA)
+                pygame.draw.circle(asurf,(*ac,la),(lr,lr),lr)
+                self.screen.blit(asurf,(cx-lr, H//2 - int(202 * scale) - lr))
+            av4 = load_emoji_font(int(168 * scale)).render(emoji,True,(255,255,255))
+            self.screen.blit(av4,(cx - av4.get_width()//2, H//2 - int(332 * scale)))
+            pv = int(208+pulse2*47)
+            ps3 = get_font(int(62 * scale), bold=True).render(f'{name} is present', True, (pv,pv,255))
+            self.screen.blit(ps3,(cx - ps3.get_width()//2, H//2 - int(28 * scale)))
+            ev2 = int(140+pulse2*40)
+            es2 = get_font(int(36 * scale)).render(f'Live with {name}', True, (ev2,ev2+30,ev2+20))
+            self.screen.blit(es2,(cx - es2.get_width()//2, H//2 + int(42 * scale)))
+            # Fade overlay — grows from 0 to 255 alpha over 1.5s
+            _end_elapsed = _pt.time() - cd.get('ending_start', _pt.time())
+            _fade_alpha = min(255, int(255 * (_end_elapsed / 1.5)))
+            _fade_surf = pygame.Surface((W, H), pygame.SRCALPHA)
+            _fade_surf.fill((0, 0, 0, _fade_alpha))
+            self.screen.blit(_fade_surf, (0, 0))
+            # When fade complete, return to home
+            if _end_elapsed >= 1.5:
+                cd['presence_state']  = None
+                cd['presence_target'] = None
+                cd['ending_start']    = None
+                self.circlebeam_active = False
+                self.circlebeam_target = None
+                self.state = "home"
+                self.navigation_stack = ["home"]
+                print('[STATE] ENDING -> IDLE (fade complete, returning to home)')
 
     def handle_circlebeam_input(self, key):
         """Handle CircleBeam input — grid nav, panel, presence flow"""
@@ -1349,6 +1391,10 @@ class MotiBeamOS:
             {'name': 'Care Team', 'status': 'available',       'emoji': '⚕️'},
         ]
 
+        # Ignore input during ending fade — let it complete
+        if pstate == 'ending':
+            return
+
         # Presence active — ESC/B ends, H goes to Home keeping session alive
         if pstate in ('calling', 'connecting', 'connected', 'active'):
             if key in (pygame.K_ESCAPE, pygame.K_b):
@@ -1359,13 +1405,11 @@ class MotiBeamOS:
                         print(f'[CALL] end sent to {target}')
                     except Exception as _e:
                         print(f'[CALL] end broadcast failed: {_e}')
-                cd['presence_state']  = None
-                cd['presence_target'] = None
-                self.circlebeam_active = False
-                self.circlebeam_target = None
-                print('[STATE] PRESENCE_ACTIVE -> IDLE')
-                self.state = "home"
-                self.navigation_stack = ["home"]
+                # Enter graceful 1.5s ending state instead of clearing immediately.
+                # Both walls fade out in sync, then return to home.
+                cd['presence_state']  = 'ending'
+                cd['ending_start']    = _cht.time()
+                print('[STATE] PRESENCE_ACTIVE -> ENDING (1.5s graceful fade)')
             elif key == pygame.K_h:
                 # Go to Home while keeping presence session alive
                 self.state = "home"
@@ -3964,11 +4008,10 @@ class MotiBeamOS:
             cd = self.realm_data.get('circlebeam', {})
             if cd.get('presence_state') in ('calling', 'connecting', 'connected', 'active'):
                 print(f'[CALL] end received from {sender}')
-                print(f'[STATE] PRESENCE_ACTIVE -> IDLE')
-                cd['presence_state']  = None
-                cd['presence_target'] = None
-                self.circlebeam_active = False
-                self.circlebeam_target = None
+                print('[STATE] PRESENCE_ACTIVE -> ENDING (1.5s graceful fade)')
+                # Enter graceful 1.5s ending state instead of clearing immediately
+                cd['presence_state']  = 'ending'
+                cd['ending_start']    = _t.time()
 
         elif msg_type == 'PRESENCE_NUDGE':
             import time as _t

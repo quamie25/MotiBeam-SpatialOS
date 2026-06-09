@@ -33,7 +33,7 @@ DIRECTORY STRUCTURE:
 │   └── ...
 └── [OLD FILES]
     ├── motibeam_spatial_os.py    [ARCHIVE] Don't touch
-    ├── spatial_os.py             [ARCHIVE] Don't touch
+    ├── spatial_os_pygame.py      [ARCHIVE] Don't touch
     └── ...
 
 RULE: Files in core/, realms/, ui/ are live code.
@@ -192,12 +192,12 @@ This prevents "I made 50 changes and don't know which file is live" situations.
 I've created editing rules for MotiBeam Spatial OS. Please read and confirm you understand:
 
 LIVE FILES (Edit Only These):
-1. spatial_os_pygame.py - main UI
+1. spatial_os.py - main UI (active development file as of May 2026)
 2. core/notification_banner.py - header
 
 ARCHIVE FILES (Never Touch):
 - motibeam_spatial_os.py
-- spatial_os.py  
+- spatial_os_pygame.py
 - Any other old versions
 
 VERIFICATION TEST:
