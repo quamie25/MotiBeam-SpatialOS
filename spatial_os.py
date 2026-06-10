@@ -18,6 +18,23 @@ import threading
 import sys as _sys
 import queue
 import threading
+
+# ── Single-instance lock ──────────────────────────────────────────────────────
+# Prevents a second copy from launching if systemd restarts while one is running
+# (e.g. slow shutdown + Restart=always race). Uses a non-blocking flock so the
+# check is instant and the lock is auto-released when the process exits.
+import fcntl as _fcntl
+_LOCK_PATH = "/tmp/motibeam.lock"
+try:
+    _lock_fh = open(_LOCK_PATH, "w")
+    _fcntl.flock(_lock_fh, _fcntl.LOCK_EX | _fcntl.LOCK_NB)
+    _lock_fh.write(str(os.getpid()) + "\n")
+    _lock_fh.flush()
+except BlockingIOError:
+    print(f"[MotiBeam] Another instance is already running (lock: {_LOCK_PATH}). Exiting.")
+    sys.exit(0)
+# ─────────────────────────────────────────────────────────────────────────────
+
 _sys.path.insert(0, '/home/motibeam')
 try:
     from voice_pipeline import VoicePipeline
